@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { useUser } from "../../context/userContext";
+import { useAuth } from "../../context/authContext";
 
 export default function Login() {
-  const { login } = useUser();
+  const { login } = useAuth();
   const [userId, setUserId] = useState("");
   const [orgId, setOrgId] = useState("");
   const [projId, setProjId] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    login(userId, orgId, projId);
+    login({ id: userId, name: "", orgId, projId });
   };
 
   return (

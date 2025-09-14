@@ -1,7 +1,7 @@
-import { useUser } from "../../context/userContext";
+import { useAuth } from "../../context/authContext";
 
 export default function Profile() {
-  const { user } = useUser();
+  const { user } = useAuth();
 
   return (
     <div style={{ padding: "2rem" }}>

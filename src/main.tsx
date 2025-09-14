@@ -1,15 +1,15 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
+import * as React from "react";
+import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import App from "./App";
-import { UserProvider } from "./context/userContext";
+import AppRoutes from "./App"; // Certifique-se do nome correto
+import { AuthProvider } from "./context/authContext";
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <UserProvider>
+    <AuthProvider>
       <BrowserRouter>
-        <App />
+        <AppRoutes />
       </BrowserRouter>
-    </UserProvider>
+    </AuthProvider>
   </React.StrictMode>
 );

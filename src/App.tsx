@@ -1,23 +1,33 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import Login from "./pages/login/login";
-import Dashboard from "./pages/dashboard/dashboard";
-import Profile from "./pages/profile/profile";
-import Navbar from "./components/navbar";
-import { useUser } from "./context/userContext";
+import * as React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import Navbar from '@/components/navbar';
+import { useAuth } from '@/context/authContext';
 
-function App() {
-  const { user } = useUser();
+import Home from '@/pages/home/home';
+import Menu from '@/pages/menu/menu';
+//import Orders from '@/pages/orders/list';
+import Users from '@/pages/users/list';
+import Products from '@/pages/products/list';
+import Login from '@/pages/login/login';
 
-  return (
-    <div>
-      {user && <Navbar />}
-      <Routes>
-        <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-        <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/" />} />
-        <Route path="/profile" element={user ? <Profile /> : <Navigate to="/" />} />
-      </Routes>
-    </div>
-  );
+function PrivateRoute({ children }: { children: React.ReactElement }) {
+  const { user } = useAuth();
+  return user ? children : <Navigate to="/login" />;
 }
 
-export default App;
+export default function AppRoutes() {
+  return (
+    <>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/menu" element={<Menu />} />
+        <Route path="/login" element={<Login />} />
+        {/* Rotas protegidas */}
+        {/* <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} /> */}
+        <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
+        <Route path="/products" element={<PrivateRoute><Products /></PrivateRoute>} />
+      </Routes>
+    </>
+  );
+}
