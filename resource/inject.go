@@ -16,7 +16,7 @@ func Inject() {
 	if err != nil {
 		panic("Conecxão falhou")
 	}
-  server.Start(db)
+	server.Start(db)
 	Repository.InjectProstgres(db)
 	Handlers.Inject(&Repository)
 	ServersControllers.Inject(&Handlers)

@@ -31,6 +31,8 @@ func (h *OrderHandler) CreateOrder(order *models.Order) error {
 	order.Status = "pending"
 	order.CreatedAt = time.Now()
 	order.UpdatedAt = time.Now()
+	//gerar log de criação com defer
+
 	return h.repo.CreateOrder(order)
 }
 

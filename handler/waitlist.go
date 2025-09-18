@@ -3,84 +3,84 @@ package handler
 import (
 	"lep/repositories"
 	"lep/repositories/models"
-	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type UserWaitlistHandler struct {
-	repo *repositories.WaitlistRepository
+type resourceWaitlist struct {
+	repo *repositories.DBconn
 }
 
-func NewUserWaitlistHandler(repo *repositories.WaitlistRepository) *UserWaitlistHandler {
-	return &UserWaitlistHandler{repo}
+type IHandlerWaitlist interface {
+	GetWaitlist(id string) (*models.Waitlist, error)
+	CreateWaitlist(waitlist *models.Waitlist) error
+	UpdateWaitlist(updatedWaitlist *models.Waitlist) error
+	DeleteWaitlist(id string) error
+	ListWaitlists(orgId, projectId string) ([]models.Waitlist, error)
 }
 
-func (h *UserWaitlistHandler) CreateUserWaitlist(c *gin.Context) {
-	var req models.Waitlist
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
-		return
-	}
-	req.Id = uuid.New()
-	req.Status = "waiting"
-	req.CreatedAt = time.Now()
-	req.UpdatedAt = time.Now()
-	if err := h.repo.CreateWaitlist(&req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating waitlist"})
-		return
-	}
-	c.JSON(http.StatusCreated, req)
-}
-
-func (h *UserWaitlistHandler) GetUserWaitlistById(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	waitlist, err := h.repo.GetWaitlistById(id)
-	if err != nil || waitlist == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Waitlist not found"})
-		return
-	}
-	c.JSON(http.StatusOK, waitlist)
-}
-
-func (h *UserWaitlistHandler) ListUserWaitlists(c *gin.Context) {
-	OrganizationId, _ := uuid.Parse(c.Query("org_id"))
-	projectId, _ := uuid.Parse(c.Query("project_id"))
-	waitlists, err := h.repo.ListWaitlists(OrganizationId, projectId)
+func (r *resourceWaitlist) GetWaitlist(id string) (*models.Waitlist, error) {
+	uuid, err := uuid.Parse(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing waitlists"})
-		return
+		return nil, err
 	}
-	c.JSON(http.StatusOK, waitlists)
+	resp, err := r.repo.Waitlists.GetWaitlistById(uuid)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
-func (h *UserWaitlistHandler) UpdateUserWaitlist(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	waitlist, err := h.repo.GetWaitlistById(id)
-	if err != nil || waitlist == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Waitlist not found"})
-		return
-	}
-	if err := c.ShouldBindJSON(waitlist); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
-		return
-	}
+func (r *resourceWaitlist) CreateWaitlist(waitlist *models.Waitlist) error {
+	waitlist.Id = uuid.New()
+	waitlist.Status = "waiting"
+	waitlist.CreatedAt = time.Now()
 	waitlist.UpdatedAt = time.Now()
-	if err := h.repo.UpdateWaitlist(waitlist); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating waitlist"})
-		return
+	err := r.repo.Waitlists.CreateWaitlist(waitlist)
+	if err != nil {
+		return err
 	}
-	c.JSON(http.StatusOK, waitlist)
+	return nil
 }
 
-func (h *UserWaitlistHandler) SoftDeleteUserWaitlist(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	err := h.repo.SoftDeleteWaitlist(id)
+func (r *resourceWaitlist) UpdateWaitlist(updatedWaitlist *models.Waitlist) error {
+	updatedWaitlist.UpdatedAt = time.Now()
+	err := r.repo.Waitlists.UpdateWaitlist(updatedWaitlist)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting waitlist"})
-		return
+		return err
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Waitlist deleted"})
+	return nil
+}
+
+func (r *resourceWaitlist) DeleteWaitlist(id string) error {
+	uuid, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+	err = r.repo.Waitlists.SoftDeleteWaitlist(uuid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *resourceWaitlist) ListWaitlists(orgId, projectId string) ([]models.Waitlist, error) {
+	orgUuid, err := uuid.Parse(orgId)
+	if err != nil {
+		return nil, err
+	}
+	projectUuid, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := r.repo.Waitlists.ListWaitlists(orgUuid, projectUuid)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func NewSourceHandlerWaitlist(repo *repositories.DBconn) IHandlerWaitlist {
+	return &resourceWaitlist{repo: repo}
 }

@@ -1,18 +1,17 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"lep/handler"
 	"lep/repositories/models"
 	"net/http"
-	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 type ResourceUsers struct {
-	handler *handler.Handlers
+	handler handler.IHandlerUser
 }
 
 type IServerUsers interface {
@@ -24,22 +23,31 @@ type IServerUsers interface {
 }
 
 func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
-	id := c.Param("id")
-
-	number, err := strconv.Atoi(id)
-	if err != nil {
-		fmt.Println("Erro ao converter a string para inteiro:", err)
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+		})
 		return
 	}
 
-	resp, err := r.handler.HandlerUser.GetUser(number)
+	projectId := c.GetHeader("X-Lpe-Project-Id")
+	if strings.TrimSpace(projectId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
+	id := c.Param("id")
+	resp, err := r.handler.GetUser(id)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao obter o usuário")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user"})
 		return
 	}
 
 	if resp == nil {
-		c.String(http.StatusNotFound, "Usuário não encontrado")
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
@@ -47,74 +55,109 @@ func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
 }
 
 func (r *ResourceUsers) ServiceGetUserByGroup(c *gin.Context) {
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
+	projectId := c.GetHeader("X-Lpe-Project-Id")
+	if strings.TrimSpace(projectId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
 	id := c.Param("id")
-	resp, err := r.handler.HandlerUser.GetUserByGroup(id)
+	resp, err := r.handler.GetUserByGroup(id)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao obter o usuário")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting users by group"})
 		return
 	}
 
-	if resp == nil {
-		c.String(http.StatusNotFound, "Usuário não encontrado")
-		return
-	}
-
-	responseJSON, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Println(err)
-		c.String(http.StatusInternalServerError, "Error")
-	}
-	c.String(http.StatusOK, string(responseJSON))
+	c.JSON(http.StatusOK, resp)
 }
 
 func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 	var newUser models.User
 	err := c.BindJSON(&newUser)
 	if err != nil {
-		c.String(http.StatusBadRequest, "Erro ao decodificar dados do usuário")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	err = r.handler.HandlerUser.CreateUser(&newUser)
+	err = r.handler.CreateUser(&newUser)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao criar o usuário")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.String(http.StatusCreated, "Usuário criado com sucesso")
+	c.JSON(http.StatusCreated, newUser)
 }
 
 func (r *ResourceUsers) ServiceUpdateUser(c *gin.Context) {
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
+	projectId := c.GetHeader("X-Lpe-Project-Id")
+	if strings.TrimSpace(projectId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
 
 	var updatedUser models.User
 	err := c.BindJSON(&updatedUser)
 	if err != nil {
-		fmt.Println("err", err)
-		c.String(http.StatusBadRequest, "Erro ao decodificar dados do usuário")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	err = r.handler.HandlerUser.UpdateUser(&updatedUser)
+	err = r.handler.UpdateUser(&updatedUser)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao atualizar o usuário")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.String(http.StatusOK, "Usuário atualizado com sucesso")
+	c.JSON(http.StatusOK, updatedUser)
 }
 
 func (r *ResourceUsers) ServiceDeleteUser(c *gin.Context) {
-	id := c.Param("id")
-
-	err := r.handler.HandlerUser.DeleteUser(id)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao excluir o usuário")
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+		})
 		return
 	}
 
-	c.String(http.StatusOK, "Usuário excluído com sucesso")
+	projectId := c.GetHeader("X-Lpe-Project-Id")
+	if strings.TrimSpace(projectId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
+	id := c.Param("id")
+	err := r.handler.DeleteUser(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
 
 func NewSourceServerUsers(handler *handler.Handlers) IServerUsers {
-	return &ResourceUsers{handler: handler}
+	return &ResourceUsers{handler: handler.HandlerUser}
 }

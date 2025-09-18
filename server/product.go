@@ -60,7 +60,7 @@ func (r *ResourceProducts) ServiceGetProductByPurchase(c *gin.Context) {
 }
 
 func (r *ResourceProducts) ServiceCreateProduct(c *gin.Context) {
-	var newProduct models.Products
+	var newProduct models.Product
 	err := c.BindJSON(&newProduct)
 	if err != nil {
 		c.String(http.StatusBadRequest, "Erro ao decodificar dados do produto")
@@ -77,7 +77,7 @@ func (r *ResourceProducts) ServiceCreateProduct(c *gin.Context) {
 }
 
 func (r *ResourceProducts) ServiceUpdateProduct(c *gin.Context) {
-	var updatedProduct models.Products
+	var updatedProduct models.Product
 	err := c.BindJSON(&updatedProduct)
 	if err != nil {
 		c.String(http.StatusBadRequest, "Erro ao decodificar dados do produto")

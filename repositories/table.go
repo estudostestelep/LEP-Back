@@ -11,7 +11,9 @@ import (
 // Interface para TableRepository
 type ITableRepository interface {
 	CreateTable(table *models.Table) error
+	GetById(id uuid.UUID) (*models.Table, error)
 	GetTableById(id uuid.UUID) (*models.Table, error)
+	ListTables(OrganizationId, projectId uuid.UUID) ([]models.Table, error)
 	ListTablesByProject(OrganizationId, projectId uuid.UUID) ([]models.Table, error)
 	UpdateTable(table *models.Table) error
 	SoftDeleteTable(id uuid.UUID) error
@@ -29,7 +31,7 @@ func (r *TableRepository) CreateTable(table *models.Table) error {
 	return r.db.Create(table).Error
 }
 
-func (r *TableRepository) GetTableById(id uuid.UUID) (*models.Table, error) {
+func (r *TableRepository) GetById(id uuid.UUID) (*models.Table, error) {
 	var table models.Table
 	err := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&table).Error
 	if err != nil {
@@ -38,10 +40,18 @@ func (r *TableRepository) GetTableById(id uuid.UUID) (*models.Table, error) {
 	return &table, nil
 }
 
-func (r *TableRepository) ListTablesByProject(OrganizationId, projectId uuid.UUID) ([]models.Table, error) {
+func (r *TableRepository) GetTableById(id uuid.UUID) (*models.Table, error) {
+	return r.GetById(id)
+}
+
+func (r *TableRepository) ListTables(OrganizationId, projectId uuid.UUID) ([]models.Table, error) {
 	var tables []models.Table
-	err := r.db.Where("org_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&tables).Error
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&tables).Error
 	return tables, err
+}
+
+func (r *TableRepository) ListTablesByProject(OrganizationId, projectId uuid.UUID) ([]models.Table, error) {
+	return r.ListTables(OrganizationId, projectId)
 }
 
 func (r *TableRepository) UpdateTable(table *models.Table) error {

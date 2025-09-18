@@ -3,83 +3,83 @@ package handler
 import (
 	"lep/repositories"
 	"lep/repositories/models"
-	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type TableHandler struct {
-	repo *repositories.TableRepository
+type resourceTables struct {
+	repo *repositories.DBconn
 }
 
-func NewTableHandler(repo *repositories.TableRepository) *TableHandler {
-	return &TableHandler{repo}
+type IHandlerTables interface {
+	GetTable(id string) (*models.Table, error)
+	CreateTable(table *models.Table) error
+	UpdateTable(updatedTable *models.Table) error
+	DeleteTable(id string) error
+	ListTables(orgId, projectId string) ([]models.Table, error)
 }
 
-func (h *TableHandler) Create(c *gin.Context) {
-	var req models.Table
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
-		return
-	}
-	req.Id = uuid.New()
-	req.CreatedAt = time.Now()
-	req.UpdatedAt = time.Now()
-	if err := h.repo.Create(&req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating table"})
-		return
-	}
-	c.JSON(http.StatusCreated, req)
-}
-
-func (h *TableHandler) GetById(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	table, err := h.repo.GetById(id)
-	if err != nil || table == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Table not found"})
-		return
-	}
-	c.JSON(http.StatusOK, table)
-}
-
-func (h *TableHandler) List(c *gin.Context) {
-	OrganizationId, _ := uuid.Parse(c.Query("org_id"))
-	projectId, _ := uuid.Parse(c.Query("project_id"))
-	tables, err := h.repo.List(OrganizationId, projectId)
+func (r *resourceTables) GetTable(id string) (*models.Table, error) {
+	uuid, err := uuid.Parse(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing tables"})
-		return
+		return nil, err
 	}
-	c.JSON(http.StatusOK, tables)
+	resp, err := r.repo.Tables.GetById(uuid)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
-func (h *TableHandler) Update(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	table, err := h.repo.GetById(id)
-	if err != nil || table == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Table not found"})
-		return
-	}
-	if err := c.ShouldBindJSON(table); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
-		return
-	}
+func (r *resourceTables) CreateTable(table *models.Table) error {
+	table.Id = uuid.New()
+	table.CreatedAt = time.Now()
 	table.UpdatedAt = time.Now()
-	if err := h.repo.Update(table); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating table"})
-		return
+	err := r.repo.Tables.CreateTable(table)
+	if err != nil {
+		return err
 	}
-	c.JSON(http.StatusOK, table)
+	return nil
 }
 
-func (h *TableHandler) SoftDelete(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	err := h.repo.SoftDelete(id)
+func (r *resourceTables) UpdateTable(updatedTable *models.Table) error {
+	updatedTable.UpdatedAt = time.Now()
+	err := r.repo.Tables.UpdateTable(updatedTable)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting table"})
-		return
+		return err
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Table deleted"})
+	return nil
+}
+
+func (r *resourceTables) DeleteTable(id string) error {
+	uuid, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+	err = r.repo.Tables.SoftDeleteTable(uuid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *resourceTables) ListTables(orgId, projectId string) ([]models.Table, error) {
+	orgUuid, err := uuid.Parse(orgId)
+	if err != nil {
+		return nil, err
+	}
+	projectUuid, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := r.repo.Tables.ListTables(orgUuid, projectUuid)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func NewSourceHandlerTables(repo *repositories.DBconn) IHandlerTables {
+	return &resourceTables{repo: repo}
 }

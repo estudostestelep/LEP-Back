@@ -15,14 +15,15 @@ type resourceUser struct {
 }
 
 type IHandlerUser interface {
-	UserGet(id string) (*models.User, error)
-	UserCreate(user *models.User) error
-	UserUpdate(updatedUser *models.User) error
-	UserDelete(id string) error
-	UserGetByEmail(email string) (*models.User, error)
+	GetUser(id string) (*models.User, error)
+	GetUserByGroup(id string) ([]models.User, error)
+	CreateUser(user *models.User) error
+	UpdateUser(updatedUser *models.User) error
+	DeleteUser(id string) error
+	GetUserByEmail(email string) (*models.User, error)
 }
 
-func (r *resourceUser) UserGet(id string) (*models.User, error) {
+func (r *resourceUser) GetUser(id string) (*models.User, error) {
 	resp, err := r.repo.User.GetUserById(id)
 	if err != nil {
 		return nil, err
@@ -30,7 +31,15 @@ func (r *resourceUser) UserGet(id string) (*models.User, error) {
 	return resp, nil
 }
 
-func (r *resourceUser) UserCreate(user *models.User) error {
+func (r *resourceUser) GetUserByGroup(id string) ([]models.User, error) {
+	resp, err := r.repo.User.GetUsersByGroup(id)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (r *resourceUser) CreateUser(user *models.User) error {
 	existingUser, _ := r.repo.User.GetUserByEmail(user.Email)
 
 	if existingUser != nil {
@@ -52,9 +61,8 @@ func (r *resourceUser) UserCreate(user *models.User) error {
 	return nil
 }
 
-func (r *resourceUser) UserUpdate(updatedUser *models.User) error {
+func (r *resourceUser) UpdateUser(updatedUser *models.User) error {
 	existingUser, err := r.repo.User.GetUserByEmail(updatedUser.Email)
-	fmt.Println(err)
 
 	if updatedUser.Password != "" {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(updatedUser.Password), bcrypt.DefaultCost)
@@ -75,7 +83,7 @@ func (r *resourceUser) UserUpdate(updatedUser *models.User) error {
 	return nil
 }
 
-func (r *resourceUser) UserDelete(id string) error {
+func (r *resourceUser) DeleteUser(id string) error {
 	err := r.repo.User.DeleteUser(id)
 	if err != nil {
 		return err
@@ -83,7 +91,7 @@ func (r *resourceUser) UserDelete(id string) error {
 	return nil
 }
 
-func (r *resourceUser) UserGetByEmail(email string) (*models.User, error) {
+func (r *resourceUser) GetUserByEmail(email string) (*models.User, error) {
 	resp, err := r.repo.User.GetUserByEmail(email)
 	if err != nil {
 		return nil, err

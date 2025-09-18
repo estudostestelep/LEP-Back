@@ -69,7 +69,7 @@ func (r *resourceAuth) Logout(token string) error {
 	hoje := time.Now()
 
 	for _, item := range *resp {
-		data, err := time.Parse("2006-01-02", item.Date)
+		data, err := time.Parse("2006-01-02 15:04:05", item.Date)
 		if err != nil {
 			continue
 		}
@@ -95,7 +95,7 @@ func (r *resourceAuth) VerificationToken(token string) (*models.User, error) {
 		return nil, errors.New("Not found")
 	}
 
-	user, err := r.repo.User.GetUser(logged.UserId)
+	user, err := r.repo.User.GetUserById(logged.UserId.String())
 	if err != nil {
 		return nil, err
 	}

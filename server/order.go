@@ -52,7 +52,7 @@ func (s *OrderServer) CreateOrder(c *gin.Context) {
 	err := c.Bind(createOrderPOST)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+			"error": "Invalid request body",
 		})
 		return
 	}
@@ -73,13 +73,29 @@ func (s *OrderServer) CreateOrder(c *gin.Context) {
 
 
 func (s *OrderServer) GetOrderById(c *gin.Context) {
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
+	projectId := c.GetHeader("X-Lpe-Project-Id")
+	if strings.TrimSpace(projectId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Id"})
 		return
 	}
-	order, err := s.handler.GetOrderById(id)
+	order, err := s.handler.GetOrderById(id.String())
 	if err != nil || order == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
@@ -90,19 +106,23 @@ func (s *OrderServer) GetOrderById(c *gin.Context) {
 
 
 func (s *OrderServer) ListOrders(c *gin.Context) {
-	orgIdStr := c.Query("org_id")
-	projectIdStr := c.Query("project_id")
-	orgId, err := uuid.Parse(orgIdStr)
-	if orgIdStr != "" && err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid org_id"})
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+		})
 		return
 	}
-	projectId, err := uuid.Parse(projectIdStr)
-	if projectIdStr != "" && err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project_id"})
+
+	projectId := c.GetHeader("X-Lpe-Project-Id")
+	if strings.TrimSpace(projectId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
+		})
 		return
 	}
-	orders, err := s.handler.ListOrders(orgId, projectId)
+
+	orders, err := s.handler.ListOrders(organizationId, projectId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing orders"})
 		return
@@ -111,13 +131,29 @@ func (s *OrderServer) ListOrders(c *gin.Context) {
 }
 
 func (s *OrderServer) UpdateOrder(c *gin.Context) {
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
+	projectId := c.GetHeader("X-Lpe-Project-Id")
+	if strings.TrimSpace(projectId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Id"})
 		return
 	}
-	order, err := s.handler.GetOrderById(id)
+	order, err := s.handler.GetOrderById(id.String())
 	if err != nil || order == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
@@ -135,13 +171,29 @@ func (s *OrderServer) UpdateOrder(c *gin.Context) {
 }
 
 func (s *OrderServer) SoftDeleteOrder(c *gin.Context) {
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
+	projectId := c.GetHeader("X-Lpe-Project-Id")
+	if strings.TrimSpace(projectId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
+		})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Id"})
 		return
 	}
-	if err := s.handler.SoftDeleteOrder(id); err != nil {
+	if err := s.handler.SoftDeleteOrder(id.String()); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting order"})
 		return
 	}

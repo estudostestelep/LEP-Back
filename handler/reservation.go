@@ -3,109 +3,84 @@ package handler
 import (
 	"lep/repositories"
 	"lep/repositories/models"
-	"lep/utils"
-	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type ReservationHandler struct {
-	repo      *repositories.ReservationRepository
-	auditRepo *repositories.AuditLogRepository
+type resourceReservation struct {
+	repo *repositories.DBconn
 }
 
-func NewReservationHandler(repo *repositories.ReservationRepository, auditRepo *repositories.AuditLogRepository) *ReservationHandler {
-	return &ReservationHandler{repo, auditRepo}
+type IHandlerReservation interface {
+	GetReservation(id string) (*models.Reservation, error)
+	CreateReservation(reservation *models.Reservation) error
+	UpdateReservation(updatedReservation *models.Reservation) error
+	DeleteReservation(id string) error
+	ListReservations(orgId, projectId string) ([]models.Reservation, error)
 }
 
-// Criar reserva
-func (h *ReservationHandler) Create(c *gin.Context) {
-	var req models.Reservation
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
-		return
-	}
-
-	// Regra de negócio: validar disponibilidade da mesa
-	available, err := h.repo.IsTableAvailable(req.TableId, req.Datetime, 60)
+func (r *resourceReservation) GetReservation(id string) (*models.Reservation, error) {
+	uuid, err := uuid.Parse(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking table availability"})
-		return
+		return nil, err
 	}
-	if !available {
-		c.JSON(http.StatusConflict, gin.H{"error": "Table not available"})
-		return
+	resp, err := r.repo.Reservations.GetReservationById(uuid)
+	if err != nil {
+		return nil, err
 	}
-
-	// Gerar Id e timestamps
-	req.Id = uuid.New()
-	req.Status = "confirmed"
-	req.CreatedAt = time.Now()
-	req.UpdatedAt = time.Now()
-
-	// Salvar reserva
-	if err := h.repo.Create(&req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating reservation"})
-		return
-	}
-
-	// Geração de log/auditoria
-	userId := utils.GetUserIdFromContext(c) // Exemplo de utilitário para extrair userId do contexto/session
-	log := &models.AuditLog{
-		Id:             uuid.New(),
-		OrganizationId: req.OrganizationId,
-		ProjectId:      req.ProjectId,
-		UserId:         &userId,
-		Action:         "create_reservation",
-		Entity:         "reservation",
-		EntityId:       req.Id,
-		Description:    "Reserva criada",
-		CreatedAt:      time.Now(),
-	}
-	_ = h.auditRepo.CreateAuditLog(log) // Não bloqueia em caso de erro de log
-
-	c.JSON(http.StatusCreated, req)
+	return resp, nil
 }
 
-// Cancelar reserva
-func (h *ReservationHandler) Cancel(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid reservation Id"})
-		return
-	}
-
-	reservation, err := h.repo.GetById(id)
-	if err != nil || reservation == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Reservation not found"})
-		return
-	}
-
-	// Regra de negócio: liberar mesa, status cancelado
-	reservation.Status = "cancelled"
+func (r *resourceReservation) CreateReservation(reservation *models.Reservation) error {
+	reservation.Id = uuid.New()
+	reservation.Status = "confirmed"
+	reservation.CreatedAt = time.Now()
 	reservation.UpdatedAt = time.Now()
-	if err := h.repo.Update(reservation); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error cancelling reservation"})
-		return
+	err := r.repo.Reservations.CreateReservation(reservation)
+	if err != nil {
+		return err
 	}
+	return nil
+}
 
-	// Log/auditoria
-	userId := utils.GetUserIdFromContext(c)
-	log := &models.AuditLog{
-		Id:             uuid.New(),
-		OrganizationId: reservation.OrganizationId,
-		ProjectId:      reservation.ProjectId,
-		UserId:         &userId,
-		Action:         "cancel_reservation",
-		Entity:         "reservation",
-		EntityId:       reservation.Id,
-		Description:    "Reserva cancelada",
-		CreatedAt:      time.Now(),
+func (r *resourceReservation) UpdateReservation(updatedReservation *models.Reservation) error {
+	updatedReservation.UpdatedAt = time.Now()
+	err := r.repo.Reservations.UpdateReservation(updatedReservation)
+	if err != nil {
+		return err
 	}
-	_ = h.auditRepo.CreateAuditLog(log)
+	return nil
+}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Reservation cancelled"})
+func (r *resourceReservation) DeleteReservation(id string) error {
+	uuid, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+	err = r.repo.Reservations.SoftDeleteReservation(uuid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *resourceReservation) ListReservations(orgId, projectId string) ([]models.Reservation, error) {
+	orgUuid, err := uuid.Parse(orgId)
+	if err != nil {
+		return nil, err
+	}
+	projectUuid, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := r.repo.Reservations.ListReservations(orgUuid, projectUuid)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func NewSourceHandlerReservation(repo *repositories.DBconn) IHandlerReservation {
+	return &resourceReservation{repo: repo}
 }

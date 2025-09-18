@@ -3,83 +3,83 @@ package handler
 import (
 	"lep/repositories"
 	"lep/repositories/models"
-	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type CustomerHandler struct {
-	repo *repositories.CustomerRepository
+type resourceCustomer struct {
+	repo *repositories.DBconn
 }
 
-func NewCustomerHandler(repo *repositories.CustomerRepository) *CustomerHandler {
-	return &CustomerHandler{repo}
+type IHandlerCustomer interface {
+	GetCustomer(id string) (*models.Customer, error)
+	CreateCustomer(customer *models.Customer) error
+	UpdateCustomer(updatedCustomer *models.Customer) error
+	DeleteCustomer(id string) error
+	ListCustomers(orgId, projectId string) ([]models.Customer, error)
 }
 
-func (h *CustomerHandler) Create(c *gin.Context) {
-	var req models.Customer
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
-		return
-	}
-	req.Id = uuid.New()
-	req.CreatedAt = time.Now()
-	req.UpdatedAt = time.Now()
-	if err := h.repo.CreateCustomer(&req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating customer"})
-		return
-	}
-	c.JSON(http.StatusCreated, req)
-}
-
-func (h *CustomerHandler) GetById(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	customer, err := h.repo.GetCustomer(id)
-	if err != nil || customer == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Customer not found"})
-		return
-	}
-	c.JSON(http.StatusOK, customer)
-}
-
-func (h *CustomerHandler) List(c *gin.Context) {
-	OrganizationId, _ := uuid.Parse(c.Query("org_id"))
-	projectId, _ := uuid.Parse(c.Query("project_id"))
-	customers, err := h.repo.GetCustomerList(OrganizationId, projectId)
+func (r *resourceCustomer) GetCustomer(id string) (*models.Customer, error) {
+	uuid, err := uuid.Parse(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing customers"})
-		return
+		return nil, err
 	}
-	c.JSON(http.StatusOK, customers)
+	resp, err := r.repo.Customers.GetCustomerById(uuid)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
-func (h *CustomerHandler) Update(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	customer, err := h.repo.GetCustomer(id)
-	if err != nil || customer == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Customer not found"})
-		return
-	}
-	if err := c.ShouldBindJSON(customer); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
-		return
-	}
+func (r *resourceCustomer) CreateCustomer(customer *models.Customer) error {
+	customer.Id = uuid.New()
+	customer.CreatedAt = time.Now()
 	customer.UpdatedAt = time.Now()
-	if err := h.repo.UpdateCustomer(customer); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating customer"})
-		return
+	err := r.repo.Customers.CreateCustomer(customer)
+	if err != nil {
+		return err
 	}
-	c.JSON(http.StatusOK, customer)
+	return nil
 }
 
-func (h *CustomerHandler) SoftDelete(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	err := h.repo.SoftDelete(id)
+func (r *resourceCustomer) UpdateCustomer(updatedCustomer *models.Customer) error {
+	updatedCustomer.UpdatedAt = time.Now()
+	err := r.repo.Customers.UpdateCustomer(updatedCustomer)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting customer"})
-		return
+		return err
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Customer deleted"})
+	return nil
+}
+
+func (r *resourceCustomer) DeleteCustomer(id string) error {
+	uuid, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+	err = r.repo.Customers.SoftDeleteCustomer(uuid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *resourceCustomer) ListCustomers(orgId, projectId string) ([]models.Customer, error) {
+	orgUuid, err := uuid.Parse(orgId)
+	if err != nil {
+		return nil, err
+	}
+	projectUuid, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := r.repo.Customers.ListCustomers(orgUuid, projectUuid)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func NewSourceHandlerCustomer(repo *repositories.DBconn) IHandlerCustomer {
+	return &resourceCustomer{repo: repo}
 }

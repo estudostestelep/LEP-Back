@@ -14,10 +14,13 @@ type CustomerRepository struct {
 
 type ICustomersRepository interface {
 	GetCustomer(id uuid.UUID) (*models.Customer, error)
+	GetCustomerById(id uuid.UUID) (*models.Customer, error)
 	GetCustomerList(OrganizationId, projectId uuid.UUID) ([]models.Customer, error)
+	ListCustomers(OrganizationId, projectId uuid.UUID) ([]models.Customer, error)
 	CreateCustomer(customer *models.Customer) error
 	UpdateCustomer(updatedCustomer *models.Customer) error
 	SoftDelete(id uuid.UUID) error
+	SoftDeleteCustomer(id uuid.UUID) error
 }
 
 func NewConnCustomer(db *gorm.DB) ICustomersRepository {
@@ -37,10 +40,18 @@ func (r *CustomerRepository) GetCustomer(id uuid.UUID) (*models.Customer, error)
 	return &customer, nil
 }
 
+func (r *CustomerRepository) GetCustomerById(id uuid.UUID) (*models.Customer, error) {
+	return r.GetCustomer(id)
+}
+
 func (r *CustomerRepository) GetCustomerList(OrganizationId, projectId uuid.UUID) ([]models.Customer, error) {
 	var customers []models.Customer
-	err := r.db.Where("org_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&customers).Error
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&customers).Error
 	return customers, err
+}
+
+func (r *CustomerRepository) ListCustomers(OrganizationId, projectId uuid.UUID) ([]models.Customer, error) {
+	return r.GetCustomerList(OrganizationId, projectId)
 }
 
 func (r *CustomerRepository) UpdateCustomer(customer *models.Customer) error {
@@ -49,4 +60,8 @@ func (r *CustomerRepository) UpdateCustomer(customer *models.Customer) error {
 
 func (r *CustomerRepository) SoftDelete(id uuid.UUID) error {
 	return r.db.Model(&models.Customer{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
+}
+
+func (r *CustomerRepository) SoftDeleteCustomer(id uuid.UUID) error {
+	return r.SoftDelete(id)
 }

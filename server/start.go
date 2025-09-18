@@ -38,13 +38,9 @@ func Start(db *gorm.DB) {
 	}
 
 	newUser := &models.User{
-		Name:          "Test User",
-		Email:         "test@example.com",
-		EmailVerified: "22-01-24",
-		Image:         "test.jpg",
-		Access:        "user",
-		GroupMember:   "4",
-		Password:      "$2a$10$6hOKDVLp9LWPa3MslIorkuzntcXH49TcAVo.3ZrLMn2r5gJYCrXiK", //12345
+		Name:     "Test User",
+		Email:    "test@example.com",
+		Password: "$2a$10$6hOKDVLp9LWPa3MslIorkuzntcXH49TcAVo.3ZrLMn2r5gJYCrXiK", //12345
 	}
 
 	if err := db.Create(newUser).Error; err != nil {

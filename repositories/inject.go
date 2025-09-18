@@ -16,6 +16,7 @@ type DBconn struct {
 	Reservations IReservationRepository
 	Tables       ITableRepository
 	User         IUserRepository
+	Waitlists    WaitlistRepositoryInterface
 	Migrate      migrate.IMigrate
 }
 
@@ -30,5 +31,6 @@ func (r *DBconn) InjectProstgres(db *gorm.DB) {
 	r.Tables = NewConnTable(db)
 	r.AuditLogs = NewConnAuditLog(db)
 	r.Reservations = NewConnReservation(db)
+	r.Waitlists = NewWaitlistRepository(db)
 
 }
