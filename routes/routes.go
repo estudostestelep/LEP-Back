@@ -35,6 +35,18 @@ func SetupRoutes(r *gin.Engine) {
 
 	// Order routes
 	setupOrderRoutes(r)
+
+	// Project routes (SPRINT 1)
+	setupProjectRoutes(r)
+
+	// Settings routes (SPRINT 1)
+	setupSettingsRoutes(r)
+
+	// Environment routes (SPRINT 1)
+	setupEnvironmentRoutes(r)
+
+	// Notification routes (SPRINT 2)
+	setupNotificationRoutes(r)
 }
 
 func setupUserRoutes(r *gin.Engine) {
@@ -106,10 +118,78 @@ func setupOrderRoutes(r *gin.Engine) {
 	orderRoutes := r.Group("/order")
 	{
 		orderRoutes.GET("/:id", resource.ServersControllers.SourceOrders.GetOrderById)
+		orderRoutes.GET("/:id/progress", resource.ServersControllers.SourceOrders.GetOrderProgress)
 		orderRoutes.POST("", resource.ServersControllers.SourceOrders.CreateOrder)
 		orderRoutes.PUT("/:id", resource.ServersControllers.SourceOrders.UpdateOrder)
+		orderRoutes.PUT("/:id/status", resource.ServersControllers.SourceOrders.UpdateOrderStatus)
 		orderRoutes.DELETE("/:id", resource.ServersControllers.SourceOrders.SoftDeleteOrder)
 	}
 	// List orders endpoint (plural)
 	r.GET("/orders", resource.ServersControllers.SourceOrders.ListOrders)
+	// Kitchen queue endpoint
+	r.GET("/kitchen/queue", resource.ServersControllers.SourceOrders.GetKitchenQueue)
+}
+
+// setupProjectRoutes configura rotas para projetos
+func setupProjectRoutes(r *gin.Engine) {
+	projectRoutes := r.Group("/project")
+	{
+		projectRoutes.GET("/:id", resource.ServersControllers.SourceProject.GetProjectById)
+		projectRoutes.GET("", resource.ServersControllers.SourceProject.GetProjectsByOrganization)
+		projectRoutes.GET("/active", resource.ServersControllers.SourceProject.GetActiveProjects)
+		projectRoutes.POST("", resource.ServersControllers.SourceProject.CreateProject)
+		projectRoutes.PUT("/:id", resource.ServersControllers.SourceProject.UpdateProject)
+		projectRoutes.DELETE("/:id", resource.ServersControllers.SourceProject.SoftDeleteProject)
+	}
+}
+
+// setupSettingsRoutes configura rotas para configurações
+func setupSettingsRoutes(r *gin.Engine) {
+	settingsRoutes := r.Group("/settings")
+	{
+		settingsRoutes.GET("", resource.ServersControllers.SourceSettings.GetSettingsByProject)
+		settingsRoutes.PUT("", resource.ServersControllers.SourceSettings.UpdateSettings)
+	}
+}
+
+// setupEnvironmentRoutes configura rotas para ambientes
+func setupEnvironmentRoutes(r *gin.Engine) {
+	environmentRoutes := r.Group("/environment")
+	{
+		environmentRoutes.GET("/:id", resource.ServersControllers.SourceEnvironment.GetEnvironmentById)
+		environmentRoutes.GET("", resource.ServersControllers.SourceEnvironment.GetEnvironmentsByProject)
+		environmentRoutes.GET("/active", resource.ServersControllers.SourceEnvironment.GetActiveEnvironments)
+		environmentRoutes.POST("", resource.ServersControllers.SourceEnvironment.CreateEnvironment)
+		environmentRoutes.PUT("/:id", resource.ServersControllers.SourceEnvironment.UpdateEnvironment)
+		environmentRoutes.DELETE("/:id", resource.ServersControllers.SourceEnvironment.SoftDeleteEnvironment)
+	}
+}
+
+// setupNotificationRoutes configura rotas para notificações (SPRINT 2)
+func setupNotificationRoutes(r *gin.Engine) {
+	// Webhooks públicos (não requerem autenticação)
+	webhookRoutes := r.Group("/webhook")
+	{
+		// Twilio status callback
+		webhookRoutes.POST("/twilio/status", resource.ServersControllers.SourceNotification.TwilioWebhookStatus)
+		// Twilio inbound messages (com org/project na URL)
+		webhookRoutes.POST("/twilio/inbound/:orgId/:projectId", resource.ServersControllers.SourceNotification.TwilioWebhookInbound)
+	}
+
+	// APIs de notificação (protegidas)
+	notificationRoutes := r.Group("/notification")
+	{
+		// Enviar notificação manual
+		notificationRoutes.POST("/send", resource.ServersControllers.SourceNotification.SendNotification)
+		// Processar evento de notificação
+		notificationRoutes.POST("/event", resource.ServersControllers.SourceNotification.ProcessEvent)
+		// Logs de notificação
+		notificationRoutes.GET("/logs/:orgId/:projectId", resource.ServersControllers.SourceNotification.GetNotificationLogs)
+		// Templates
+		notificationRoutes.GET("/templates/:orgId/:projectId", resource.ServersControllers.SourceNotification.GetNotificationTemplates)
+		notificationRoutes.POST("/template", resource.ServersControllers.SourceNotification.CreateNotificationTemplate)
+		notificationRoutes.PUT("/template", resource.ServersControllers.SourceNotification.UpdateNotificationTemplate)
+		// Configurações
+		notificationRoutes.POST("/config", resource.ServersControllers.SourceNotification.CreateOrUpdateNotificationConfig)
+	}
 }

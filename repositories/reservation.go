@@ -15,6 +15,9 @@ type IReservationRepository interface {
 	UpdateReservation(reservation *models.Reservation) error
 	SoftDeleteReservation(id uuid.UUID) error
 	IsReservationTableAvailable(tableId uuid.UUID, dt time.Time, durationMinutes int) (bool, error)
+	GetReservationsByProject(orgId, projectId uuid.UUID) ([]models.Reservation, error)
+	GetReservationsByTableAndDateRange(tableId uuid.UUID, startDate, endDate time.Time) ([]models.Reservation, error)
+	DeleteReservation(id uuid.UUID) error
 }
 
 type ReservationRepository struct {
@@ -61,4 +64,22 @@ func (r *ReservationRepository) IsReservationTableAvailable(tableId uuid.UUID, d
 		Where("table_id = ? AND status = ? AND datetime BETWEEN ? AND ? AND deleted_at IS NULL", tableId, "confirmed", start, end).
 		Count(&count).Error
 	return count == 0, err
+}
+
+func (r *ReservationRepository) GetReservationsByProject(orgId, projectId uuid.UUID) ([]models.Reservation, error) {
+	var reservations []models.Reservation
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", orgId, projectId).
+		Order("datetime ASC").Find(&reservations).Error
+	return reservations, err
+}
+
+func (r *ReservationRepository) GetReservationsByTableAndDateRange(tableId uuid.UUID, startDate, endDate time.Time) ([]models.Reservation, error) {
+	var reservations []models.Reservation
+	err := r.db.Where("table_id = ? AND datetime BETWEEN ? AND ? AND deleted_at IS NULL", tableId, startDate, endDate).
+		Find(&reservations).Error
+	return reservations, err
+}
+
+func (r *ReservationRepository) DeleteReservation(id uuid.UUID) error {
+	return r.db.Delete(&models.Reservation{}, id).Error
 }

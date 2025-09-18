@@ -18,6 +18,7 @@ func Start(db *gorm.DB) {
 		&models.BannedLists{},
 		&models.LoggedLists{},
 
+		// Core models
 		&models.User{},
 		&models.Customer{},
 		&models.Table{},
@@ -26,6 +27,25 @@ func Start(db *gorm.DB) {
 		&models.Waitlist{},
 		&models.Order{},
 		&models.AuditLog{},
+
+		// SPRINT 1 models
+		&models.Project{},
+		&models.Settings{},
+		&models.Environment{},
+
+		// SPRINT 2 models (Notification System)
+		&models.NotificationConfig{},
+		&models.NotificationTemplate{},
+		&models.NotificationLog{},
+		&models.NotificationEvent{},
+		&models.NotificationInbound{},
+
+		// SPRINT 4 models (Advanced Validations)
+		&models.BlockedPeriod{},
+
+		// SPRINT 5 models (Advanced Features)
+		&models.Lead{},
+		&models.ReportMetric{},
 	}
 
 	for _, model := range modelsToMigrate {

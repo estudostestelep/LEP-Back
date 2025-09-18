@@ -11,6 +11,10 @@ type ServerController struct {
 	SourceWaitlist     IServerWaitlist
 	SourceReservation  IServerReservation
 	SourceCustomer     IServerCustomer
+	SourceProject      IProjectServer
+	SourceSettings     ISettingsServer
+	SourceEnvironment  IEnvironmentServer
+	SourceNotification *NotificationServer
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -22,4 +26,8 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceWaitlist = NewSourceServerWaitlist(handler)
 	h.SourceReservation = NewSourceServerReservation(handler)
 	h.SourceCustomer = NewSourceServerCustomer(handler)
+	h.SourceProject = NewProjectServer(handler.HandlerProject)
+	h.SourceSettings = NewSettingsServer(handler.HandlerSettings)
+	h.SourceEnvironment = NewEnvironmentServer(handler.HandlerEnvironment)
+	h.SourceNotification = NewNotificationServer(handler.HandlerNotification)
 }

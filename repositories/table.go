@@ -15,6 +15,7 @@ type ITableRepository interface {
 	GetTableById(id uuid.UUID) (*models.Table, error)
 	ListTables(OrganizationId, projectId uuid.UUID) ([]models.Table, error)
 	ListTablesByProject(OrganizationId, projectId uuid.UUID) ([]models.Table, error)
+	GetTablesByProject(orgId, projectId uuid.UUID) ([]models.Table, error)
 	UpdateTable(table *models.Table) error
 	SoftDeleteTable(id uuid.UUID) error
 }
@@ -63,4 +64,11 @@ func (r *TableRepository) SoftDeleteTable(id uuid.UUID) error {
 	return r.db.Model(&models.Table{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Update("deleted_at", time.Now()).Error
+}
+
+func (r *TableRepository) GetTablesByProject(orgId, projectId uuid.UUID) ([]models.Table, error) {
+	var tables []models.Table
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", orgId, projectId).
+		Order("number ASC").Find(&tables).Error
+	return tables, err
 }

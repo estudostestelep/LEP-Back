@@ -15,6 +15,7 @@ type WaitlistRepositoryInterface interface {
 	ListWaitlists(OrganizationId, projectId uuid.UUID) ([]models.Waitlist, error)
 	UpdateWaitlist(waitlist *models.Waitlist) error
 	SoftDeleteWaitlist(id uuid.UUID) error
+	GetWaitlistByProject(orgId, projectId uuid.UUID) ([]models.Waitlist, error)
 }
 
 type WaitlistRepository struct {
@@ -50,4 +51,11 @@ func (r *WaitlistRepository) UpdateWaitlist(waitlist *models.Waitlist) error {
 
 func (r *WaitlistRepository) SoftDeleteWaitlist(id uuid.UUID) error {
 	return r.db.Model(&models.Waitlist{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
+}
+
+func (r *WaitlistRepository) GetWaitlistByProject(orgId, projectId uuid.UUID) ([]models.Waitlist, error) {
+	var waitlist []models.Waitlist
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", orgId, projectId).
+		Order("created_at ASC").Find(&waitlist).Error
+	return waitlist, err
 }

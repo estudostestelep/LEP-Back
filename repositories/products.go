@@ -15,6 +15,7 @@ type resourceProduct struct {
 type IProductRepository interface {
 	GetProduct(id int) (*models.Product, error)
 	GetProductById(id uuid.UUID) (*models.Product, error)
+	GetProductsByIds(ids []uuid.UUID) ([]models.Product, error)
 	GetProductByPurchase(id string) ([]models.Product, error)
 	ListProducts(OrganizationId, projectId uuid.UUID) ([]models.Product, error)
 	CreateProduct(product *models.Product) error
@@ -81,4 +82,11 @@ func (r *resourceProduct) DeleteProductsByPurchase(purchaseId string) error {
 
 func (r *resourceProduct) SoftDeleteProduct(id uuid.UUID) error {
 	return r.db.Model(&models.Product{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
+}
+
+// GetProductsByIds busca múltiplos produtos por IDs
+func (r *resourceProduct) GetProductsByIds(ids []uuid.UUID) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.Where("id IN ? AND deleted_at IS NULL", ids).Find(&products).Error
+	return products, err
 }
