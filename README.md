@@ -87,11 +87,15 @@ O sistema segue o padrão de **Arquitetura Limpa** com três camadas principais:
 
 ### Funcionalidades Implementadas
 
-- **🔐 Autenticação JWT** - Login/logout seguro com validação de tokens
-- **👥 Gestão de Usuários** - CRUD completo com criptografia de senhas
+- **🔐 Autenticação JWT** - Login/logout seguro com validação de tokens e blacklist
+- **👥 Gestão de Usuários** - CRUD completo com criptografia bcrypt
 - **📦 Gestão de Produtos** - Controle de catálogo de produtos
 - **🛒 Gestão de Compras** - Processamento de compras e pedidos
 - **📋 Gestão de Pedidos** - Sistema completo de orders com status
+- **🏠 Gestão de Mesas** - Controle de mesas e disponibilidade
+- **⏳ Lista de Espera** - Sistema de fila para mesas ocupadas
+- **📅 Reservas** - Agendamento de mesas com controle de horários
+- **👤 Gestão de Clientes** - CRUD completo de clientes
 - **🔒 Validação de Headers** - Controle organizacional via `X-Lpe-Organization-Id` e `X-Lpe-Project-Id`
 - **🗑️ Soft Delete** - Remoção lógica mantendo histórico
 - **📊 Logs de Auditoria** - Rastreamento completo de operações
@@ -200,6 +204,42 @@ PUT    /order/:id    # Atualizar pedido
 DELETE /order/:id    # Deletar pedido
 ```
 
+### Mesas (Headers obrigatórios: X-Lpe-Organization-Id, X-Lpe-Project-Id)
+```bash
+GET    /table/:id    # Buscar mesa por ID
+GET    /table        # Listar mesas
+POST   /table        # Criar mesa
+PUT    /table/:id    # Atualizar mesa
+DELETE /table/:id    # Deletar mesa
+```
+
+### Lista de Espera (Headers obrigatórios: X-Lpe-Organization-Id, X-Lpe-Project-Id)
+```bash
+GET    /waitlist/:id # Buscar entrada na lista por ID
+GET    /waitlist     # Listar entradas da lista de espera
+POST   /waitlist     # Criar entrada na lista de espera
+PUT    /waitlist/:id # Atualizar entrada na lista de espera
+DELETE /waitlist/:id # Remover da lista de espera
+```
+
+### Reservas (Headers obrigatórios: X-Lpe-Organization-Id, X-Lpe-Project-Id)
+```bash
+GET    /reservation/:id # Buscar reserva por ID
+GET    /reservation     # Listar reservas
+POST   /reservation     # Criar reserva
+PUT    /reservation/:id # Atualizar reserva
+DELETE /reservation/:id # Cancelar reserva
+```
+
+### Clientes (Headers obrigatórios: X-Lpe-Organization-Id, X-Lpe-Project-Id)
+```bash
+GET    /customer/:id # Buscar cliente por ID
+GET    /customer     # Listar clientes
+POST   /customer     # Criar cliente
+PUT    /customer/:id # Atualizar cliente
+DELETE /customer/:id # Deletar cliente
+```
+
 ### Headers Obrigatórios (exceto /login e POST /user)
 ```bash
 X-Lpe-Organization-Id: <organization-uuid>
@@ -253,11 +293,27 @@ O projeto inclui configuração completa do Terraform para deploy automatizado n
 
 ### Recursos de Segurança
 
-- **🔐 Autenticação JWT** - Tokens seguros com chaves RSA
-- **🔒 Criptografia bcrypt** - Senhas hashadas com salt
+- **🔐 Autenticação JWT** - Tokens seguros com HS256 (24h expiração)
+- **🔒 Criptografia bcrypt** - Senhas hashadas com salt automático
+- **🚫 Token Blacklist** - Sistema de revogação via BannedLists
+- **✅ Token Whitelist** - Controle de sessões ativas via LoggedLists
 - **🛡️ Validação de Headers** - Controle organizacional obrigatório
-- **🚫 Soft Delete** - Preservação de dados para auditoria
+- **🗑️ Soft Delete** - Preservação de dados para auditoria
 - **📊 Logs Detalhados** - Rastreamento completo de operações
+
+### ⚠️ Melhorias de Segurança Recomendadas
+
+**Problemas Identificados:**
+- Inconsistência nas chaves JWT (uso de chave pública/privada diferentes)
+- Limpeza de tokens expirados apenas no logout
+- Formato de data em string ao invés de timestamp
+
+**Recomendações:**
+- Padronizar uso de uma única chave secreta para HS256
+- Implementar middleware de autenticação centralizado
+- Adicionar refresh tokens para melhor UX
+- Implementar rate limiting para login
+- Job periódico para limpeza de tokens expirados
 
 ### Auditoria
 

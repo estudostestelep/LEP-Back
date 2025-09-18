@@ -25,15 +25,9 @@ func (r *resourceAuth) PostToken(user *models.User, token string) error {
 		UserId:    user.Id,
 	}
 
-	_, err := r.repo.LoggedLists.GetLoggedToken(token)
-	if err != nil {
-		if err := r.repo.LoggedLists.CreateLoggedList(loggedList); err != nil {
-			return fmt.Errorf("falha ao criar registro na LoggedLists: %v", err)
-		}
-	} else {
-
+	if err := r.repo.LoggedLists.CreateLoggedList(loggedList); err != nil {
 		if err := r.repo.LoggedLists.DeleteLoggedList(loggedList.Token); err != nil {
-			return fmt.Errorf("falha ao deleter registro na LoggedLists: %v", err)
+			return fmt.Errorf("falha ao remover token existente: %v", err)
 		}
 
 		if err := r.repo.LoggedLists.CreateLoggedList(loggedList); err != nil {
@@ -47,7 +41,6 @@ func (r *resourceAuth) PostToken(user *models.User, token string) error {
 func (r *resourceAuth) Logout(token string) error {
 	bannedList := &models.BannedLists{
 		Token: token,
-		Date:  time.Now().Format("2006-01-02 15:04:05"),
 	}
 
 	if err := r.repo.BannedLists.CreateBannedList(bannedList); err != nil {
@@ -58,30 +51,24 @@ func (r *resourceAuth) Logout(token string) error {
 		return fmt.Errorf("falha ao remover da LoggedLists: %v", err)
 	}
 
-	resp, err := r.repo.BannedLists.GetBannedAllList()
-	if err != nil {
-		return err
-	}
-	if resp == nil {
-		return errors.New("O ponteiro resp é nulo")
-	}
-
-	hoje := time.Now()
-
-	for _, item := range *resp {
-		data, err := time.Parse("2006-01-02 15:04:05", item.Date)
-		if err != nil {
-			continue
-		}
-
-		if hoje.After(data) {
-			if err := r.repo.BannedLists.DeleteBannedList(item.BannedListId); err != nil {
-				continue
-			}
-		}
-	}
+	r.cleanupExpiredTokens()
 
 	return nil
+}
+
+func (r *resourceAuth) cleanupExpiredTokens() {
+	cutoffTime := time.Now().AddDate(0, 0, -7)
+
+	resp, err := r.repo.BannedLists.GetBannedAllList()
+	if err != nil || resp == nil {
+		return
+	}
+
+	for _, item := range *resp {
+		if item.CreatedAt.Before(cutoffTime) {
+			r.repo.BannedLists.DeleteBannedList(item.BannedListId)
+		}
+	}
 }
 
 func (r *resourceAuth) VerificationToken(token string) (*models.User, error) {

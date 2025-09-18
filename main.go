@@ -1,6 +1,7 @@
 package main
 
 import (
+	"lep/middleware"
 	"lep/resource"
 	"lep/routes"
 	"net/http"
@@ -22,26 +23,12 @@ func main() {
 		c.String(http.StatusOK, "pong")
 	})
 
-	// Authentication middleware
-	r.Use(func(c *gin.Context) {
-		if c.Request.Method == "POST" && c.Request.URL.Path == "/login" {
-			c.Next()
-			return
-		}
-		if c.Request.Method == "POST" && c.Request.URL.Path == "/user" {
-			c.Next()
-			return
-		}
-
-		token := resource.ServersControllers.SourceAuth.ServiceValidateTokenIn(c)
-
-		if token {
-			c.Next()
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
-			c.Abort()
-		}
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 	})
+
+	// Authentication middleware
+	r.Use(middleware.AuthMiddleware())
 
 	// Setup all routes
 	routes.SetupRoutes(r)
