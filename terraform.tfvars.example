@@ -1,0 +1,46 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# Project configuration
+project_id   = "your-gcp-project-id"
+project_name = "lep"
+region       = "us-central1"
+environment  = "dev"
+
+# Database configuration
+database_name = "lep_database"
+database_user = "lep_user"
+db_tier       = "db-f1-micro"  # Use db-n1-standard-1 or higher for production
+db_availability_type = "ZONAL"  # Use REGIONAL for production
+db_disk_size  = 20
+enable_deletion_protection = false  # Set to true for production
+
+# JWT configuration (REQUIRED)
+# Generate your keys using:
+# openssl genpkey -algorithm RSA -out private_key.pem -pkcs8 -aes256
+# openssl rsa -pubout -in private_key.pem -out public_key.pem
+jwt_private_key = "-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----"
+jwt_public_key  = "-----BEGIN PUBLIC KEY-----\nYOUR_PUBLIC_KEY_HERE\n-----END PUBLIC KEY-----"
+
+# Cloud Run configuration
+min_instances = 0      # Set to 1+ for production to avoid cold starts
+max_instances = 10     # Adjust based on expected load
+cpu_limit     = "1"    # Increase for production
+memory_limit  = "512Mi" # Increase for production
+
+# Twilio configuration (optional - for SMS/WhatsApp notifications)
+twilio_account_sid   = ""  # Your Twilio Account SID
+twilio_auth_token    = ""  # Your Twilio Auth Token
+twilio_phone_number  = ""  # Your Twilio phone number (e.g., +1234567890)
+
+# SMTP configuration (optional - for email notifications)
+smtp_host     = "smtp.gmail.com"
+smtp_port     = 587
+smtp_username = ""  # Your email address
+smtp_password = ""  # Your email app password
+
+# Application configuration
+enable_cron_jobs = true
+
+# Custom domain (optional)
+domain_name           = ""     # e.g., "api.yourdomain.com"
+enable_custom_domain  = false
