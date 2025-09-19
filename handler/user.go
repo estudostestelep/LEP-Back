@@ -17,6 +17,7 @@ type resourceUser struct {
 type IHandlerUser interface {
 	GetUser(id string) (*models.User, error)
 	GetUserByGroup(id string) ([]models.User, error)
+	ListUsers(orgId, projectId string) ([]models.User, error)
 	CreateUser(user *models.User) error
 	UpdateUser(updatedUser *models.User) error
 	DeleteUser(id string) error
@@ -33,6 +34,14 @@ func (r *resourceUser) GetUser(id string) (*models.User, error) {
 
 func (r *resourceUser) GetUserByGroup(id string) ([]models.User, error) {
 	resp, err := r.repo.User.GetUsersByGroup(id)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (r *resourceUser) ListUsers(orgId, projectId string) ([]models.User, error) {
+	resp, err := r.repo.User.ListUsersByOrganizationAndProject(orgId, projectId)
 	if err != nil {
 		return nil, err
 	}

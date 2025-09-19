@@ -54,6 +54,7 @@ func setupUserRoutes(r *gin.Engine) {
 	{
 		userRoutes.GET("/:id", resource.ServersControllers.SourceUsers.ServiceGetUser)
 		userRoutes.GET("/group/:id", resource.ServersControllers.SourceUsers.ServiceGetUserByGroup)
+		userRoutes.GET("", resource.ServersControllers.SourceUsers.ServiceListUsers) // Endpoint de listagem
 		userRoutes.PUT("/:id", resource.ServersControllers.SourceUsers.ServiceUpdateUser)
 		userRoutes.DELETE("/:id", resource.ServersControllers.SourceUsers.ServiceDeleteUser)
 	}
@@ -64,6 +65,7 @@ func setupProductRoutes(r *gin.Engine) {
 	{
 		productRoutes.GET("/:id", resource.ServersControllers.SourceProducts.ServiceGetProduct)
 		productRoutes.GET("/purchase/:id", resource.ServersControllers.SourceProducts.ServiceGetProductByPurchase)
+		productRoutes.GET("", resource.ServersControllers.SourceProducts.ServiceListProducts) // Endpoint de listagem
 		productRoutes.POST("", resource.ServersControllers.SourceProducts.ServiceCreateProduct)
 		productRoutes.PUT("/:id", resource.ServersControllers.SourceProducts.ServiceUpdateProduct)
 		productRoutes.DELETE("/:id", resource.ServersControllers.SourceProducts.ServiceDeleteProduct)
@@ -119,15 +121,18 @@ func setupOrderRoutes(r *gin.Engine) {
 	{
 		orderRoutes.GET("/:id", resource.ServersControllers.SourceOrders.GetOrderById)
 		orderRoutes.GET("/:id/progress", resource.ServersControllers.SourceOrders.GetOrderProgress)
+		orderRoutes.GET("", resource.ServersControllers.SourceOrders.ListOrders) // Moved to maintain consistency
 		orderRoutes.POST("", resource.ServersControllers.SourceOrders.CreateOrder)
 		orderRoutes.PUT("/:id", resource.ServersControllers.SourceOrders.UpdateOrder)
 		orderRoutes.PUT("/:id/status", resource.ServersControllers.SourceOrders.UpdateOrderStatus)
 		orderRoutes.DELETE("/:id", resource.ServersControllers.SourceOrders.SoftDeleteOrder)
 	}
-	// List orders endpoint (plural)
-	r.GET("/orders", resource.ServersControllers.SourceOrders.ListOrders)
-	// Kitchen queue endpoint
-	r.GET("/kitchen/queue", resource.ServersControllers.SourceOrders.GetKitchenQueue)
+
+	// Kitchen specific routes
+	kitchenRoutes := r.Group("/kitchen")
+	{
+		kitchenRoutes.GET("/queue", resource.ServersControllers.SourceOrders.GetKitchenQueue)
+	}
 }
 
 // setupProjectRoutes configura rotas para projetos

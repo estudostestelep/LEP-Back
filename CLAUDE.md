@@ -59,6 +59,9 @@ The codebase follows a 3-layer clean architecture:
 - **Soft Delete**: All entities use `deleted_at` for logical deletion
 - **JWT Authentication**: Token-based auth with blacklist/whitelist management
 - **Audit Logging**: All operations are logged via `AuditLog` model
+- **Event-Driven Notifications**: Automated notification system with support for SMS, WhatsApp, and Email
+- **Cron Jobs**: Background tasks for 24h confirmation reminders and event processing
+- **Template System**: Dynamic notification templates with variable substitution
 
 ### Directory Structure
 - `config/` - Database and environment configuration
@@ -81,6 +84,11 @@ Core entities in `repositories/models/PostgresLEP.go`:
 - `Reservation` - Table reservations with datetime
 - `Waitlist` - Queue management for occupied tables
 - `AuditLog` - Operation tracking and audit trail
+- `NotificationConfig` - Event notification configuration per project
+- `NotificationTemplate` - Message templates with variables
+- `NotificationLog` - Delivery tracking and status logging
+- `NotificationEvent` - Event queue for async processing
+- `NotificationInbound` - Inbound message handling
 
 ## Authentication & Authorization
 
@@ -99,14 +107,31 @@ Authorization: Bearer <jwt-token>
 
 ## Environment Variables
 
-Required for database connection:
+Required environment variables:
 ```bash
+# Database
 DB_USER=postgres_username
 DB_PASS=postgres_password
 DB_NAME=database_name
 INSTANCE_UNIX_SOCKET=/path/to/socket  # For GCP Cloud SQL
+
+# Authentication
 JWT_SECRET_PRIVATE_KEY=jwt_private_key
 JWT_SECRET_PUBLIC_KEY=jwt_public_key
+
+# Twilio (SMS/WhatsApp)
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE_NUMBER=+1234567890
+
+# SMTP (Email)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+
+# Cron Jobs (optional)
+ENABLE_CRON_JOBS=true
 ```
 
 ## API Endpoints
@@ -126,6 +151,8 @@ All other routes require authentication headers:
 - **Reservations**: `/reservation/*` (Full CRUD + list)
 - **Waitlist**: `/waitlist/*` (Full CRUD + list)
 - **Customers**: `/customer/*` (Full CRUD + list)
+- **Notifications**: `/notification/*` (Config, templates, logs, webhooks)
+- **Reports**: `/reports/*` (Occupancy, reservations, waitlist, lead reports)
 
 ## Infrastructure
 
@@ -149,3 +176,88 @@ Terraform configuration in `example.main.tf` provisions:
 - Log all operations via `AuditLog`
 - Validate headers in server layer before processing
 - Hash passwords with bcrypt in handler layer
+
+## Notification System
+
+### Event-Driven Architecture
+The notification system is triggered by business events:
+
+- **Reservation Events**: Creation, update, cancellation
+- **Table Events**: Available tables for waitlist
+- **Scheduled Events**: 24h confirmation reminders via cron jobs
+
+### Supported Channels
+- **SMS**: Via Twilio API
+- **WhatsApp**: Via Twilio Business API
+- **Email**: Via SMTP with configurable providers
+
+### Key Components
+
+#### EventService (`utils/event_service.go`)
+Handles event creation and notification processing:
+```go
+// Trigger notification for reservation creation
+func (e *EventService) TriggerReservationCreated(orgId, projectId uuid.UUID,
+    reservation *models.Reservation, customer *models.Customer, table *models.Table) error
+```
+
+#### CronService (`utils/cron_service.go`)
+Background jobs for automated notifications:
+- **24h Confirmation**: Runs hourly, sends confirmation requests 24h before reservations
+- **Pending Events**: Processes event queue every 5 minutes
+- **Cleanup**: Daily log cleanup for old notifications
+
+#### NotificationService (`utils/notification_service.go`)
+Handles external API integration:
+```go
+type NotificationService struct {
+    twilioClient *twilio.RestClient
+    smtpConfig   SMTPConfig
+}
+```
+
+### Template Variables
+Dynamic variables available in templates:
+- `{{nome}}` / `{{cliente}}` - Customer name
+- `{{mesa}}` / `{{numero_mesa}}` - Table number
+- `{{data}}` - Date (DD/MM/YYYY)
+- `{{hora}}` - Time (HH:MM)
+- `{{data_hora}}` - Full datetime
+- `{{pessoas}}` - Party size
+- `{{tempo_espera}}` - Estimated wait time
+- `{{status}}` - Reservation status
+
+### Webhook Integration
+Support for bidirectional communication:
+- **Inbound Messages**: Process customer replies via webhooks
+- **Status Updates**: Track message delivery and read receipts
+- **Event Triggers**: External systems can trigger notifications
+
+## Reports System
+
+### Available Reports
+
+#### Occupancy Report
+- Daily table utilization metrics
+- Peak and average occupancy rates
+- Best/worst performing days
+
+#### Reservation Report
+- Total reservations with status breakdown
+- Cancellation and no-show rates
+- Daily reservation metrics
+
+#### Waitlist Report
+- Waitlist conversion rates
+- Average wait times
+- Daily waitlist metrics
+
+#### Lead Report (Future)
+- Customer acquisition tracking
+- Source attribution
+- Conversion funnel metrics
+
+### Export Features
+- CSV export for all report types
+- Date range filtering
+- Project-specific metrics

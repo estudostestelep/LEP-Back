@@ -45,6 +45,11 @@ func isPublicRoute(method, path string) bool {
 		"GET":  {"/ping", "/health"},
 	}
 
+	// Add webhook routes
+	if strings.HasPrefix(path, "/webhook/") {
+		return true
+	}
+
 	if methods, exists := publicRoutes[method]; exists {
 		for _, route := range methods {
 			if path == route {

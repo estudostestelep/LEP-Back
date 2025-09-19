@@ -40,7 +40,8 @@ func (r *resourceProduct) GetProductById(id uuid.UUID) (*models.Product, error) 
 
 func (r *resourceProduct) ListProducts(OrganizationId, projectId uuid.UUID) ([]models.Product, error) {
 	var products []models.Product
-	err := r.db.Where("org_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&products).Error
+	// Corrigido: usar organization_id ao invés de org_id
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&products).Error
 	return products, err
 }
 

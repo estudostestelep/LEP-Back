@@ -14,6 +14,8 @@ O LEP System é uma aplicação backend robusta desenvolvida em Go, utilizando a
 - **Terraform** - Infrastructure as Code
 - **JWT** - Autenticação e autorização
 - **bcrypt** - Criptografia de senhas
+- **Twilio** - SMS e WhatsApp (API de notificações)
+- **SMTP** - Email (sistema de notificações)
 
 ### Características Principais
 
@@ -25,6 +27,9 @@ O LEP System é uma aplicação backend robusta desenvolvida em Go, utilizando a
 - ✅ **CRUD Completo** - Operações completas para todas as entidades
 - ✅ **Logs de Auditoria** - Rastreamento completo de operações
 - ✅ **Deploy Automatizado** - Configuração Terraform para GCP
+- ✅ **Sistema de Notificações** - SMS, WhatsApp e Email automatizados
+- ✅ **Cron Jobs** - Confirmações 24h e processamento de eventos
+- ✅ **Relatórios Avançados** - Analytics de ocupação, reservas e waitlist
 
 ---
 
@@ -99,6 +104,9 @@ O sistema segue o padrão de **Arquitetura Limpa** com três camadas principais:
 - **🔒 Validação de Headers** - Controle organizacional via `X-Lpe-Organization-Id` e `X-Lpe-Project-Id`
 - **🗑️ Soft Delete** - Remoção lógica mantendo histórico
 - **📊 Logs de Auditoria** - Rastreamento completo de operações
+- **📱 Notificações Automatizadas** - SMS, WhatsApp e Email com templates dinâmicos
+- **⏰ Cron Jobs** - Confirmações 24h antes das reservas e processamento de eventos
+- **📈 Sistema de Relatórios** - Analytics de ocupação, reservas, waitlist e leads
 
 ---
 
@@ -149,12 +157,29 @@ O sistema segue o padrão de **Arquitetura Limpa** com três camadas principais:
 ### Variáveis de Ambiente
 
 ```bash
+# Database
 DB_USER=seu_usuario_postgres
 DB_PASS=sua_senha_postgres
 DB_NAME=nome_do_banco
-INSTANCE_UNIX_SOCKET=/caminho/para/socket (para GCP)
+INSTANCE_UNIX_SOCKET=/caminho/para/socket # Para GCP Cloud SQL
+
+# Autenticação
 JWT_SECRET_PRIVATE_KEY=sua_chave_privada_jwt
 JWT_SECRET_PUBLIC_KEY=sua_chave_publica_jwt
+
+# Twilio (SMS/WhatsApp)
+TWILIO_ACCOUNT_SID=seu_account_sid_twilio
+TWILIO_AUTH_TOKEN=seu_auth_token_twilio
+TWILIO_PHONE_NUMBER=+5511999999999
+
+# SMTP (Email)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=seu_email@gmail.com
+SMTP_PASSWORD=sua_senha_app
+
+# Cron Jobs (opcional)
+ENABLE_CRON_JOBS=true
 ```
 
 ---
@@ -240,12 +265,201 @@ PUT    /customer/:id # Atualizar cliente
 DELETE /customer/:id # Deletar cliente
 ```
 
+### Notificações (Headers obrigatórios: X-Lpe-Organization-Id, X-Lpe-Project-Id)
+```bash
+# Configuração de Notificações
+POST   /notification/config          # Criar/atualizar configuração de evento
+GET    /notification/config/:event   # Buscar configuração por evento
+
+# Templates de Notificação
+POST   /notification/template        # Criar template
+PUT    /notification/template/:id    # Atualizar template
+GET    /notification/templates       # Listar templates
+
+# Envio Manual de Notificações
+POST   /notification/send           # Enviar notificação manual
+
+# Logs e Histórico
+GET    /notification/logs           # Buscar logs de notificações
+GET    /notification/logs/:id       # Buscar log específico
+
+# Webhooks (para integração com Twilio)
+POST   /notification/webhook/twilio/status    # Status de entrega SMS/WhatsApp
+POST   /notification/webhook/twilio/inbound   # Mensagens recebidas
+```
+
+### Relatórios (Headers obrigatórios: X-Lpe-Organization-Id, X-Lpe-Project-Id)
+```bash
+# Relatórios Analíticos
+GET    /reports/occupancy          # Relatório de ocupação de mesas
+GET    /reports/reservations       # Relatório de reservas
+GET    /reports/waitlist           # Relatório de lista de espera
+GET    /reports/leads              # Relatório de leads (futuro)
+
+# Exportação
+GET    /reports/export/csv         # Exportar relatório em CSV
+```
+
 ### Headers Obrigatórios (exceto /login e POST /user)
 ```bash
 X-Lpe-Organization-Id: <organization-uuid>
 X-Lpe-Project-Id: <project-uuid>
 Authorization: Bearer <jwt-token>
 ```
+
+---
+
+## Sistema de Notificações
+
+### Visão Geral
+
+O LEP System inclui um sistema completo de notificações automatizadas que suporta:
+- **SMS** via Twilio
+- **WhatsApp Business** via Twilio API
+- **Email** via SMTP (Gmail, Outlook, etc.)
+
+### Configuração de Notificações
+
+#### 1. Configuração de Eventos
+
+Para configurar quais eventos irão disparar notificações:
+
+```bash
+POST /notification/config
+```
+
+**Payload:**
+```json
+{
+  "event_type": "reservation_create",
+  "enabled": true,
+  "channels": ["sms", "whatsapp", "email"],
+  "delay_minutes": 0
+}
+```
+
+**Eventos Disponíveis:**
+- `reservation_create` - Nova reserva criada
+- `reservation_update` - Reserva atualizada
+- `reservation_cancel` - Reserva cancelada
+- `table_available` - Mesa disponível (waitlist)
+- `confirmation_24h` - Confirmação 24h antes (automático)
+
+#### 2. Criação de Templates
+
+Para criar templates personalizados para cada canal:
+
+```bash
+POST /notification/template
+```
+
+**Payload:**
+```json
+{
+  "channel": "sms",
+  "event_type": "reservation_create",
+  "subject": "Reserva Confirmada",
+  "body": "Olá {{nome}}! Sua reserva para {{pessoas}} pessoas na mesa {{mesa}} está confirmada para {{data_hora}}. Até breve!"
+}
+```
+
+**Variáveis Disponíveis:**
+- `{{nome}}` ou `{{cliente}}` - Nome do cliente
+- `{{mesa}}` ou `{{numero_mesa}}` - Número da mesa
+- `{{data}}` - Data (DD/MM/YYYY)
+- `{{hora}}` - Hora (HH:MM)
+- `{{data_hora}}` - Data e hora completa
+- `{{pessoas}}` - Quantidade de pessoas
+- `{{tempo_espera}}` - Tempo estimado de espera
+- `{{status}}` - Status da reserva
+
+#### 3. Envio Manual de Notificações
+
+Para enviar notificações pontuais:
+
+```bash
+POST /notification/send
+```
+
+**Payload:**
+```json
+{
+  "event_type": "reservation_create",
+  "entity_type": "reservation",
+  "entity_id": "uuid-da-reserva",
+  "recipient": "+5511999999999",
+  "channel": "sms",
+  "variables": {
+    "nome": "João Silva",
+    "mesa": "5",
+    "data_hora": "25/12/2023 às 19:30"
+  }
+}
+```
+
+### Configuração de Webhooks
+
+#### Twilio Webhooks
+
+Para receber atualizações de status e mensagens inbound, configure os webhooks no Twilio:
+
+**Status de Entrega:**
+```
+URL: https://seu-dominio.com/notification/webhook/twilio/status
+Método: POST
+```
+
+**Mensagens Recebidas:**
+```
+URL: https://seu-dominio.com/notification/webhook/twilio/inbound
+Método: POST
+```
+
+### Configuração do Projeto
+
+Para habilitar notificações em um projeto específico, utilize as configurações:
+
+```json
+{
+  "notify_reservation_create": true,
+  "notify_reservation_update": true,
+  "notify_reservation_cancel": true,
+  "notify_table_available": true,
+  "notify_confirmation_24h": true
+}
+```
+
+### Logs e Monitoramento
+
+Para acompanhar o envio de notificações:
+
+```bash
+GET /notification/logs?limit=50
+```
+
+**Resposta:**
+```json
+{
+  "logs": [
+    {
+      "id": "uuid",
+      "event_type": "reservation_create",
+      "channel": "sms",
+      "recipient": "+5511999999999",
+      "status": "sent",
+      "external_id": "twilio-message-id",
+      "created_at": "2023-12-25T10:00:00Z",
+      "delivered_at": "2023-12-25T10:00:05Z"
+    }
+  ]
+}
+```
+
+**Status Possíveis:**
+- `sent` - Enviado com sucesso
+- `delivered` - Entregue ao destinatário
+- `failed` - Falha no envio
+- `pending` - Aguardando processamento
 
 ---
 

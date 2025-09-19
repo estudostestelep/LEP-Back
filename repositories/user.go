@@ -14,7 +14,8 @@ type resourceUser struct {
 type IUserRepository interface {
 	GetUserById(id string) (*models.User, error)
 	GetUserByEmail(email string) (*models.User, error)
-	GetUsersByGroup(groupId string) ([]models.User, error)
+	GetUsersByGroup(groupId string) ([]models.User, error)  // Deprecated: usar GetUsersByRole
+	GetUsersByRole(role string) ([]models.User, error)
 	ListUsersByOrganizationAndProject(orgId, projectId string) ([]models.User, error)
 	CreateUser(user *models.User) error
 	UpdateUser(user *models.User) error
@@ -46,13 +47,21 @@ func (r *resourceUser) GetUserByEmail(email string) (*models.User, error) {
 
 func (r *resourceUser) GetUsersByGroup(groupId string) ([]models.User, error) {
 	var users []models.User
-	err := r.db.Where("group_member = ? AND deleted_at IS NULL", groupId).Find(&users).Error
+	// Corrigido: usar 'role' que existe no modelo User ao invés de 'group_member' inexistente
+	err := r.db.Where("role = ? AND deleted_at IS NULL", groupId).Find(&users).Error
+	return users, err
+}
+
+func (r *resourceUser) GetUsersByRole(role string) ([]models.User, error) {
+	var users []models.User
+	err := r.db.Where("role = ? AND deleted_at IS NULL", role).Find(&users).Error
 	return users, err
 }
 
 func (r *resourceUser) ListUsersByOrganizationAndProject(orgId, projectId string) ([]models.User, error) {
 	var users []models.User
-	err := r.db.Where("org_id = ? AND project_id = ? AND deleted_at IS NULL", orgId, projectId).Find(&users).Error
+	// Corrigido: usar nomes corretos dos campos no banco
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", orgId, projectId).Find(&users).Error
 	return users, err
 }
 

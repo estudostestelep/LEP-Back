@@ -3,6 +3,8 @@ package handler
 import (
 	"lep/repositories"
 	"lep/repositories/models"
+
+	"github.com/google/uuid"
 )
 
 type resourceProducts struct {
@@ -12,6 +14,7 @@ type resourceProducts struct {
 type IHandlerProducts interface {
 	GetProduct(id int) (*models.Product, error)
 	GetProductByPurchase(id string) ([]models.Product, error)
+	ListProducts(orgId, projectId string) ([]models.Product, error)
 	CreateProduct(product *models.Product) error
 	UpdateProduct(updatedProduct *models.Product) error
 	DeleteProduct(id int) error
@@ -52,6 +55,25 @@ func (r *resourceProducts) DeleteProduct(id int) error {
 
 func (r *resourceProducts) GetProductByPurchase(id string) ([]models.Product, error) {
 	resp, err := r.repo.Products.GetProductByPurchase(id)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (r *resourceProducts) ListProducts(orgId, projectId string) ([]models.Product, error) {
+	// Converter strings para UUID
+	orgUUID, err := uuid.Parse(orgId)
+	if err != nil {
+		return nil, err
+	}
+
+	projectUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := r.repo.Products.ListProducts(orgUUID, projectUUID)
 	if err != nil {
 		return nil, err
 	}

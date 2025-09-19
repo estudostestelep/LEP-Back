@@ -17,6 +17,7 @@ type ResourceProducts struct {
 type IServerProducts interface {
 	ServiceGetProduct(c *gin.Context)
 	ServiceGetProductByPurchase(c *gin.Context)
+	ServiceListProducts(c *gin.Context)
 	ServiceCreateProduct(c *gin.Context)
 	ServiceUpdateProduct(c *gin.Context)
 	ServiceDeleteProduct(c *gin.Context)
@@ -91,6 +92,20 @@ func (r *ResourceProducts) ServiceUpdateProduct(c *gin.Context) {
 	}
 
 	c.String(http.StatusOK, "Produto atualizado com sucesso")
+}
+
+func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	products, err := r.handler.HandlerProducts.ListProducts(organizationId, projectId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing products"})
+		return
+	}
+
+	c.JSON(http.StatusOK, products)
 }
 
 func (r *ResourceProducts) ServiceDeleteProduct(c *gin.Context) {

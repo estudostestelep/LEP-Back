@@ -17,6 +17,7 @@ type ResourceUsers struct {
 type IServerUsers interface {
 	ServiceGetUser(c *gin.Context)
 	ServiceGetUserByGroup(c *gin.Context)
+	ServiceListUsers(c *gin.Context)
 	ServiceCreateUser(c *gin.Context)
 	ServiceUpdateUser(c *gin.Context)
 	ServiceDeleteUser(c *gin.Context)
@@ -129,6 +130,20 @@ func (r *ResourceUsers) ServiceUpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, updatedUser)
+}
+
+func (r *ResourceUsers) ServiceListUsers(c *gin.Context) {
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	resp, err := r.handler.ListUsers(organizationId, projectId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing users"})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (r *ResourceUsers) ServiceDeleteUser(c *gin.Context) {
