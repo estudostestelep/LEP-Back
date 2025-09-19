@@ -1,0 +1,33 @@
+# GCP Configuration
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# Environment Configuration
+environment = "dev"  # dev, staging, prod
+app_name    = "lep-system"
+
+# Database Configuration
+database_tier     = "db-f1-micro"  # For production: db-custom-2-4096
+database_version  = "POSTGRES_15"
+database_user     = "lep_user"
+database_name     = "lep_db"
+database_password = "your-secure-database-password"
+
+# Application Configuration
+max_instances    = 2  # For production: 10
+container_image  = "gcr.io/your-project/lep-system:latest"
+
+# Security Configuration
+jwt_secret_private_key = "your-jwt-private-key-here"
+jwt_secret_public_key  = "your-jwt-public-key-here"
+
+# Safety Configuration
+deletion_protection = true  # Set to false for dev/staging environments
+
+# APIs to enable (default is fine for most cases)
+# enable_apis = [
+#   "secretmanager.googleapis.com",
+#   "sqladmin.googleapis.com",
+#   "run.googleapis.com",
+#   "cloudbuild.googleapis.com"
+# ]
