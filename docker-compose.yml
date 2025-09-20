@@ -1,0 +1,133 @@
+# LEP System - Local Development Docker Compose
+# This file sets up the complete local development environment
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: lep-postgres
+    environment:
+      POSTGRES_DB: lep_database
+      POSTGRES_USER: lep_user
+      POSTGRES_PASSWORD: lep_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - lep-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lep_user -d lep_database"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (optional - for future caching)
+  redis:
+    image: redis:7-alpine
+    container_name: lep-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - lep-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MailHog (local SMTP testing)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: lep-mailhog
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web interface
+    networks:
+      - lep-network
+
+  # LEP Backend Application (development)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: lep-backend
+    environment:
+      - ENVIRONMENT=local-dev
+      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=lep_user
+      - DB_PASS=lep_password
+      - DB_NAME=lep_database
+      - DB_SSL_MODE=disable
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_USERNAME=
+      - SMTP_PASSWORD=
+      - ENABLE_CRON_JOBS=false
+      - GIN_MODE=debug
+      - LOG_LEVEL=debug
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - go_mod_cache:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lep-network
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          ignore:
+            - node_modules/
+            - .git/
+            - bin/
+            - tmp/
+        - action: rebuild
+          path: go.mod
+        - action: rebuild
+          path: go.sum
+
+  # PgAdmin (database management interface)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: lep-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@lep.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - lep-network
+
+networks:
+  lep-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  go_mod_cache:
+    driver: local

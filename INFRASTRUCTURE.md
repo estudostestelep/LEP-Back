@@ -55,7 +55,7 @@ Este guia fornece instruções detalhadas para configurar e implantar a infraest
 
 1. **Crie um projeto GCP**
    ```bash
-   gcloud projects create SEU-PROJECT-ID --name="LEP Backend"
+   gcloud projects create SEU-PROJECT-ID --name="leps"
    gcloud config set project SEU-PROJECT-ID
    ```
 
@@ -90,7 +90,9 @@ chmod +x scripts/setup-secrets.sh
 ```powershell
 # Execute como Administrador se necessário
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-.\scripts\setup-secrets.ps1 -ProjectId "SEU-PROJECT-ID" -Environment "dev"
+.\scripts\setup-secrets.ps1 -ProjectId "leps-472702" -Environment "dev"
+.\scripts\setup-secrets.sh -ProjectId "leps-472702" -Environment "dev"
+.\scripts\deploy.ps1 -ProjectId "leps-472702" -Environment "dev"
 ```
 
 Este script irá:

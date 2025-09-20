@@ -86,12 +86,10 @@ resource "google_sql_database_instance" "lep_postgres" {
       start_time                     = "03:00"
       location                       = var.region
       point_in_time_recovery_enabled = true
-      retained_backups               = 7
     }
 
     ip_configuration {
       ipv4_enabled = false
-      require_ssl  = true
     }
 
     database_flags {

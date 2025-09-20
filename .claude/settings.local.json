@@ -6,7 +6,8 @@
       "Bash(go run:*)",
       "Bash(timeout 3 go run .)",
       "mcp__ide__getDiagnostics",
-      "Bash(go vet:*)"
+      "Bash(go vet:*)",
+      "Bash(chmod +x scripts/*.sh)"
     ],
     "deny": [],
     "ask": []
