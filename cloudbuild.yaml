@@ -3,7 +3,7 @@
 
 steps:
   # Step 1: Run tests
-  - name: 'golang:1.21.5'
+  - name: 'golang:1.22.5'
     entrypoint: 'bash'
     args:
       - '-c'

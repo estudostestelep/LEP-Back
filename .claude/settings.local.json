@@ -7,7 +7,14 @@
       "Bash(timeout 3 go run .)",
       "mcp__ide__getDiagnostics",
       "Bash(go vet:*)",
-      "Bash(chmod +x scripts/*.sh)"
+      "Bash(chmod +x scripts/*.sh)",
+      "Bash(timeout 5 go run main.go)",
+      "Bash(docker-compose up:*)",
+      "Bash(timeout 10 go run main.go)",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(timeout 15 go run main.go)",
+      "Bash(./lep.exe)"
     ],
     "deny": [],
     "ask": []

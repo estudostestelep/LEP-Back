@@ -35,7 +35,7 @@ func main() {
 	initializeCronJobs()
 
 	// Setup middlewares and routes
-	setupMiddlewares(r)
+	//setupMiddlewares(r)
 	setupRoutes(r)
 
 	// Start server

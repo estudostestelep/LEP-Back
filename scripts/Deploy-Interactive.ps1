@@ -113,13 +113,13 @@ function Test-Dependencies {
 
     $missingDeps = @()
 
-    switch ($SelectedEnv) {
+    switch -Wildcard ($SelectedEnv) {
         "local-dev" {
             if (-not (Test-Command "docker")) { $missingDeps += "docker" }
             if (-not (Test-Command "docker-compose")) { $missingDeps += "docker-compose" }
             if (-not (Test-Command "go")) { $missingDeps += "go" }
         }
-        { $_ -like "gcp-*" } {
+        "gcp-*" {
             if (-not (Test-Command "gcloud")) { $missingDeps += "gcloud" }
             if (-not (Test-Command "terraform")) { $missingDeps += "terraform" }
             if (-not (Test-Command "docker")) { $missingDeps += "docker" }
@@ -321,9 +321,8 @@ function Deploy-LocalDev {
     }
 }
 
-# GCP deployment
 function Deploy-GCP {
-    $envSuffix = switch ($SelectedEnv) {
+    $envSuffix = switch -Wildcard ($SelectedEnv) {
         "gcp-dev" { "dev" }
         "gcp-stage" { "staging" }
         "gcp-prd" { "prod" }
@@ -446,9 +445,9 @@ function Main {
     Select-Environment
 
     # Set total steps based on environment
-    switch ($SelectedEnv) {
+    switch -Wildcard ($SelectedEnv) {
         "local-dev" { $global:TotalSteps = 6 }
-        { $_ -like "gcp-*" } { $global:TotalSteps = 10 }
+        "gcp-*"     { $global:TotalSteps = 10 }
     }
 
     Test-Dependencies
@@ -458,9 +457,10 @@ function Main {
     Write-Info "🚀 Starting deployment to $SelectedEnv"
     Write-Host ""
 
-    switch ($SelectedEnv) {
+    switch -Wildcard ($SelectedEnv) {
         "local-dev" { Deploy-LocalDev }
-        { $_ -like "gcp-*" } { Deploy-GCP }
+        "gcp-*"     { Deploy-GCP }
+        default     { Write-Error "Unsupported environment: $SelectedEnv"; exit 1 }
     }
 }
 

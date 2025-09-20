@@ -89,14 +89,14 @@ LEP-Back/
 
 ### **local-dev**
 - ✅ Docker & Docker Compose
-- ✅ Go 1.21+
+- ✅ Go 1.22+
 - ✅ Arquivo `environments/local-dev.env`
 
 ### **gcp-dev**
 - ✅ Google Cloud CLI
 - ✅ Terraform
 - ✅ Docker
-- ✅ Go 1.21+
+- ✅ Go 1.22+
 - ✅ Arquivo `environments/gcp-dev.tfvars`
 - ✅ JWT keys (`.pem` files)
 - ✅ GCP Project: `leps-472702`

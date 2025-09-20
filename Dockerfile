@@ -2,7 +2,7 @@
 # This Dockerfile is optimized for security and small image size
 
 # Build stage
-FROM golang:1.21.5-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Install necessary packages for building
 RUN apk add --no-cache git ca-certificates tzdata

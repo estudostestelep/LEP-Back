@@ -159,6 +159,10 @@ validate_environment_vars() {
             if [ ! -f "$config_file" ]; then
                 missing_vars+=("environments/local-dev.env file")
             fi
+            # For local dev, we don't require JWT files as we use simple keys
+            if ! command -v docker >/dev/null 2>&1; then
+                missing_vars+=("Docker not running")
+            fi
             ;;
         "gcp-dev")
             config_file="environments/gcp-dev.tfvars"
@@ -255,7 +259,13 @@ deploy_local_dev() {
     execute_command "docker-compose down -v" "Cleaning existing containers"
     REMAINING_COMMANDS=("${REMAINING_COMMANDS[@]:1}")
 
-    execute_command "cp environments/local-dev.env .env" "Setting up environment file"
+    # Remove problematic .env file if it exists
+    if [ -f ".env" ]; then
+        log_info "Removing existing .env file to prevent conflicts"
+        rm -f .env
+    fi
+
+    log_info "Docker Compose will use environment variables defined in docker-compose.yml"
 
     execute_command "docker-compose build --no-cache app" "Building application container"
     REMAINING_COMMANDS=("${REMAINING_COMMANDS[@]:1}")

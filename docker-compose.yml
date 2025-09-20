@@ -74,11 +74,17 @@ services:
       - ENABLE_CRON_JOBS=false
       - GIN_MODE=debug
       - LOG_LEVEL=debug
+      # Use simple keys for local development
+      - JWT_SECRET_PRIVATE_KEY=local-dev-simple-private-key-for-testing-only
+      - JWT_SECRET_PUBLIC_KEY=local-dev-simple-public-key-for-testing-only
     ports:
       - "8080:8080"
     volumes:
       - .:/app
       - go_mod_cache:/go/pkg/mod
+      # Mount JWT files if they exist (optional for local dev)
+      - ./jwt_private_key.pem:/app/jwt_private_key.pem:ro
+      - ./jwt_public_key.pem:/app/jwt_public_key.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
