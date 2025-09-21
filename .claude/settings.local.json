@@ -14,7 +14,17 @@
       "Bash(curl:*)",
       "Bash(cat:*)",
       "Bash(timeout 15 go run main.go)",
-      "Bash(./lep.exe)"
+      "Bash(./lep.exe)",
+      "Bash(C:Gobingo.exe version)",
+      "Bash(\"C:\\Go\\bin\\go.exe\" version)",
+      "Bash(\"C:\\Go\\bin\\go.exe\" build .)",
+      "Bash(\"C:\\Go\\bin\\go.exe\" run main.go)",
+      "Bash(set ENVIRONMENT=local-dev)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose:*)",
+      "Bash(chmod:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

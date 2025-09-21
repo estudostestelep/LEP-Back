@@ -12,17 +12,23 @@ type resourceProducts struct {
 }
 
 type IHandlerProducts interface {
-	GetProduct(id int) (*models.Product, error)
+	GetProduct(id string) (*models.Product, error)
 	GetProductByPurchase(id string) ([]models.Product, error)
 	ListProducts(orgId, projectId string) ([]models.Product, error)
 	CreateProduct(product *models.Product) error
 	UpdateProduct(updatedProduct *models.Product) error
-	DeleteProduct(id int) error
+	DeleteProduct(id string) error
 	DeleteProductsByPurchase(purchaseId string) error
 }
 
-func (r *resourceProducts) GetProduct(id int) (*models.Product, error) {
-	resp, err := r.repo.Products.GetProduct(id)
+func (r *resourceProducts) GetProduct(id string) (*models.Product, error) {
+	// Validar UUID
+	productId, err := uuid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := r.repo.Products.GetProductById(productId)
 	if err != nil {
 		return nil, err
 	}
@@ -30,6 +36,7 @@ func (r *resourceProducts) GetProduct(id int) (*models.Product, error) {
 }
 
 func (r *resourceProducts) CreateProduct(product *models.Product) error {
+	product.Id = uuid.New()
 	err := r.repo.Products.CreateProduct(product)
 	if err != nil {
 		return err
@@ -45,8 +52,14 @@ func (r *resourceProducts) UpdateProduct(updatedProduct *models.Product) error {
 	return nil
 }
 
-func (r *resourceProducts) DeleteProduct(id int) error {
-	err := r.repo.Products.DeleteProduct(id)
+func (r *resourceProducts) DeleteProduct(id string) error {
+	// Validar UUID
+	productId, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+
+	err = r.repo.Products.SoftDeleteProduct(productId)
 	if err != nil {
 		return err
 	}

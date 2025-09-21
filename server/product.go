@@ -1,13 +1,14 @@
 package server
 
 import (
-	"fmt"
 	"lep/handler"
 	"lep/repositories/models"
+	"lep/resource/validation"
+	"lep/utils"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ResourceProducts struct {
@@ -24,20 +25,23 @@ type IServerProducts interface {
 }
 
 func (r *ResourceProducts) ServiceGetProduct(c *gin.Context) {
-	id := c.Param("id")
-	intNumber, err := strconv.Atoi(id)
+	idStr := c.Param("id")
+
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
 	if err != nil {
-		fmt.Println("Erro ao converter string para int:", err)
+		utils.SendBadRequestError(c, "Invalid product ID format", err)
 		return
 	}
-	resp, err := r.handler.HandlerProducts.GetProduct(intNumber)
+
+	resp, err := r.handler.HandlerProducts.GetProduct(idStr)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao obter o produto")
+		utils.SendInternalServerError(c, "Error getting product", err)
 		return
 	}
 
 	if resp == nil {
-		c.String(http.StatusNotFound, "Produto não encontrado")
+		utils.SendNotFoundError(c, "Product")
 		return
 	}
 
@@ -48,12 +52,12 @@ func (r *ResourceProducts) ServiceGetProductByPurchase(c *gin.Context) {
 	id := c.Param("id")
 	resp, err := r.handler.HandlerProducts.GetProductByPurchase(id)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao obter o produto")
+		utils.SendInternalServerError(c, "Error getting products by purchase", err)
 		return
 	}
 
 	if resp == nil {
-		c.String(http.StatusNotFound, "Produto não encontrado")
+		utils.SendNotFoundError(c, "Products")
 		return
 	}
 
@@ -64,34 +68,84 @@ func (r *ResourceProducts) ServiceCreateProduct(c *gin.Context) {
 	var newProduct models.Product
 	err := c.BindJSON(&newProduct)
 	if err != nil {
-		c.String(http.StatusBadRequest, "Erro ao decodificar dados do produto")
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+	newProduct.OrganizationId, err = uuid.Parse(c.GetHeader("X-Lpe-Organization-Id"))
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing organization ID", err)
+		return
+	}
+	newProduct.ProjectId, err = uuid.Parse(c.GetHeader("X-Lpe-Project-Id"))
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing project ID", err)
+		return
+	}
+	// Validações estruturadas
+	if err := validation.CreateProductValidation(&newProduct); err != nil {
+		utils.SendValidationError(c, "Validation failed", err)
 		return
 	}
 
 	err = r.handler.HandlerProducts.CreateProduct(&newProduct)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao criar o produto")
+		utils.SendInternalServerError(c, "Error creating product", err)
 		return
 	}
 
-	c.String(http.StatusCreated, "Produto criado com sucesso")
+	utils.SendCreatedSuccess(c, "Product created successfully", newProduct)
 }
 
 func (r *ResourceProducts) ServiceUpdateProduct(c *gin.Context) {
-	var updatedProduct models.Product
-	err := c.BindJSON(&updatedProduct)
+	idStr := c.Param("id")
+
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
 	if err != nil {
-		c.String(http.StatusBadRequest, "Erro ao decodificar dados do produto")
+		utils.SendBadRequestError(c, "Invalid product ID format", err)
+		return
+	}
+
+	var updatedProduct models.Product
+	err = c.BindJSON(&updatedProduct)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	updatedProduct.OrganizationId, err = uuid.Parse(organizationId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing organization ID", err)
+		return
+	}
+	updatedProduct.ProjectId, err = uuid.Parse(projectId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing project ID", err)
+		return
+	}
+	updatedProduct.Id, err = uuid.Parse(idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing product ID", err)
+		return
+	}
+
+	// Validações estruturadas
+	if err := validation.UpdateProductValidation(&updatedProduct); err != nil {
+		utils.SendValidationError(c, "Validation failed", err)
 		return
 	}
 
 	err = r.handler.HandlerProducts.UpdateProduct(&updatedProduct)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao atualizar o produto")
+		utils.SendInternalServerError(c, "Error updating product", err)
 		return
 	}
 
-	c.String(http.StatusOK, "Produto atualizado com sucesso")
+	utils.SendOKSuccess(c, "Product updated successfully", updatedProduct)
 }
 
 func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
@@ -101,7 +155,7 @@ func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
 
 	products, err := r.handler.HandlerProducts.ListProducts(organizationId, projectId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing products"})
+		utils.SendInternalServerError(c, "Error listing products", err)
 		return
 	}
 
@@ -109,20 +163,22 @@ func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
 }
 
 func (r *ResourceProducts) ServiceDeleteProduct(c *gin.Context) {
-	id := c.Param("id")
-	intNumber, err := strconv.Atoi(id)
+	idStr := c.Param("id")
+
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
 	if err != nil {
-		fmt.Println("Erro ao converter string para int:", err)
+		utils.SendBadRequestError(c, "Invalid product ID format", err)
 		return
 	}
 
-	err = r.handler.HandlerProducts.DeleteProduct(intNumber)
+	err = r.handler.HandlerProducts.DeleteProduct(idStr)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao excluir o produto")
+		utils.SendInternalServerError(c, "Error deleting product", err)
 		return
 	}
 
-	c.String(http.StatusOK, "Produto excluído com sucesso")
+	utils.SendOKSuccess(c, "Product deleted successfully", nil)
 }
 
 func NewSourceServerProducts(handler *handler.Handlers) IServerProducts {

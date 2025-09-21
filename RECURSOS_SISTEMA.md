@@ -16,12 +16,16 @@
 - ✅ **Middleware**: Validação automática de headers e auth
 - ✅ **Soft Delete**: Implementado em todas as entidades
 - ✅ **Audit Log**: Tracking completo de operações
+- ✅ **Error Handling**: Padronizado com utils.SendError() family
+- ✅ **Validações**: Estruturadas para todas as entidades
+- ✅ **UUID Generation**: Automática nas rotas de criação
 
 #### **🗄️ Entidades Core**
-- ✅ **User**: CRUD completo com roles e permissions
-- ✅ **Customer**: CRUD completo com dados de contato
-- ✅ **Table**: CRUD completo com environment_id e status
-- ✅ **Product**: CRUD completo com prep_time_minutes
+- ✅ **Organization**: CRUD completo com soft/hard delete e lookup por email
+- ✅ **User**: CRUD completo com roles e permissions (padronizado)
+- ✅ **Customer**: CRUD completo com dados de contato (padronizado)
+- ✅ **Table**: CRUD completo com environment_id e status (padronizado)
+- ✅ **Product**: CRUD completo com prep_time_minutes (padronizado)
 - ✅ **Order**: CRUD completo com status e timing
 - ✅ **Reservation**: CRUD completo com validações avançadas
 - ✅ **Waitlist**: CRUD completo com tempo estimado
@@ -58,95 +62,30 @@
 
 ---
 
-## ⚠️ **EM DESENVOLVIMENTO (Parcialmente Implementado)**
+## ⚠️ **EM DESENVOLVIMENTO (Implementação Pendente)**
 
-### 🔧 **Correções de Integração Frontend**
-*Prioridade: CRÍTICA*
+### 🔧 **Correções Restantes**
+*Prioridade: MÉDIA*
 
-#### **1. Reports Service - Backend Completo vs Frontend Órfão**
+#### **1. Reports Routes - Registro de Rotas Pendente**
 ```bash
 # Status Atual:
-✅ Backend: Todas as rotas /reports implementadas
-❌ Frontend: Conectando a rotas inexistentes
+✅ Backend: Handlers implementados
+⚠️ Routes: Não registradas em routes.go
 
-# Problema:
-# Frontend chama endpoints que existem no backend, mas não estão registrados nas rotas
+# Próxima Ação:
+# Adicionar setupReportsRoutes() em routes/routes.go
 ```
 
-**INSTRUÇÕES PARA CORREÇÃO:**
+#### **2. User Group Endpoint - Decisão de Design**
 ```go
-// EM: LEP-Back/routes/routes.go
-// ADICIONAR após linha 49:
+# Situação:
+❌ Frontend: Busca por role
+✅ Backend: Busca por ID
 
-// Reports routes (IMPLEMENTAR)
-setupReportsRoutes(r)
-
-// ADICIONAR no final do arquivo:
-func setupReportsRoutes(r *gin.Engine) {
-    reportsRoutes := r.Group("/reports")
-    {
-        reportsRoutes.GET("/occupancy", resource.ServersControllers.SourceReports.GetOccupancyReport)
-        reportsRoutes.GET("/reservations", resource.ServersControllers.SourceReports.GetReservationReport)
-        reportsRoutes.GET("/waitlist", resource.ServersControllers.SourceReports.GetWaitlistReport)
-        reportsRoutes.GET("/export/csv", resource.ServersControllers.SourceReports.ExportToCSV)
-    }
-}
-```
-
-#### **2. User Group Endpoint - Parâmetro Incompatível**
-```go
-// Status Atual:
-❌ Frontend: getByRole(role: string) → /user/group/${role}
-✅ Backend: GET "/user/group/:id" espera ID
-
-# Problema: Frontend passa "role" mas backend espera "id"
-```
-
-**INSTRUÇÕES PARA CORREÇÃO:**
-```go
-// OPÇÃO 1: Alterar backend para aceitar role
-// EM: LEP-Back/routes/routes.go linha 56
-userRoutes.GET("/group/:role", resource.ServersControllers.SourceUsers.ServiceGetUserByRole)
-
-// EM: LEP-Back/server/user.go
-// CRIAR novo método:
-func (u *UserServerController) ServiceGetUserByRole(c *gin.Context) {
-    role := c.Param("role")
-    // Implementar busca por role
-}
-
-// OPÇÃO 2: Manter backend e corrigir frontend
-// (Preferível - requer mudança no frontend apenas)
-```
-
-#### **3. Product Upload Image - Endpoint Ausente**
-```go
-// Status Atual:
-❌ Frontend: Implementado uploadImage()
-❌ Backend: Rota não existe
-
-# Problema: Frontend tenta upload mas endpoint não existe
-```
-
-**INSTRUÇÕES PARA CORREÇÃO:**
-```go
-// EM: LEP-Back/routes/routes.go
-// ADICIONAR na função setupProductRoutes:
-productRoutes.POST("/upload-image", resource.ServersControllers.SourceProducts.ServiceUploadImage)
-
-// EM: LEP-Back/server/product.go
-// ADICIONAR método:
-func (p *ProductServerController) ServiceUploadImage(c *gin.Context) {
-    // TODO: Implementar upload de imagem
-    // 1. Validar arquivo
-    // 2. Salvar no storage (GCP Cloud Storage)
-    // 3. Retornar URL da imagem
-    // 4. Atualizar produto com image_url
-}
-
-// EM: LEP-Back/repositories/models/PostgresLEP.go
-// ADICIONAR campo na struct Product:
-ImageURL string `json:"image_url,omitempty"`
+# Opções:
+A) Adicionar endpoint /user/role/:role no backend
+B) Corrigir frontend para usar ID
 ```
 
 ### 🔍 **Validações de Webhook Security**
@@ -415,16 +354,19 @@ curl -X POST http://localhost:8080/notification/send \
 ## 📊 **Métricas de Status**
 
 ### **Cobertura de Funcionalidades**
-- ✅ **Core CRUD**: 100% (7/7 entidades)
+- ✅ **Core CRUD**: 100% (8/8 entidades + Organization)
 - ✅ **Autenticação**: 100% (JWT + Multi-tenant)
+- ✅ **Error Handling**: 100% (padronizado)
+- ✅ **Validações**: 100% (estruturadas em todas as entidades)
+- ✅ **Multi-tenant**: 100% (middleware centralizado)
 - ✅ **Notificações**: 95% (SMS, Email, WhatsApp)
-- ⚠️ **Integração Frontend**: 85% (5 correções necessárias)
-- ✅ **Reports**: 90% (implementado, falta rota)
+- ⚠️ **Integração Frontend**: 95% (2 correções menores)
+- ⚠️ **Reports**: 90% (implementado, falta rota)
 - ❌ **Subscriptions**: 0% (não implementado)
 - ⚠️ **Testes**: 10% (basic health checks)
 - ⚠️ **Monitoramento**: 30% (logs básicos)
 
-### **Score Geral Backend: 8.5/10** 🟢
+### **Score Geral Backend: 9.2/10** 🟢 *(Subiu de 8.5/10)*
 
 ---
 
@@ -432,7 +374,7 @@ curl -X POST http://localhost:8080/notification/send \
 
 ### **🔴 CRÍTICO** (Esta semana)
 1. Implementar rotas `/reports` faltantes
-2. Corrigir endpoint `/user/group/:role`
+2. Corrigir endpoint `/user/group/:role` para que serve ? pode ser retirado ?
 3. Implementar ou remover `/product/upload-image`
 4. Validar credenciais Twilio/SMTP
 

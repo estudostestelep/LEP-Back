@@ -18,6 +18,9 @@ func Start(db *gorm.DB) {
 		&models.BannedLists{},
 		&models.LoggedLists{},
 
+		// Base organization model (must be first due to FK relationships)
+		&models.Organization{},
+
 		// Core models
 		&models.User{},
 		&models.Customer{},

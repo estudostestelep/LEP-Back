@@ -1,0 +1,35 @@
+# Offline Development Dockerfile
+# This version works without internet connectivity by using vendor directory
+
+FROM golang:1.23-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Set Go environment to avoid network calls
+ENV GOPROXY=off
+ENV GO111MODULE=on
+ENV CGO_ENABLED=0
+
+# Copy everything first (including vendor if it exists)
+COPY . .
+
+# Try to download dependencies, but continue if it fails
+RUN go mod download || echo "Warning: Could not download dependencies, using vendor or cache"
+
+# Verify that we can build (this will use vendor or cached modules)
+RUN go mod verify || echo "Warning: Module verification failed"
+
+# Create log directory
+RUN mkdir -p /app/logs
+
+# Expose port
+EXPOSE 8080
+
+# Set environment for development
+ENV GO_ENV=development
+ENV PORT=8080
+ENV GIN_MODE=debug
+
+# Default command
+CMD ["go", "run", "main.go"]

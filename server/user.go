@@ -1,13 +1,14 @@
 package server
 
 import (
-	"fmt"
 	"lep/handler"
 	"lep/repositories/models"
+	"lep/resource/validation"
+	"lep/utils"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ResourceUsers struct {
@@ -24,31 +25,33 @@ type IServerUsers interface {
 }
 
 func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
-		})
-		return
-	}
+	idStr := c.Param("id")
 
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
-		})
-		return
-	}
-
-	id := c.Param("id")
-	resp, err := r.handler.GetUser(id)
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user"})
+		utils.SendBadRequestError(c, "Invalid user ID format", err)
+		return
+	}
+
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	resp, err := r.handler.GetUser(idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting user", err)
 		return
 	}
 
 	if resp == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		utils.SendNotFoundError(c, "User")
+		return
+	}
+
+	// Verificar se o usuário pertence à organização/projeto
+	if resp.OrganizationId.String() != organizationId || resp.ProjectId.String() != projectId {
+		utils.SendNotFoundError(c, "User")
 		return
 	}
 
@@ -56,26 +59,11 @@ func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
 }
 
 func (r *ResourceUsers) ServiceGetUserByGroup(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
-		})
-		return
-	}
-
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
-		})
-		return
-	}
-
 	id := c.Param("id")
+
 	resp, err := r.handler.GetUserByGroup(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting users by group"})
+		utils.SendInternalServerError(c, "Error getting users by group", err)
 		return
 	}
 
@@ -86,50 +74,99 @@ func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 	var newUser models.User
 	err := c.BindJSON(&newUser)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+
+	// Para criação de usuário, pode ser público (sem headers) ou protegido
+	// Se headers existem, usar; senão, validar que são fornecidos no body
+	orgHeader := c.GetHeader("X-Lpe-Organization-Id")
+	projHeader := c.GetHeader("X-Lpe-Project-Id")
+
+	if orgHeader != "" && projHeader != "" {
+		// Rota protegida - usar headers
+		newUser.OrganizationId, err = uuid.Parse(orgHeader)
+		if err != nil {
+			utils.SendBadRequestError(c, "Invalid organization ID format", err)
+			return
+		}
+		newUser.ProjectId, err = uuid.Parse(projHeader)
+		if err != nil {
+			utils.SendBadRequestError(c, "Invalid project ID format", err)
+			return
+		}
+	}
+
+	// Gerar ID se não fornecido
+	if newUser.Id == uuid.Nil {
+		newUser.Id = uuid.New()
+	}
+
+	// Validações estruturadas
+	if err := validation.CreateUserValidation(&newUser); err != nil {
+		utils.SendValidationError(c, "Validation failed", err)
 		return
 	}
 
 	err = r.handler.CreateUser(&newUser)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.SendInternalServerError(c, "Error creating user", err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, newUser)
+	utils.SendCreatedSuccess(c, "User created successfully", newUser)
 }
 
 func (r *ResourceUsers) ServiceUpdateUser(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
-		})
-		return
-	}
+	idStr := c.Param("id")
 
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
-		})
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid user ID format", err)
 		return
 	}
 
 	var updatedUser models.User
-	err := c.BindJSON(&updatedUser)
+	err = c.BindJSON(&updatedUser)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	updatedUser.OrganizationId, err = uuid.Parse(organizationId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing organization ID", err)
+		return
+	}
+	updatedUser.ProjectId, err = uuid.Parse(projectId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing project ID", err)
+		return
+	}
+	updatedUser.Id, err = uuid.Parse(idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing user ID", err)
+		return
+	}
+
+	// Validações estruturadas
+	if err := validation.UpdateUserValidation(&updatedUser); err != nil {
+		utils.SendValidationError(c, "Validation failed", err)
 		return
 	}
 
 	err = r.handler.UpdateUser(&updatedUser)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.SendInternalServerError(c, "Error updating user", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, updatedUser)
+	utils.SendOKSuccess(c, "User updated successfully", updatedUser)
 }
 
 func (r *ResourceUsers) ServiceListUsers(c *gin.Context) {
@@ -147,30 +184,22 @@ func (r *ResourceUsers) ServiceListUsers(c *gin.Context) {
 }
 
 func (r *ResourceUsers) ServiceDeleteUser(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Organization-Id' cannot be empty. Some required params are empty"),
-		})
-		return
-	}
+	idStr := c.Param("id")
 
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("the header param 'X-Lpe-Project-Id' cannot be empty. Some required params are empty"),
-		})
-		return
-	}
-
-	id := c.Param("id")
-	err := r.handler.DeleteUser(id)
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting user"})
+		utils.SendBadRequestError(c, "Invalid user ID format", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+	err = r.handler.DeleteUser(idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error deleting user", err)
+		return
+	}
+
+	utils.SendOKSuccess(c, "User deleted successfully", nil)
 }
 
 func NewSourceServerUsers(handler *handler.Handlers) IServerUsers {

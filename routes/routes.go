@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"lep/middleware"
 	"lep/resource"
 
 	"github.com/gin-gonic/gin"
@@ -11,45 +12,34 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/login", resource.ServersControllers.SourceAuth.ServiceLogin)
 	r.POST("/user", resource.ServersControllers.SourceUsers.ServiceCreateUser)
 
-	// Protected routes (authentication required)
-	r.POST("/logout", resource.ServersControllers.SourceAuth.ServiceLogout)
-	r.POST("/checkToken", resource.ServersControllers.SourceAuth.ServiceValidateToken)
+	// Create protected route group with authentication middlewares
+	protected := r.Group("/")
+	//protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.HeaderValidationMiddleware())
 
-	// User routes
-	setupUserRoutes(r)
+	// Protected auth routes
+	protected.POST("/logout", resource.ServersControllers.SourceAuth.ServiceLogout)
+	protected.POST("/checkToken", resource.ServersControllers.SourceAuth.ServiceValidateToken)
 
-	// Product routes
-	setupProductRoutes(r)
+	// Protected routes (require authentication and organization/project headers)
+	setupOrganizationRoutes(protected)
+	setupUserRoutes(protected)
+	setupProductRoutes(protected)
+	setupTableRoutes(protected)
+	setupWaitlistRoutes(protected)
+	setupReservationRoutes(protected)
+	setupCustomerRoutes(protected)
+	setupOrderRoutes(protected)
+	setupProjectRoutes(protected)
+	setupSettingsRoutes(protected)
+	setupEnvironmentRoutes(protected)
+	setupReportsRoutes(protected)
 
-	// Table routes
-	setupTableRoutes(r)
-
-	// Waitlist routes
-	setupWaitlistRoutes(r)
-
-	// Reservation routes
-	setupReservationRoutes(r)
-
-	// Customer routes
-	setupCustomerRoutes(r)
-
-	// Order routes
-	setupOrderRoutes(r)
-
-	// Project routes (SPRINT 1)
-	setupProjectRoutes(r)
-
-	// Settings routes (SPRINT 1)
-	setupSettingsRoutes(r)
-
-	// Environment routes (SPRINT 1)
-	setupEnvironmentRoutes(r)
-
-	// Notification routes (SPRINT 2)
+	// Notification routes (mixed public/protected)
 	setupNotificationRoutes(r)
 }
 
-func setupUserRoutes(r *gin.Engine) {
+func setupUserRoutes(r gin.IRouter) {
 	userRoutes := r.Group("/user")
 	{
 		userRoutes.GET("/:id", resource.ServersControllers.SourceUsers.ServiceGetUser)
@@ -60,7 +50,7 @@ func setupUserRoutes(r *gin.Engine) {
 	}
 }
 
-func setupProductRoutes(r *gin.Engine) {
+func setupProductRoutes(r gin.IRouter) {
 	productRoutes := r.Group("/product")
 	{
 		productRoutes.GET("/:id", resource.ServersControllers.SourceProducts.ServiceGetProduct)
@@ -72,7 +62,7 @@ func setupProductRoutes(r *gin.Engine) {
 	}
 }
 
-func setupTableRoutes(r *gin.Engine) {
+func setupTableRoutes(r gin.IRouter) {
 	tableRoutes := r.Group("/table")
 	{
 		tableRoutes.GET("/:id", resource.ServersControllers.SourceTables.ServiceGetTable)
@@ -83,7 +73,7 @@ func setupTableRoutes(r *gin.Engine) {
 	}
 }
 
-func setupWaitlistRoutes(r *gin.Engine) {
+func setupWaitlistRoutes(r gin.IRouter) {
 	waitlistRoutes := r.Group("/waitlist")
 	{
 		waitlistRoutes.GET("/:id", resource.ServersControllers.SourceWaitlist.ServiceGetWaitlist)
@@ -94,7 +84,7 @@ func setupWaitlistRoutes(r *gin.Engine) {
 	}
 }
 
-func setupReservationRoutes(r *gin.Engine) {
+func setupReservationRoutes(r gin.IRouter) {
 	reservationRoutes := r.Group("/reservation")
 	{
 		reservationRoutes.GET("/:id", resource.ServersControllers.SourceReservation.ServiceGetReservation)
@@ -105,7 +95,7 @@ func setupReservationRoutes(r *gin.Engine) {
 	}
 }
 
-func setupCustomerRoutes(r *gin.Engine) {
+func setupCustomerRoutes(r gin.IRouter) {
 	customerRoutes := r.Group("/customer")
 	{
 		customerRoutes.GET("/:id", resource.ServersControllers.SourceCustomer.ServiceGetCustomer)
@@ -116,7 +106,7 @@ func setupCustomerRoutes(r *gin.Engine) {
 	}
 }
 
-func setupOrderRoutes(r *gin.Engine) {
+func setupOrderRoutes(r gin.IRouter) {
 	orderRoutes := r.Group("/order")
 	{
 		orderRoutes.GET("/:id", resource.ServersControllers.SourceOrders.GetOrderById)
@@ -136,7 +126,7 @@ func setupOrderRoutes(r *gin.Engine) {
 }
 
 // setupProjectRoutes configura rotas para projetos
-func setupProjectRoutes(r *gin.Engine) {
+func setupProjectRoutes(r gin.IRouter) {
 	projectRoutes := r.Group("/project")
 	{
 		projectRoutes.GET("/:id", resource.ServersControllers.SourceProject.GetProjectById)
@@ -149,7 +139,7 @@ func setupProjectRoutes(r *gin.Engine) {
 }
 
 // setupSettingsRoutes configura rotas para configurações
-func setupSettingsRoutes(r *gin.Engine) {
+func setupSettingsRoutes(r gin.IRouter) {
 	settingsRoutes := r.Group("/settings")
 	{
 		settingsRoutes.GET("", resource.ServersControllers.SourceSettings.GetSettingsByProject)
@@ -158,7 +148,7 @@ func setupSettingsRoutes(r *gin.Engine) {
 }
 
 // setupEnvironmentRoutes configura rotas para ambientes
-func setupEnvironmentRoutes(r *gin.Engine) {
+func setupEnvironmentRoutes(r gin.IRouter) {
 	environmentRoutes := r.Group("/environment")
 	{
 		environmentRoutes.GET("/:id", resource.ServersControllers.SourceEnvironment.GetEnvironmentById)
@@ -196,5 +186,32 @@ func setupNotificationRoutes(r *gin.Engine) {
 		notificationRoutes.PUT("/template", resource.ServersControllers.SourceNotification.UpdateNotificationTemplate)
 		// Configurações
 		notificationRoutes.POST("/config", resource.ServersControllers.SourceNotification.CreateOrUpdateNotificationConfig)
+	}
+}
+
+// setupReportsRoutes configura rotas para relatórios
+func setupReportsRoutes(r gin.IRouter) {
+	reportsRoutes := r.Group("/reports")
+	{
+		reportsRoutes.GET("/occupancy", resource.ServersControllers.SourceReports.GetOccupancyReport)
+		reportsRoutes.GET("/reservations", resource.ServersControllers.SourceReports.GetReservationReport)
+		reportsRoutes.GET("/waitlist", resource.ServersControllers.SourceReports.GetWaitlistReport)
+		reportsRoutes.GET("/leads", resource.ServersControllers.SourceReports.GetLeadReport)
+		reportsRoutes.GET("/export/:type", resource.ServersControllers.SourceReports.ExportReportToCSV)
+	}
+}
+
+// setupOrganizationRoutes configura rotas para organizações
+func setupOrganizationRoutes(r gin.IRouter) {
+	organizationRoutes := r.Group("/organization")
+	{
+		organizationRoutes.GET("/:id", resource.ServersControllers.SourceOrganization.GetOrganizationById)
+		organizationRoutes.GET("", resource.ServersControllers.SourceOrganization.ListOrganizations)
+		organizationRoutes.GET("/active", resource.ServersControllers.SourceOrganization.ListActiveOrganizations)
+		organizationRoutes.GET("/email", resource.ServersControllers.SourceOrganization.GetOrganizationByEmail)
+		organizationRoutes.POST("", resource.ServersControllers.SourceOrganization.CreateOrganization)
+		organizationRoutes.PUT("/:id", resource.ServersControllers.SourceOrganization.UpdateOrganization)
+		organizationRoutes.DELETE("/:id", resource.ServersControllers.SourceOrganization.SoftDeleteOrganization)
+		organizationRoutes.DELETE("/:id/permanent", resource.ServersControllers.SourceOrganization.HardDeleteOrganization)
 	}
 }

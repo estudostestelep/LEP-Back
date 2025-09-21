@@ -7,6 +7,7 @@ import (
 
 	"errors"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -61,7 +62,7 @@ func (r *resourceUser) CreateUser(user *models.User) error {
 	}
 
 	user.Password = string(hashedPassword)
-
+	user.Id = uuid.New()
 	err = r.repo.User.CreateUser(user)
 	if err != nil {
 		return err

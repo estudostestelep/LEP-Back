@@ -12,6 +12,7 @@ type DBconn struct {
 	Customers     ICustomersRepository
 	LoggedLists   ILoggedListsRepository
 	Orders        IOrderRepository
+	Organizations IOrganizationRepository
 	Products      IProductRepository
 	Reservations  IReservationRepository
 	Tables        ITableRepository
@@ -27,6 +28,7 @@ type DBconn struct {
 
 func (r *DBconn) InjectProstgres(db *gorm.DB) {
 	r.Migrate = migrate.NewConnMigrate(db)
+	r.Organizations = NewConnOrganization(db)
 	r.User = NewUserRepository(db)
 	r.BannedLists = NewConnBannedLists(db)
 	r.LoggedLists = NewConnLoggedLists(db)

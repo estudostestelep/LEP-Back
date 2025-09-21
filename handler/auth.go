@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"lep/repositories"
 	"lep/repositories/models"
 	"time"
@@ -20,9 +21,10 @@ type IHandlerAuth interface {
 
 func (r *resourceAuth) PostToken(user *models.User, token string) error {
 	loggedList := &models.LoggedLists{
-		Token:     token,
-		UserEmail: user.Email,
-		UserId:    user.Id,
+		LoggedListId: uuid.New(),
+		Token:        token,
+		UserEmail:    user.Email,
+		UserId:       user.Id,
 	}
 
 	if err := r.repo.LoggedLists.CreateLoggedList(loggedList); err != nil {

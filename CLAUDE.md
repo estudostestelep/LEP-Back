@@ -76,6 +76,8 @@ The codebase follows a 3-layer clean architecture:
 ## Database Models
 
 Core entities in `repositories/models/PostgresLEP.go`:
+- `Organization` - Top-level tenant entity with business information
+- `Project` - Projects within organizations for service isolation
 - `User` - Employees/admins with roles and permissions
 - `Customer` - Restaurant customers
 - `Table` - Restaurant tables with capacity and availability
@@ -83,6 +85,8 @@ Core entities in `repositories/models/PostgresLEP.go`:
 - `Order` - Customer orders with items and status
 - `Reservation` - Table reservations with datetime
 - `Waitlist` - Queue management for occupied tables
+- `Settings` - Project-specific configuration settings
+- `Environment` - Physical environment definitions (dining areas)
 - `AuditLog` - Operation tracking and audit trail
 - `NotificationConfig` - Event notification configuration per project
 - `NotificationTemplate` - Message templates with variables
@@ -144,6 +148,7 @@ ENABLE_CRON_JOBS=true
 All other routes require authentication headers:
 
 - **Auth**: `/logout`, `/checkToken`
+- **Organizations**: `/organization/*` (Full CRUD + email lookup + soft/hard delete)
 - **Users**: `/user/:id`, `/user/group/:id` (GET/PUT/DELETE)
 - **Products**: `/product/*` (Full CRUD)
 - **Tables**: `/table/*` (Full CRUD + list)
@@ -151,6 +156,9 @@ All other routes require authentication headers:
 - **Reservations**: `/reservation/*` (Full CRUD + list)
 - **Waitlist**: `/waitlist/*` (Full CRUD + list)
 - **Customers**: `/customer/*` (Full CRUD + list)
+- **Projects**: `/project/*` (Full CRUD + active filtering)
+- **Settings**: `/settings` (GET/PUT per project)
+- **Environment**: `/environment/*` (Full CRUD + active filtering)
 - **Notifications**: `/notification/*` (Config, templates, logs, webhooks)
 - **Reports**: `/reports/*` (Occupancy, reservations, waitlist, lead reports)
 
@@ -174,8 +182,52 @@ Terraform configuration in `example.main.tf` provisions:
 - Use UUID for all primary keys
 - Implement soft delete pattern with `deleted_at`
 - Log all operations via `AuditLog`
-- Validate headers in server layer before processing
+- Use standardized error responses via `utils.SendError()` family functions
 - Hash passwords with bcrypt in handler layer
+
+### Standardized Patterns (Updated 2024)
+
+#### **Error Response Pattern**
+All endpoints use standardized error responses:
+```go
+// Replace manual c.JSON() calls with:
+utils.SendBadRequestError(c, "Invalid request body", err)
+utils.SendInternalServerError(c, "Error creating item", err)
+utils.SendNotFoundError(c, "Item")
+utils.SendValidationError(c, "Validation failed", err)
+utils.SendCreatedSuccess(c, "Item created successfully", item)
+utils.SendOKSuccess(c, "Item updated successfully", item)
+```
+
+#### **Header Validation Pattern**
+Headers are validated by middleware and accessed via context:
+```go
+// DO NOT manually validate headers in controllers
+// Headers are validated by HeaderValidationMiddleware()
+
+// Access validated headers in controllers:
+organizationId := c.GetString("organization_id")
+projectId := c.GetString("project_id")
+```
+
+#### **ID Generation Pattern**
+All creation endpoints auto-generate UUIDs:
+```go
+// Gerar ID se não fornecido
+if newItem.Id == uuid.Nil {
+    newItem.Id = uuid.New()
+}
+```
+
+#### **Validation Pattern**
+All entities use structured validation:
+```go
+// Validações estruturadas
+if err := validation.CreateItemValidation(&newItem); err != nil {
+    utils.SendValidationError(c, "Validation failed", err)
+    return
+}
+```
 
 ## Notification System
 

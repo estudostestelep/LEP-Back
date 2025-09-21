@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"lep/handler"
-	validate "lep/resource/validation"
+	"lep/resource/validation"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -61,7 +61,7 @@ func (s *OrderServer) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	if err := validate.CreateOrderRequestValidation(createOrderPOST); err != nil {
+	if err := validation.CreateOrderValidation(createOrderPOST); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

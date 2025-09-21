@@ -34,8 +34,7 @@ func main() {
 	// Initialize cron jobs if enabled
 	initializeCronJobs()
 
-	// Setup middlewares and routes
-	//setupMiddlewares(r)
+	// Setup routes with conditional middlewares
 	setupRoutes(r)
 
 	// Start server

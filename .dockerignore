@@ -68,10 +68,6 @@ temp/
 *.tmp
 *.temp
 
-# Docker files (exclude from build context)
-Dockerfile*
-docker-compose*
-
 # CI/CD files
 .github/
 .gitlab-ci.yml
@@ -79,5 +75,7 @@ cloudbuild.yaml
 
 # Examples and templates
 example*
-templates/
 *.example
+
+# Allow vendor directory for offline builds
+!vendor/

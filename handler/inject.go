@@ -7,6 +7,7 @@ type Handlers struct {
 	HandlerProducts     IHandlerProducts
 	HandlerAuth         IHandlerAuth
 	HandlerOrder        IOrderHandler
+	HandlerOrganization IHandlerOrganization
 	HandlerTables       IHandlerTables
 	HandlerWaitlist     IHandlerWaitlist
 	HandlerReservation  IHandlerReservation
@@ -15,6 +16,7 @@ type Handlers struct {
 	HandlerSettings     ISettingsHandler
 	HandlerEnvironment  IEnvironmentHandler
 	HandlerNotification *NotificationHandler
+	HandlerReports      IReportsHandler
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn) {
@@ -22,6 +24,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn) {
 	h.HandlerProducts = NewSourceHandlerProducts(repo)
 	h.HandlerAuth = NewAuthHandler(repo)
 	h.HandlerOrder = NewOrderHandler(repo.Orders, repo.Products, repo.KitchenQueue)
+	h.HandlerOrganization = NewSourceHandlerOrganization(repo)
 	h.HandlerTables = NewSourceHandlerTables(repo)
 	h.HandlerWaitlist = NewSourceHandlerWaitlist(repo)
 	h.HandlerReservation = NewSourceHandlerReservation(repo)
@@ -30,4 +33,5 @@ func (h *Handlers) Inject(repo *repositories.DBconn) {
 	h.HandlerSettings = NewSettingsHandler(repo.Settings)
 	h.HandlerEnvironment = NewEnvironmentHandler(repo.Environments)
 	h.HandlerNotification = NewNotificationHandler(repo.Notifications, repo.Projects)
+	h.HandlerReports = NewReportsHandler(repo)
 }
