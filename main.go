@@ -9,6 +9,7 @@ import (
 	"lep/utils"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -62,9 +63,18 @@ func initializeEnvironment() {
 
 func setupCORS(r *gin.Engine) {
 	corsConfig := cors.DefaultConfig()
-
+	corsConfig.AllowCredentials = true
+	corsConfig.AllowAllOrigins = true
 	if config.IsDev() {
 		// Permissive CORS for development
+		r.Use(cors.New(cors.Config{
+			AllowOrigins:     []string{"http://localhost:5174"}, // frontend Vite/React
+			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"},
+			ExposeHeaders:    []string{"Content-Length"},
+			AllowCredentials: true,
+			MaxAge:           12 * time.Hour,
+		}))
 		corsConfig.AllowAllOrigins = true
 		log.Println("CORS: Allowing all origins (development mode)")
 	} else {
