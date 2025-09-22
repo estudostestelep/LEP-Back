@@ -28,7 +28,6 @@ type IOrderServer interface {
 
 type OrderServer struct {
 	handler handler.IOrderHandler
-
 }
 
 func NewOrderServer(handler handler.IOrderHandler) IOrderServer {
@@ -75,7 +74,6 @@ func (s *OrderServer) CreateOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, createOrderPOST)
 }
 
-
 func (s *OrderServer) GetOrderById(c *gin.Context) {
 	organizationId := c.GetHeader("X-Lpe-Organization-Id")
 	if strings.TrimSpace(organizationId) == "" {
@@ -106,8 +104,6 @@ func (s *OrderServer) GetOrderById(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, order)
 }
-
-
 
 func (s *OrderServer) ListOrders(c *gin.Context) {
 	organizationId := c.GetHeader("X-Lpe-Organization-Id")
@@ -325,10 +321,10 @@ func (s *OrderServer) GetOrderProgress(c *gin.Context) {
 	remainingTime := utils.GetRemainingTime(*order)
 
 	c.JSON(http.StatusOK, gin.H{
-		"order_id":        order.Id,
-		"status":          order.Status,
-		"progress_percent": progress,
-		"remaining_minutes": remainingTime,
+		"order_id":           order.Id,
+		"status":             order.Status,
+		"progress_percent":   progress,
+		"remaining_minutes":  remainingTime,
 		"estimated_delivery": order.EstimatedDeliveryTime,
 	})
 }

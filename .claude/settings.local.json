@@ -24,7 +24,13 @@
       "Bash(docker-compose logs:*)",
       "Bash(docker-compose:*)",
       "Bash(chmod:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(go test:*)",
+      "Bash(./lep-seed.exe --help)",
+      "Bash(./scripts/validate-implementation.sh:*)",
+      "Bash(bash:*)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(./test_orderitem_fix.exe)"
     ],
     "deny": [],
     "ask": []

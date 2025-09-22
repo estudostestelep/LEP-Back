@@ -41,7 +41,7 @@ func (r *WaitlistRepository) GetWaitlistById(id uuid.UUID) (*models.Waitlist, er
 
 func (r *WaitlistRepository) ListWaitlists(OrganizationId, projectId uuid.UUID) ([]models.Waitlist, error) {
 	var waitlists []models.Waitlist
-	err := r.db.Where("org_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&waitlists).Error
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&waitlists).Error
 	return waitlists, err
 }
 

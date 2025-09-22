@@ -107,6 +107,52 @@ services:
         - action: rebuild
           path: go.sum
 
+  # Database Seeder (run once to populate with sample data)
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: lep-seeder
+    environment:
+      - ENVIRONMENT=local-dev
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=lep_user
+      - DB_PASS=lep_password
+      - DB_NAME=lep_database
+      - DB_SSL_MODE=disable
+    command: ["go", "run", "cmd/seed/main.go", "--environment=dev", "--verbose"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lep-network
+    profiles:
+      - seed  # Only run when explicitly requested
+
+  # Test Runner (run tests in containerized environment)
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: lep-tester
+    environment:
+      - ENVIRONMENT=test
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=lep_user
+      - DB_PASS=lep_password
+      - DB_NAME=lep_database_test
+      - DB_SSL_MODE=disable
+    command: ["go", "test", "./tests", "-v", "-cover"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lep-network
+    profiles:
+      - test  # Only run when explicitly requested
+
   # PgAdmin (database management interface)
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -123,6 +169,8 @@ services:
       - postgres
     networks:
       - lep-network
+    profiles:
+      - tools  # Only run when explicitly requested
 
 networks:
   lep-network:

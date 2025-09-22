@@ -61,6 +61,7 @@ func (r *resourceOrganization) ListActiveOrganizations() ([]models.Organization,
 }
 
 func (r *resourceOrganization) CreateOrganization(organization *models.Organization) error {
+	organization.Id = uuid.New()
 	err := r.repo.Organizations.CreateOrganization(organization)
 	if err != nil {
 		return err

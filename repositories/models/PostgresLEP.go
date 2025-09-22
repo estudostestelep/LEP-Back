@@ -1,6 +1,9 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,7 +62,7 @@ type Customer struct {
 	Name           string     `json:"name"`
 	Email          string     `json:"email"`
 	Phone          string     `json:"phone"`
-	BirthDate      *time.Time `json:"birth_date,omitempty"`
+	BirthDate      string     `json:"birth_date,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
@@ -104,7 +107,7 @@ type Reservation struct {
 	ProjectId      uuid.UUID  `json:"project_id"`
 	CustomerId     uuid.UUID  `json:"customer_id"`
 	TableId        uuid.UUID  `json:"table_id"`
-	Datetime       time.Time  `json:"datetime"`
+	Datetime       string     `json:"datetime"`
 	PartySize      int        `json:"party_size"`
 	Note           string     `json:"note,omitempty"`
 	Status         string     `json:"status"` // ex: "confirmed", "cancelled"
@@ -131,6 +134,60 @@ type OrderItem struct {
 	ProductId uuid.UUID `json:"product_id"`
 	Quantity  int       `json:"quantity"`
 	Price     float64   `json:"price"` // valor unitário
+	Notes     string    `json:"notes,omitempty"` // observações do item
+}
+
+// OrderItems é um tipo customizado para array de OrderItem que funciona com JSONB
+type OrderItems []OrderItem
+
+// Value implementa driver.Valuer para serializar para o banco
+func (oi OrderItems) Value() (driver.Value, error) {
+	if len(oi) == 0 {
+		return "[]", nil
+	}
+	return json.Marshal(oi)
+}
+
+// Scan implementa sql.Scanner para deserializar do banco
+func (oi *OrderItems) Scan(value interface{}) error {
+	if value == nil {
+		*oi = OrderItems{}
+		return nil
+	}
+
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return errors.New("cannot scan value into OrderItems: unsupported type")
+	}
+
+	// Se for uma string vazia ou array vazio, inicializar como array vazio
+	if len(bytes) == 0 || string(bytes) == "" || string(bytes) == "null" {
+		*oi = OrderItems{}
+		return nil
+	}
+
+	// Tentar deserializar como array primeiro
+	var items []OrderItem
+	if err := json.Unmarshal(bytes, &items); err == nil {
+		*oi = OrderItems(items)
+		return nil
+	}
+
+	// Se falhou como array, pode ser um objeto único (dados antigos)
+	// Tentar deserializar como objeto único e envolver em array
+	var singleItem OrderItem
+	if err := json.Unmarshal(bytes, &singleItem); err == nil {
+		*oi = OrderItems{singleItem}
+		return nil
+	}
+
+	// Se ambos falharam, retornar erro
+	return errors.New("cannot unmarshal value into OrderItems: invalid JSON format")
 }
 
 // --- Order (pedido) ---
@@ -141,8 +198,8 @@ type Order struct {
 	TableId               *uuid.UUID  `json:"table_id,omitempty"`
 	TableNumber           *int        `json:"table_number,omitempty"` // Para pedidos públicos
 	CustomerId            *uuid.UUID  `json:"customer_id,omitempty"`
-	Items                 []OrderItem `gorm:"type:jsonb" json:"items"`
-	Total                 float64     `json:"total"`
+	Items                 OrderItems  `gorm:"type:jsonb" json:"items"`
+	TotalAmount           float64     `json:"total_amount"`
 	Note                  string      `json:"note,omitempty"`
 	Source                string      `json:"source"`                            // "internal" ou "public"
 	Status                string      `json:"status"`                            // "pending", "preparing", "ready", "delivered", "cancelled"

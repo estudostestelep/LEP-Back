@@ -68,7 +68,7 @@ func setupCORS(r *gin.Engine) {
 	if config.IsDev() {
 		// Permissive CORS for development
 		r.Use(cors.New(cors.Config{
-			AllowOrigins:     []string{"http://localhost:5174"}, // frontend Vite/React
+			AllowOrigins:     []string{"http://localhost:5173"}, // frontend Vite/React
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"},
 			ExposeHeaders:    []string{"Content-Length"},

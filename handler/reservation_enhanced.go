@@ -212,18 +212,29 @@ func (r *ReservationEnhancedHandler) ValidateReservation(reservation *models.Res
 	// Validar antecedência mínima
 	now := time.Now()
 	minAdvanceTime := now.Add(time.Duration(settings.MinAdvanceHours) * time.Hour)
-	if reservation.Datetime.Before(minAdvanceTime) {
+
+	// Parse reservation.Datetime from string to time.Time
+	reservationTime, err := time.Parse(time.RFC3339, reservation.Datetime)
+	if err != nil {
+		return fmt.Errorf("invalid reservation datetime format: %w", err)
+	}
+
+	if reservationTime.Before(minAdvanceTime) {
 		return fmt.Errorf("reservation must be at least %d hours in advance", settings.MinAdvanceHours)
 	}
 
 	// Validar antecedência máxima
 	maxAdvanceTime := now.Add(time.Duration(settings.MaxAdvanceDays) * 24 * time.Hour)
-	if reservation.Datetime.After(maxAdvanceTime) {
+	if reservationTime.After(maxAdvanceTime) {
 		return fmt.Errorf("reservation cannot be more than %d days in advance", settings.MaxAdvanceDays)
 	}
 
 	// Validar períodos bloqueados
-	if err := r.checkBlockedPeriods(reservation.OrganizationId, reservation.ProjectId, reservation.Datetime); err != nil {
+	reservationTime, err = time.Parse(time.RFC3339, reservation.Datetime)
+	if err != nil {
+		return fmt.Errorf("invalid reservation datetime format: %w", err)
+	}
+	if err := r.checkBlockedPeriods(reservation.OrganizationId, reservation.ProjectId, reservationTime); err != nil {
 		return err
 	}
 
@@ -286,8 +297,14 @@ func (r *ReservationEnhancedHandler) updateTableStatus(tableId uuid.UUID, status
 
 // checkTimeConflicts - Verifica conflitos de horário para a mesa
 func (r *ReservationEnhancedHandler) checkTimeConflicts(reservation *models.Reservation) error {
+	// Parse reservation.Datetime from string to time.Time
+	reservationTime, err := time.Parse(time.RFC3339, reservation.Datetime)
+	if err != nil {
+		return fmt.Errorf("invalid reservation datetime format: %w", err)
+	}
+
 	// Buscar reservas existentes para a mesa no mesmo dia
-	dayStart := time.Date(reservation.Datetime.Year(), reservation.Datetime.Month(), reservation.Datetime.Day(), 0, 0, 0, 0, reservation.Datetime.Location())
+	dayStart := time.Date(reservationTime.Year(), reservationTime.Month(), reservationTime.Day(), 0, 0, 0, 0, reservationTime.Location())
 	dayEnd := dayStart.Add(24 * time.Hour)
 
 	existingReservations, err := r.repo.Reservations.GetReservationsByTableAndDateRange(reservation.TableId, dayStart, dayEnd)
@@ -296,7 +313,7 @@ func (r *ReservationEnhancedHandler) checkTimeConflicts(reservation *models.Rese
 	}
 
 	// Verificar conflitos (assumindo 2 horas por reserva)
-	reservationStart := reservation.Datetime
+	reservationStart := reservationTime
 	reservationEnd := reservationStart.Add(2 * time.Hour)
 
 	for _, existing := range existingReservations {
@@ -310,12 +327,15 @@ func (r *ReservationEnhancedHandler) checkTimeConflicts(reservation *models.Rese
 			continue
 		}
 
-		existingStart := existing.Datetime
+		existingStart, err := time.Parse(time.RFC3339, existing.Datetime)
+		if err != nil {
+			continue // skip if the datetime is invalid
+		}
 		existingEnd := existingStart.Add(2 * time.Hour)
 
 		// Verificar sobreposição
 		if reservationStart.Before(existingEnd) && reservationEnd.After(existingStart) {
-			return fmt.Errorf("time conflict with existing reservation at %s", existing.Datetime.Format("15:04"))
+			return fmt.Errorf("time conflict with existing reservation at %s", existingStart.Format("15:04"))
 		}
 	}
 

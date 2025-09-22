@@ -1,18 +1,17 @@
 package server
 
 import (
-	"fmt"
 	"lep/repositories/models"
 
 	"gorm.io/gorm"
 )
 
 func Start(db *gorm.DB) {
-	var user models.User
-	result := db.Where("id = ?", 1).First(&user)
-	if result.Error != nil {
-		fmt.Println("error:", result.Error)
-	}
+	//var user models.User
+	//result := db.Where("id = ?", 1).First(&user)
+	//if result.Error != nil {
+	//	fmt.Println("error:", result.Error)
+	//}
 
 	modelsToMigrate := []interface{}{
 		&models.BannedLists{},
@@ -60,13 +59,13 @@ func Start(db *gorm.DB) {
 		}
 	}
 
-	newUser := &models.User{
-		Name:     "Test User",
-		Email:    "test@example.com",
-		Password: "$2a$10$6hOKDVLp9LWPa3MslIorkuzntcXH49TcAVo.3ZrLMn2r5gJYCrXiK", //12345
-	}
-
-	if err := db.Create(newUser).Error; err != nil {
-		fmt.Println("error creating user or user already exists")
-	}
+	//newUser := &models.User{
+	//	Name:     "Test User",
+	//	Email:    "test@example.com",
+	//	Password: "$2a$10$6hOKDVLp9LWPa3MslIorkuzntcXH49TcAVo.3ZrLMn2r5gJYCrXiK", //12345
+	//}
+	//
+	//if err := db.Create(newUser).Error; err != nil {
+	//	fmt.Println("error creating user or user already exists")
+	//}
 }
