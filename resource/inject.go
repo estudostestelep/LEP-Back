@@ -12,7 +12,7 @@ var Handlers handler.Handlers
 var ServersControllers server.ServerController
 
 func Inject() {
-	db, err := OpenConnDBPostgres2()
+	db, err := OpenConnDBPostgres()
 	if err != nil {
 		panic("Conecxão falhou")
 	}

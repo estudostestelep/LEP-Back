@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"lep/handler"
-	validate "lep/resource/validation"
+	"lep/resource/validation"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -28,7 +28,6 @@ type IOrderServer interface {
 
 type OrderServer struct {
 	handler handler.IOrderHandler
-
 }
 
 func NewOrderServer(handler handler.IOrderHandler) IOrderServer {
@@ -61,7 +60,7 @@ func (s *OrderServer) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	if err := validate.CreateOrderRequestValidation(createOrderPOST); err != nil {
+	if err := validation.CreateOrderValidation(createOrderPOST); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -74,7 +73,6 @@ func (s *OrderServer) CreateOrder(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, createOrderPOST)
 }
-
 
 func (s *OrderServer) GetOrderById(c *gin.Context) {
 	organizationId := c.GetHeader("X-Lpe-Organization-Id")
@@ -106,8 +104,6 @@ func (s *OrderServer) GetOrderById(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, order)
 }
-
-
 
 func (s *OrderServer) ListOrders(c *gin.Context) {
 	organizationId := c.GetHeader("X-Lpe-Organization-Id")
@@ -325,10 +321,10 @@ func (s *OrderServer) GetOrderProgress(c *gin.Context) {
 	remainingTime := utils.GetRemainingTime(*order)
 
 	c.JSON(http.StatusOK, gin.H{
-		"order_id":        order.Id,
-		"status":          order.Status,
-		"progress_percent": progress,
-		"remaining_minutes": remainingTime,
+		"order_id":           order.Id,
+		"status":             order.Status,
+		"progress_percent":   progress,
+		"remaining_minutes":  remainingTime,
 		"estimated_delivery": order.EstimatedDeliveryTime,
 	})
 }

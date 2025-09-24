@@ -113,7 +113,8 @@ func (r *ReportsHandler) GetOccupancyReport(orgId, projectId string, startDate, 
 	// Filtrar reservas no período
 	var periodReservations []models.Reservation
 	for _, res := range reservations {
-		if res.Datetime.After(startDate) && res.Datetime.Before(endDate) && res.Status == "confirmed" {
+		resDate, _ := time.Parse("2006-01-02", res.Datetime)
+		if resDate.After(startDate) && resDate.Before(endDate) && res.Status == "confirmed" {
 			periodReservations = append(periodReservations, res)
 		}
 	}
@@ -132,7 +133,8 @@ func (r *ReportsHandler) GetOccupancyReport(orgId, projectId string, startDate, 
 
 		reservationsThisDay := 0
 		for _, res := range periodReservations {
-			if res.Datetime.After(dayStart) && res.Datetime.Before(dayEnd) {
+			resDate, _ := time.Parse("2006-01-02", res.Datetime)
+			if resDate.After(dayStart) && resDate.Before(dayEnd) {
 				reservationsThisDay++
 			}
 		}
@@ -192,7 +194,8 @@ func (r *ReportsHandler) GetReservationReport(orgId, projectId string, startDate
 	var periodReservations []models.Reservation
 
 	for _, res := range reservations {
-		if res.Datetime.After(startDate) && res.Datetime.Before(endDate) {
+		resDate, _ := time.Parse("2006-01-02", res.Datetime)
+		if resDate.After(startDate) && resDate.Before(endDate) {
 			periodReservations = append(periodReservations, res)
 			statusBreakdown[res.Status]++
 		}
@@ -335,7 +338,8 @@ func (r *ReportsHandler) GenerateDailyMetrics(orgId, projectId uuid.UUID, date t
 
 	reservationCount := 0
 	for _, res := range reservations {
-		if res.Datetime.After(dayStart) && res.Datetime.Before(dayEnd) && res.Status == "confirmed" {
+		resDate, _ := time.Parse("2006-01-02", res.Datetime)
+		if resDate.After(dayStart) && resDate.Before(dayEnd) && res.Status == "confirmed" {
 			reservationCount++
 		}
 	}

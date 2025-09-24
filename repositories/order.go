@@ -38,7 +38,7 @@ func (r *OrderRepository) GetOrderById(id string) (*models.Order, error) {
 
 func (r *OrderRepository) ListOrders(OrganizationId, projectId string) ([]models.Order, error) {
 	var orders []models.Order
-	err := r.db.Where("org_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&orders).Error
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&orders).Error
 	return orders, err
 }
 

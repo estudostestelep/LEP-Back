@@ -3,10 +3,12 @@ package server
 import (
 	"lep/handler"
 	"lep/repositories/models"
+	"lep/resource/validation"
+	"lep/utils"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ResourceTables struct {
@@ -22,31 +24,23 @@ type IServerTables interface {
 }
 
 func (r *ResourceTables) ServiceGetTable(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
-		})
-		return
-	}
+	idStr := c.Param("id")
 
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Project-Id' cannot be empty",
-		})
-		return
-	}
-
-	id := c.Param("id")
-	resp, err := r.handler.HandlerTables.GetTable(id)
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting table"})
+		utils.SendBadRequestError(c, "Invalid table ID format", err)
+		return
+	}
+
+	resp, err := r.handler.HandlerTables.GetTable(idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting table", err)
 		return
 	}
 
 	if resp == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Table not found"})
+		utils.SendNotFoundError(c, "Table")
 		return
 	}
 
@@ -54,118 +48,127 @@ func (r *ResourceTables) ServiceGetTable(c *gin.Context) {
 }
 
 func (r *ResourceTables) ServiceCreateTable(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
-		})
-		return
-	}
-
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Project-Id' cannot be empty",
-		})
-		return
-	}
-
 	var newTable models.Table
 	err := c.BindJSON(&newTable)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	newTable.OrganizationId, err = uuid.Parse(organizationId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing organization ID", err)
+		return
+	}
+	newTable.ProjectId, err = uuid.Parse(projectId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing project ID", err)
+		return
+	}
+
+	// Gerar ID se não fornecido
+	if newTable.Id == uuid.Nil {
+		newTable.Id = uuid.New()
+	}
+
+	// Validações estruturadas
+	if err := validation.CreateTableValidation(&newTable); err != nil {
+		utils.SendValidationError(c, "Validation failed", err)
 		return
 	}
 
 	err = r.handler.HandlerTables.CreateTable(&newTable)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.SendInternalServerError(c, "Error creating table", err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, newTable)
+	utils.SendCreatedSuccess(c, "Table created successfully", newTable)
 }
 
 func (r *ResourceTables) ServiceUpdateTable(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
-		})
-		return
-	}
+	idStr := c.Param("id")
 
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Project-Id' cannot be empty",
-		})
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid table ID format", err)
 		return
 	}
 
 	var updatedTable models.Table
-	err := c.BindJSON(&updatedTable)
+	err = c.BindJSON(&updatedTable)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	updatedTable.OrganizationId, err = uuid.Parse(organizationId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing organization ID", err)
+		return
+	}
+	updatedTable.ProjectId, err = uuid.Parse(projectId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing project ID", err)
+		return
+	}
+	updatedTable.Id, err = uuid.Parse(idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error parsing table ID", err)
+		return
+	}
+
+	// Validações estruturadas
+	if err := validation.UpdateTableValidation(&updatedTable); err != nil {
+		utils.SendValidationError(c, "Validation failed", err)
 		return
 	}
 
 	err = r.handler.HandlerTables.UpdateTable(&updatedTable)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.SendInternalServerError(c, "Error updating table", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, updatedTable)
+	utils.SendOKSuccess(c, "Table updated successfully", updatedTable)
 }
 
 func (r *ResourceTables) ServiceDeleteTable(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
-		})
-		return
-	}
+	idStr := c.Param("id")
 
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Project-Id' cannot be empty",
-		})
-		return
-	}
-
-	id := c.Param("id")
-	err := r.handler.HandlerTables.DeleteTable(id)
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting table"})
+		utils.SendBadRequestError(c, "Invalid table ID format", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Table deleted successfully"})
+	err = r.handler.HandlerTables.DeleteTable(idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error deleting table", err)
+		return
+	}
+
+	utils.SendOKSuccess(c, "Table deleted successfully", nil)
 }
 
 func (r *ResourceTables) ServiceListTables(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
-		})
-		return
-	}
-
-	projectId := c.GetHeader("X-Lpe-Project-Id")
-	if strings.TrimSpace(projectId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Project-Id' cannot be empty",
-		})
-		return
-	}
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
 
 	resp, err := r.handler.HandlerTables.ListTables(organizationId, projectId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing tables"})
+		utils.SendInternalServerError(c, "Error listing tables", err)
 		return
 	}
 

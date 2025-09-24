@@ -55,7 +55,7 @@ func (e *EventService) TriggerReservationCreated(orgId, projectId uuid.UUID, res
 		CustomerPhone: customer.Phone,
 		CustomerEmail: customer.Email,
 		TableNumber:   table.Number,
-		DateTime:      &reservation.Datetime,
+		DateTime:      parseTime(reservation.Datetime),
 		PartySize:     reservation.PartySize,
 		Status:        reservation.Status,
 	}
@@ -78,7 +78,7 @@ func (e *EventService) TriggerReservationUpdated(orgId, projectId uuid.UUID, res
 		CustomerPhone: customer.Phone,
 		CustomerEmail: customer.Email,
 		TableNumber:   table.Number,
-		DateTime:      &reservation.Datetime,
+		DateTime:      parseTime(reservation.Datetime),
 		PartySize:     reservation.PartySize,
 		Status:        reservation.Status,
 	}
@@ -101,7 +101,7 @@ func (e *EventService) TriggerReservationCancelled(orgId, projectId uuid.UUID, r
 		CustomerPhone: customer.Phone,
 		CustomerEmail: customer.Email,
 		TableNumber:   table.Number,
-		DateTime:      &reservation.Datetime,
+		DateTime:      parseTime(reservation.Datetime),
 		PartySize:     reservation.PartySize,
 		Status:        reservation.Status,
 	}
@@ -144,12 +144,23 @@ func (e *EventService) TriggerConfirmation24h(orgId, projectId uuid.UUID, reserv
 		CustomerPhone: customer.Phone,
 		CustomerEmail: customer.Email,
 		TableNumber:   table.Number,
-		DateTime:      &reservation.Datetime,
+		DateTime:      parseTime(reservation.Datetime),
 		PartySize:     reservation.PartySize,
 		Status:        reservation.Status,
 	}
 
 	return e.createAndProcessEvent(orgId, projectId, "confirmation_24h", "reservation", reservation.Id, eventData)
+}
+
+func parseTime(datetimeStr string) *time.Time {
+	if datetimeStr == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, datetimeStr)
+	if err != nil {
+		return nil
+	}
+	return &t
 }
 
 // createAndProcessEvent - Cria evento e processa notificações automaticamente

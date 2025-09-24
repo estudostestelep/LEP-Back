@@ -10,13 +10,31 @@ import (
 // HeaderValidationMiddleware valida headers obrigatórios X-Lpe-Organization-Id e X-Lpe-Project-Id
 func HeaderValidationMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		method := c.Request.Method
+
 		// Skip validation for specific routes
-		if isExemptRoute(c.Request.URL.Path, c.Request.Method) {
+		if isFullyExemptRoute(path, method) {
 			c.Next()
 			return
 		}
 
-		// Validate Organization ID
+		// Project creation requires only organization header
+		if path == "/project" && method == "POST" {
+			organizationId := c.GetHeader("X-Lpe-Organization-Id")
+			if strings.TrimSpace(organizationId) == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "X-Lpe-Organization-Id header is required for project creation",
+				})
+				c.Abort()
+				return
+			}
+			c.Set("organization_id", organizationId)
+			c.Next()
+			return
+		}
+
+		// All other routes require both headers
 		organizationId := c.GetHeader("X-Lpe-Organization-Id")
 		if strings.TrimSpace(organizationId) == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -26,7 +44,6 @@ func HeaderValidationMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Validate Project ID
 		projectId := c.GetHeader("X-Lpe-Project-Id")
 		if strings.TrimSpace(projectId) == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -44,15 +61,16 @@ func HeaderValidationMiddleware() gin.HandlerFunc {
 	}
 }
 
-// isExemptRoute verifica se a rota deve ser isenta da validação de headers
-func isExemptRoute(path, method string) bool {
-	// Routes that don't require organization/project headers
+// isFullyExemptRoute verifica se a rota deve ser totalmente isenta da validação de headers
+func isFullyExemptRoute(path, method string) bool {
+	// Routes that don't require any organization/project headers
 	exemptRoutes := []RoutePattern{
 		{"/login", "POST"},
-		{"/user", "POST"},           // Public user creation
+		{"/user", "POST"},         // Public user creation
+		{"/organization", "POST"}, // Organization creation (bootstrap)
 		{"/ping", "GET"},
 		{"/health", "GET"},
-		{"/webhook/*", "*"},         // All webhook routes
+		{"/webhook/*", "*"}, // All webhook routes
 	}
 
 	for _, route := range exemptRoutes {

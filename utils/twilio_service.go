@@ -1,11 +1,15 @@
 package utils
 
 import (
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -155,10 +159,24 @@ func (t *TwilioService) SendWhatsApp(to, message, whatsappBusinessNumber string)
 	return &twilioResp, nil
 }
 
-// ValidateWebhookSignature valida a assinatura do webhook do Twilio (opcional, mas recomendado)
-func (t *TwilioService) ValidateWebhookSignature(signature, url, body string) bool {
-	// Implementação da validação de assinatura do Twilio
-	// Por simplicidade, retornamos true aqui
-	// Em produção, implementar validação completa conforme documentação Twilio
-	return true
+// ValidateWebhookSignature valida a assinatura do webhook do Twilio
+func (t *TwilioService) ValidateWebhookSignature(signature, requestUrl, body string) bool {
+	// Obter AuthToken do ambiente ou usar o da instância
+	authToken := t.AuthToken
+	if authToken == "" {
+		authToken = os.Getenv("TWILIO_AUTH_TOKEN")
+	}
+
+	if authToken == "" {
+		// Sem token de autenticação, não podemos validar
+		return false
+	}
+
+	// Calcular HMAC-SHA1
+	mac := hmac.New(sha1.New, []byte(authToken))
+	mac.Write([]byte(requestUrl + body))
+	expectedSignature := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+	// Comparar assinaturas usando função segura contra timing attacks
+	return hmac.Equal([]byte(signature), []byte(expectedSignature))
 }

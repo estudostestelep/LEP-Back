@@ -43,7 +43,7 @@ func (r *ReservationRepository) GetReservationById(id uuid.UUID) (*models.Reserv
 
 func (r *ReservationRepository) ListReservations(OrganizationId, projectId uuid.UUID) ([]models.Reservation, error) {
 	var reservations []models.Reservation
-	err := r.db.Where("org_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&reservations).Error
+	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&reservations).Error
 	return reservations, err
 }
 

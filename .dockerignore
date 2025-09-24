@@ -1,0 +1,81 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+.env.production.local
+
+# Terraform files
+*.tf
+*.tfvars
+*.tfstate
+*.tfstate.backup
+.terraform/
+terraform.tfvars.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+main
+lep-system
+
+# Test files
+*_test.go
+test/
+coverage.txt
+coverage.html
+
+# Scripts
+scripts/
+deploy/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+cloudbuild.yaml
+
+# Examples and templates
+example*
+*.example
+
+# Allow vendor directory for offline builds
+!vendor/

@@ -28,7 +28,7 @@ func (r *AuditLogRepository) CreateAuditLog(log *models.AuditLog) error {
 
 func (r *AuditLogRepository) GetAuditLog(OrganizationId, projectId uuid.UUID) ([]models.AuditLog, error) {
 	var logs []models.AuditLog
-	err := r.db.Where("org_id = ? AND project_id = ?", OrganizationId, projectId).Find(&logs).Error
+	err := r.db.Where("organization_id = ? AND project_id = ?", OrganizationId, projectId).Find(&logs).Error
 	return logs, err
 }
 

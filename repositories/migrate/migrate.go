@@ -1,9 +1,6 @@
 package migrate
 
 import (
-	"fmt"
-	"lep/repositories/models"
-
 	"gorm.io/gorm"
 )
 
@@ -25,15 +22,15 @@ func (r *resourceMigrate) MigrateRun(modelsToMigrate ...interface{}) {
 		}
 	}
 
-	user := &models.User{
-		Name:     "Test User",
-		Email:    "test@example.com",
-		Password: "$2a$10$6hOKDVLp9LWPa3MslIorkuzntcXH49TcAVo.3ZrLMn2r5gJYCrXiK", //12345
-	}
+	// user := &models.User{
+	// 	Name:     "Test User",
+	// 	Email:    "test@example.com",
+	// 	Password: "$2a$10$6hOKDVLp9LWPa3MslIorkuzntcXH49TcAVo.3ZrLMn2r5gJYCrXiK", //12345
+	// }
 
-	if err := r.db.Create(user).Error; err != nil {
-		fmt.Println("erro ao criar usuario ou usuario já existente")
-	}
+	// if err := r.db.Create(user).Error; err != nil {
+	// 	fmt.Println("erro ao criar usuario ou usuario já existente")
+	// }
 }
 
 func NewConnMigrate(db *gorm.DB) IMigrate {

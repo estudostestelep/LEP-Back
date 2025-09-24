@@ -1,37 +1,85 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Este arquivo fornece orientação ao Claude Code (claude.ai/code) ao trabalhar com código neste repositório.
 
-## Project Overview
+## Instruções de Idioma
 
-LEP System is a Go-based REST API for restaurant management, built with clean architecture and modular design. The system handles users, products, orders, tables, reservations, waitlists, and customers.
+**IMPORTANTE**: Sempre responda em português brasileiro. Todas as explicações, comentários e documentação devem ser escritas em português, exceto código e comandos técnicos que devem permanecer em inglês conforme padrões de desenvolvimento.
 
-## Development Commands
+## Visão Geral do Projeto
 
-### Build and Run
+O LEP System é uma API REST baseada em Go para gestão de restaurantes, construída com arquitetura limpa e design modular. O sistema gerencia usuários, produtos, pedidos, mesas, reservas, lista de espera e clientes.
+
+## Comandos de Desenvolvimento
+
+### Build e Execução
 ```bash
-# Install dependencies
+# Instalar dependências
 go mod tidy
 
-# Run the application
+# Executar a aplicação
 go run main.go
 
-# Build binary
+# Construir binário
 go build -o lep-system .
 
-# Run built binary
+# Executar binário construído
 ./lep-system
 ```
 
-### Testing
+### Sistema de Dados (Seeding)
 ```bash
-# Test basic connectivity
-curl http://localhost:8080/ping
-# Expected response: "pong"
+# Popular banco de dados com dados de exemplo
+bash ./scripts/run_seed.sh
 
-# Health check
+# Executar seeder diretamente
+go run cmd/seed/main.go
+
+# Limpar dados antes de popular
+bash ./scripts/run_seed.sh --clear-first
+
+# Com log detalhado
+bash ./scripts/run_seed.sh --verbose
+
+# Especificar ambiente
+bash ./scripts/run_seed.sh --environment=test
+```
+
+**Credenciais de Login após Seeding:**
+- admin@lep-demo.com / password (Admin)
+- garcom@lep-demo.com / password (Garçom)
+- gerente@lep-demo.com / password (Gerente)
+
+### Testes
+```bash
+# Executar todos os testes
+go test ./tests -v
+
+# Usar script de teste completo
+bash ./scripts/run_tests.sh
+
+# Com cobertura de código
+bash ./scripts/run_tests.sh --coverage
+
+# Gerar relatório HTML de cobertura
+bash ./scripts/run_tests.sh --html
+
+# Executar teste específico
+bash ./scripts/run_tests.sh --test TestUserRoutes
+
+# Teste com saída detalhada
+bash ./scripts/run_tests.sh --verbose
+```
+
+### Conectividade Básica
+```bash
+# Testar conectividade básica
+curl http://localhost:8080/ping
+# Resposta esperada: "pong"
+
+# Verificação de saúde
 curl http://localhost:8080/health
-# Expected response: {"status":"healthy"}
+# Resposta esperada: {"status":"healthy"}
 ```
 
 ### Docker
@@ -76,6 +124,8 @@ The codebase follows a 3-layer clean architecture:
 ## Database Models
 
 Core entities in `repositories/models/PostgresLEP.go`:
+- `Organization` - Top-level tenant entity with business information
+- `Project` - Projects within organizations for service isolation
 - `User` - Employees/admins with roles and permissions
 - `Customer` - Restaurant customers
 - `Table` - Restaurant tables with capacity and availability
@@ -83,6 +133,8 @@ Core entities in `repositories/models/PostgresLEP.go`:
 - `Order` - Customer orders with items and status
 - `Reservation` - Table reservations with datetime
 - `Waitlist` - Queue management for occupied tables
+- `Settings` - Project-specific configuration settings
+- `Environment` - Physical environment definitions (dining areas)
 - `AuditLog` - Operation tracking and audit trail
 - `NotificationConfig` - Event notification configuration per project
 - `NotificationTemplate` - Message templates with variables
@@ -92,12 +144,31 @@ Core entities in `repositories/models/PostgresLEP.go`:
 
 ## Authentication & Authorization
 
-### Required Headers (all endpoints except `/login` and `POST /user`)
+### Header Validation Rules
+
+**Rotas Totalmente Isentas** (sem headers):
+- `POST /login` - Autenticação de usuário
+- `POST /user` - Criação pública de usuário
+- `POST /organization` - Criação de organização (bootstrap)
+- `GET /ping`, `GET /health` - Health checks
+- `/webhook/*` - Webhooks externos
+
+**Rotas com Validação Parcial**:
+- `POST /project` - Requer apenas `X-Lpe-Organization-Id`
+
+**Rotas com Validação Completa** (demais rotas):
 ```
 X-Lpe-Organization-Id: <organization-uuid>
 X-Lpe-Project-Id: <project-uuid>
 Authorization: Bearer <jwt-token>
 ```
+
+### Fluxo de Bootstrap
+1. **Criar Organização**: `POST /organization` (sem headers)
+2. **Criar Projeto**: `POST /project` (apenas org header)
+3. **Criar Admin**: `POST /user` (sem headers)
+4. **Login**: `POST /login` (obter token)
+5. **Demais Operações**: Usar todos os headers
 
 ### Token Management
 - JWT tokens use HS256 signing (24h expiration)
@@ -144,6 +215,7 @@ ENABLE_CRON_JOBS=true
 All other routes require authentication headers:
 
 - **Auth**: `/logout`, `/checkToken`
+- **Organizations**: `/organization/*` (Full CRUD + email lookup + soft/hard delete)
 - **Users**: `/user/:id`, `/user/group/:id` (GET/PUT/DELETE)
 - **Products**: `/product/*` (Full CRUD)
 - **Tables**: `/table/*` (Full CRUD + list)
@@ -151,6 +223,9 @@ All other routes require authentication headers:
 - **Reservations**: `/reservation/*` (Full CRUD + list)
 - **Waitlist**: `/waitlist/*` (Full CRUD + list)
 - **Customers**: `/customer/*` (Full CRUD + list)
+- **Projects**: `/project/*` (Full CRUD + active filtering)
+- **Settings**: `/settings` (GET/PUT per project)
+- **Environment**: `/environment/*` (Full CRUD + active filtering)
 - **Notifications**: `/notification/*` (Config, templates, logs, webhooks)
 - **Reports**: `/reports/*` (Occupancy, reservations, waitlist, lead reports)
 
@@ -174,8 +249,52 @@ Terraform configuration in `example.main.tf` provisions:
 - Use UUID for all primary keys
 - Implement soft delete pattern with `deleted_at`
 - Log all operations via `AuditLog`
-- Validate headers in server layer before processing
+- Use standardized error responses via `utils.SendError()` family functions
 - Hash passwords with bcrypt in handler layer
+
+### Standardized Patterns (Updated 2024)
+
+#### **Error Response Pattern**
+All endpoints use standardized error responses:
+```go
+// Replace manual c.JSON() calls with:
+utils.SendBadRequestError(c, "Invalid request body", err)
+utils.SendInternalServerError(c, "Error creating item", err)
+utils.SendNotFoundError(c, "Item")
+utils.SendValidationError(c, "Validation failed", err)
+utils.SendCreatedSuccess(c, "Item created successfully", item)
+utils.SendOKSuccess(c, "Item updated successfully", item)
+```
+
+#### **Header Validation Pattern**
+Headers are validated by middleware and accessed via context:
+```go
+// DO NOT manually validate headers in controllers
+// Headers are validated by HeaderValidationMiddleware()
+
+// Access validated headers in controllers:
+organizationId := c.GetString("organization_id")
+projectId := c.GetString("project_id")
+```
+
+#### **ID Generation Pattern**
+All creation endpoints auto-generate UUIDs:
+```go
+// Gerar ID se não fornecido
+if newItem.Id == uuid.Nil {
+    newItem.Id = uuid.New()
+}
+```
+
+#### **Validation Pattern**
+All entities use structured validation:
+```go
+// Validações estruturadas
+if err := validation.CreateItemValidation(&newItem); err != nil {
+    utils.SendValidationError(c, "Validation failed", err)
+    return
+}
+```
 
 ## Notification System
 

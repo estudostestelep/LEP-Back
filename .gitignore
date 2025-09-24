@@ -1,4 +1,49 @@
+# Environment and sensitive configuration files
 .env
+.env.*
+terraform.tfvars
+terraform2.tfvars
+*.tfvars
+!terraform.tfvars.example
+!environments/*.tfvars
+environments/local-dev.env
+
+# JWT and SSL certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+jwt_public_key.pem
+jwt_private_key.pem
+keys/
+
+# Terraform files
+terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+
+# Go build artifacts
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+main
+lep-system
+
+# Test and coverage files
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# IDE specific files
 .idea/**/workspace.xml
 .idea/**/tasks.xml
 .idea/**/usage.statistics.xml
@@ -9,4 +54,35 @@ modules.xml
 .idea/misc.xml
 *.ipr
 vcs.xml
-/terraform
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+.DS_Store
+Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Docker and container files
+.docker/
+docker-compose.override.yml
+
+# Secrets and credentials
+secrets/
+credentials/
+*.credentials
+*secret*
+!example*secret*

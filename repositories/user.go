@@ -14,7 +14,7 @@ type resourceUser struct {
 type IUserRepository interface {
 	GetUserById(id string) (*models.User, error)
 	GetUserByEmail(email string) (*models.User, error)
-	GetUsersByGroup(groupId string) ([]models.User, error)  // Deprecated: usar GetUsersByRole
+	GetUsersByGroup(groupId string) ([]models.User, error) // Deprecated: usar GetUsersByRole
 	GetUsersByRole(role string) ([]models.User, error)
 	ListUsersByOrganizationAndProject(orgId, projectId string) ([]models.User, error)
 	CreateUser(user *models.User) error
