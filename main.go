@@ -25,11 +25,9 @@ func main() {
 	// Setup Gin framework
 	gin.SetMode(config.GIN_MODE)
 	r := gin.Default()
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+
 	// Setup CORS based on environment
-	//setupCORS(r)
+	setupCORS(r)
 
 	// Setup basic health endpoints
 	setupHealthEndpoints(r)
