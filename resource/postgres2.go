@@ -25,8 +25,16 @@ func OpenConnDBPostgres2() (*gorm.DB, error) {
 	}
 
 	// For GCP Cloud SQL (unix socket connection)
-	if config.INSTANCE_UNIX_SOCKET == "" {
-		return nil, fmt.Errorf("INSTANCE_UNIX_SOCKET environment variable not set for GCP environment")
+	// Fallback to TCP if INSTANCE_UNIX_SOCKET is not available (Windows)
+	if config.INSTANCE_UNIX_SOCKET == "" || config.DB_HOST != "" {
+		dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=America/Sao_Paulo",
+			config.DB_HOST, config.DB_USER, config.DB_PASS, config.DB_NAME, config.DB_PORT, config.DB_SSL_MODE)
+
+		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to database: %w", err)
+		}
+		return db, nil
 	}
 
 	dbURI := fmt.Sprintf("user=%s password=%s database=%s host=%s",

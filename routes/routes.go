@@ -11,6 +11,7 @@ func SetupRoutes(r *gin.Engine) {
 	// Public routes (no authentication required)
 	r.POST("/login", resource.ServersControllers.SourceAuth.ServiceLogin)
 	r.POST("/user", resource.ServersControllers.SourceUsers.ServiceCreateUser)
+	r.POST("/create-organization", resource.ServersControllers.SourceOrganization.ServiceCreateOrganizationBootstrap)
 
 	// Create protected route group with authentication middlewares
 	protected := r.Group("/")

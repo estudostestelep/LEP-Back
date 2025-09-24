@@ -155,6 +155,15 @@ func setupRoutes(r *gin.Engine) {
 func startServer(r *gin.Engine) {
 	port := fmt.Sprintf(":%s", config.PORT)
 
+	// Configure trusted proxies for Cloud Run
+	if config.IsGCP() {
+		// Cloud Run uses internal proxies - trust all for now
+		r.SetTrustedProxies(nil)
+	} else {
+		// Local development - no trusted proxies
+		r.SetTrustedProxies(nil)
+	}
+
 	log.Printf("🌟 LEP System starting on port %s", config.PORT)
 	log.Printf("📍 Environment: %s", config.ENV)
 
@@ -163,7 +172,14 @@ func startServer(r *gin.Engine) {
 		log.Printf("🔗 API docs: http://localhost:%s/ping", config.PORT)
 	}
 
-	if err := r.Run(port); err != nil {
+	// Use standard HTTP server for better Cloud Run compatibility
+	srv := &http.Server{
+		Addr:    port,
+		Handler: r,
+	}
+
+	log.Printf("🚀 Server listening on %s", port)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

@@ -113,27 +113,6 @@ resource "google_cloud_run_v2_service" "lep_backend" {
         startup_cpu_boost = false
       }
 
-      startup_probe {
-        http_get {
-          path = "/ping"
-          port = 8080
-        }
-        initial_delay_seconds = 10
-        timeout_seconds       = 5
-        period_seconds        = 10
-        failure_threshold     = 3
-      }
-
-      liveness_probe {
-        http_get {
-          path = "/health"
-          port = 8080
-        }
-        initial_delay_seconds = 15
-        timeout_seconds       = 5
-        period_seconds        = 30
-        failure_threshold     = 3
-      }
     }
 
     volumes {
