@@ -42,7 +42,7 @@ func GenerateCompleteData() *SeedData {
 			{
 				Id:          SampleOrgID,
 				Name:        "LEP Restaurante Demo",
-				Email:       "teste331@gmail.com",
+				Email:       "teste1@gmail.com",
 				Phone:       "+55 11 9999-8888",
 				Address:     "Rua das Flores, 123 - São Paulo, SP",
 				Website:     "https://lep-demo.com",
@@ -71,7 +71,7 @@ func GenerateCompleteData() *SeedData {
 				OrganizationId: SampleOrgID,
 				ProjectId:      SampleProjectID,
 				Name:           "Admin LEP",
-				Email:          "teste221@gmail.com",
+				Email:          "teste@gmail.com",
 				Password:       "password", // password
 				Role:           "admin",
 				Permissions:    pq.StringArray{"admin"},

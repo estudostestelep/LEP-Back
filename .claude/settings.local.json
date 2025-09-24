@@ -53,7 +53,15 @@
       "Bash(gcloud secrets versions access:*)",
       "Bash(openssl rand:*)",
       "Bash(gcloud run services describe:*)",
-      "Bash(./scripts/run_seed.sh:*)"
+      "Bash(./scripts/run_seed.sh:*)",
+      "Bash(gcloud run revisions list:*)",
+      "Bash(gcloud run services delete:*)",
+      "Bash(gcloud secrets list:*)",
+      "Bash(go:*)",
+      "Bash(gcloud beta sql connect:*)",
+      "Bash(\"C:\\Go\\bin\\go.exe\" build -o lep-seed.exe cmd/seed/main.go)",
+      "Bash(./lep-seed.exe --clear-first --verbose)",
+      "Bash(./lep-seed.exe)"
     ],
     "deny": [],
     "ask": []
