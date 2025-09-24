@@ -25,6 +25,7 @@ type IServerOrganization interface {
 	UpdateOrganization(c *gin.Context)
 	SoftDeleteOrganization(c *gin.Context)
 	HardDeleteOrganization(c *gin.Context)
+	ServiceCreateOrganizationBootstrap(c *gin.Context)
 }
 
 func (r *ResourceOrganization) GetOrganizationById(c *gin.Context) {
@@ -193,6 +194,48 @@ func (r *ResourceOrganization) HardDeleteOrganization(c *gin.Context) {
 	}
 
 	utils.SendOKSuccess(c, "Organization permanently deleted", nil)
+}
+
+type CreateOrganizationBootstrapRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+func (r *ResourceOrganization) ServiceCreateOrganizationBootstrap(c *gin.Context) {
+	var request CreateOrganizationBootstrapRequest
+	err := c.BindJSON(&request)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+
+	// Validar campos obrigatórios
+	if strings.TrimSpace(request.Name) == "" {
+		utils.SendBadRequestError(c, "Nome da organização é obrigatório", nil)
+		return
+	}
+
+	if strings.TrimSpace(request.Password) == "" {
+		utils.SendBadRequestError(c, "Senha é obrigatória", nil)
+		return
+	}
+
+	// Chamar handler para bootstrap
+	response, err := r.handler.HandlerOrganization.CreateOrganizationBootstrap(request.Name, request.Password)
+	if err != nil {
+		if strings.Contains(err.Error(), "senha inválida") {
+			utils.SendValidationError(c, "Senha inválida", err)
+			return
+		}
+		if strings.Contains(err.Error(), "já existe uma organização") {
+			utils.SendValidationError(c, "Já existe uma organização com esse nome", err)
+			return
+		}
+		utils.SendInternalServerError(c, "Erro ao criar organização", err)
+		return
+	}
+
+	utils.SendCreatedSuccess(c, "Organização criada com sucesso", response)
 }
 
 func NewSourceServerOrganization(handler *handler.Handlers) IServerOrganization {
