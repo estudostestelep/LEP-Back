@@ -25,9 +25,11 @@ func main() {
 	// Setup Gin framework
 	gin.SetMode(config.GIN_MODE)
 	r := gin.Default()
-
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
 	// Setup CORS based on environment
-	setupCORS(r)
+	//setupCORS(r)
 
 	// Setup basic health endpoints
 	setupHealthEndpoints(r)
@@ -63,12 +65,18 @@ func initializeEnvironment() {
 
 func setupCORS(r *gin.Engine) {
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowCredentials = true
-	corsConfig.AllowAllOrigins = true
+
 	if config.IsDev() {
 		// Permissive CORS for development
 		r.Use(cors.New(cors.Config{
-			AllowOrigins:     []string{"http://localhost:5173"}, // frontend Vite/React
+			AllowOrigins: []string{
+				"http://localhost:5173",
+				"http://localhost:5174",
+				"https://lep-front.vercel.app/",
+				"http://localhost:5173/",
+				"http://localhost:5174/",
+				"https://lep-front.vercel.app",
+			},
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"},
 			ExposeHeaders:    []string{"Content-Length"},
@@ -80,11 +88,18 @@ func setupCORS(r *gin.Engine) {
 	} else {
 		// Restrictive CORS for production
 		corsConfig.AllowOrigins = []string{
-			"https://yourdomain.com",
-			"https://www.yourdomain.com",
+			"http://localhost:5173",
+			"http://localhost:5174",
+			"https://lep-front.vercel.app/",
+			"http://localhost:5173/",
+			"http://localhost:5174/",
+			"https://lep-front.vercel.app",
 		}
 		log.Println("CORS: Restricted origins (production mode)")
 	}
+
+	corsConfig.AllowCredentials = true
+	corsConfig.AllowAllOrigins = true
 
 	r.Use(cors.New(corsConfig))
 }
