@@ -37,7 +37,7 @@ Múltiplas versões do Dockerfile.dev foram criadas:
 
 #### `Dockerfile.dev` (Atual - Minimal)
 ```dockerfile
-FROM golang:1.23-alpine
+FROM golang:1.24-alpine
 WORKDIR /app
 COPY . .
 RUN mkdir -p /app/logs

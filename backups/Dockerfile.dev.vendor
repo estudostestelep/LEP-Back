@@ -1,7 +1,7 @@
 # Vendor-based Development Dockerfile
 # This version uses vendor directory to work offline
 
-FROM golang:1.23-alpine
+FROM golang:1.24-alpine
 
 # Set working directory
 WORKDIR /app

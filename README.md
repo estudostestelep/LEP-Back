@@ -6,7 +6,7 @@ O LEP System é uma aplicação backend robusta desenvolvida em Go, utilizando a
 
 ### Tecnologias Utilizadas
 
-- **Go 1.23.0** - Linguagem de programação principal
+- **Go 1.24.0** - Linguagem de programação principal
 - **Gin Web Framework** - Framework HTTP para APIs RESTful
 - **GORM** - ORM para manipulação de banco de dados
 - **PostgreSQL** - Banco de dados principal
@@ -114,7 +114,7 @@ O sistema segue o padrão de **Arquitetura Limpa** com três camadas principais:
 
 ### Pré-requisitos
 
-- **Go 1.23.0+**
+- **Go 1.24.0+**
 - **PostgreSQL 15+**
 - **Git**
 

@@ -74,6 +74,7 @@ func setupCORS(r *gin.Engine) {
 				"http://localhost:5173/",
 				"http://localhost:5174/",
 				"https://lep-front.vercel.app",
+				"https://lep-front-git-main-leps-projects-a55eafc4.vercel.app/",
 			},
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"},
@@ -92,7 +93,12 @@ func setupCORS(r *gin.Engine) {
 			"http://localhost:5173/",
 			"http://localhost:5174/",
 			"https://lep-front.vercel.app",
+			"https://lep-front-git-main-leps-projects-a55eafc4.vercel.app/",
 		}
+		corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+		corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"}
+		corsConfig.ExposeHeaders = []string{"Content-Length"}
+
 		log.Println("CORS: Restricted origins (production mode)")
 	}
 

@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### 🚀 **Updated**
-- **Go version**: Upgraded from Go 1.21.5 to Go 1.23 across all Docker images and configuration files
+- **Go version**: Upgraded from Go 1.21.5 to Go 1.24 across all Docker images and configuration files
   - Updated `Dockerfile` (production build)
   - Updated `Dockerfile.dev` (development build)
   - Updated `Dockerfile.prod` (production optimized build)

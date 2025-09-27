@@ -33,6 +33,12 @@ var (
 	ENABLE_CRON_JOBS = getEnableCronJobs()
 	GIN_MODE         = getGinMode()
 	LOG_LEVEL        = getLogLevel()
+	DISABLE_AUTO_SEED = getDisableAutoSeed()
+
+	// Storage configuration
+	STORAGE_TYPE        = getStorageType()
+	STORAGE_BUCKET_NAME = os.Getenv("STORAGE_BUCKET_NAME")
+	BASE_URL            = getBaseURL()
 )
 
 // getEnvironment returns the current environment or defaults to "dev"
@@ -143,4 +149,65 @@ func IsProd() bool {
 // IsGCP returns true if running on Google Cloud Platform
 func IsGCP() bool {
 	return ENV == "dev" || ENV == "staging" || ENV == "prod"
+}
+
+// getStorageType returns the storage type based on environment
+func getStorageType() string {
+	storageType := os.Getenv("STORAGE_TYPE")
+	if storageType == "" {
+		// Default based on environment
+		if IsLocalDev() {
+			return "local"
+		}
+		return "gcs"
+	}
+	return storageType
+}
+
+// getBaseURL returns the base URL for storage
+func getBaseURL() string {
+	baseURL := os.Getenv("BASE_URL")
+	if baseURL == "" {
+		// Default based on environment and storage type
+		storageType := os.Getenv("STORAGE_TYPE")
+		bucketName := os.Getenv("STORAGE_BUCKET_NAME")
+
+		if (storageType == "gcs" || (storageType == "" && !IsLocalDev())) && bucketName != "" {
+			return "https://storage.googleapis.com/" + bucketName
+		}
+		// Default for local development
+		return "http://localhost:8080"
+	}
+	return baseURL
+}
+
+// IsLocalStorage returns true if using local storage
+func IsLocalStorage() bool {
+	return STORAGE_TYPE == "local"
+}
+
+// IsGCSStorage returns true if using Google Cloud Storage
+func IsGCSStorage() bool {
+	return STORAGE_TYPE == "gcs"
+}
+
+// getDisableAutoSeed returns whether auto-seeding should be disabled
+func getDisableAutoSeed() bool {
+	autoSeed := os.Getenv("DISABLE_AUTO_SEED")
+	if autoSeed == "" {
+		// Default: allow auto-seed in all environments
+		return false
+	}
+
+	disabled, err := strconv.ParseBool(autoSeed)
+	if err != nil {
+		log.Printf("Warning: Invalid DISABLE_AUTO_SEED value '%s', defaulting to false", autoSeed)
+		return false
+	}
+	return disabled
+}
+
+// IsAutoSeedEnabled returns true if auto-seeding is enabled
+func IsAutoSeedEnabled() bool {
+	return !DISABLE_AUTO_SEED
 }

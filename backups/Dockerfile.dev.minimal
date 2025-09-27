@@ -1,7 +1,7 @@
 # Minimal Development Dockerfile
 # This version uses minimal dependencies to avoid package manager issues
 
-FROM golang:1.23-alpine
+FROM golang:1.24-alpine
 
 # Only install absolutely essential packages
 RUN apk add --no-cache ca-certificates

@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"fmt"
 	"lep/handler"
 	"lep/server"
 
@@ -14,7 +15,7 @@ var ServersControllers server.ServerController
 func Inject() {
 	db, err := OpenConnDBPostgres2()
 	if err != nil {
-		panic("Conecxão falhou")
+		panic(fmt.Sprintf("Conexão com banco falhou: %v", err))
 	}
 	server.Start(db)
 	Repository.InjectProstgres(db)

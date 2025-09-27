@@ -13,6 +13,12 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/user", resource.ServersControllers.SourceUsers.ServiceCreateUser)
 	r.POST("/create-organization", resource.ServersControllers.SourceOrganization.ServiceCreateOrganizationBootstrap)
 
+	// Public routes for menu and reservations (no authentication)
+	setupPublicRoutes(r)
+
+	// Upload routes (require authentication)
+	setupUploadRoutes(r)
+
 	// Create protected route group with authentication middlewares
 	protected := r.Group("/")
 	//protected.Use(middleware.AuthMiddleware())
@@ -59,6 +65,7 @@ func setupProductRoutes(r gin.IRouter) {
 		productRoutes.GET("", resource.ServersControllers.SourceProducts.ServiceListProducts) // Endpoint de listagem
 		productRoutes.POST("", resource.ServersControllers.SourceProducts.ServiceCreateProduct)
 		productRoutes.PUT("/:id", resource.ServersControllers.SourceProducts.ServiceUpdateProduct)
+		productRoutes.PUT("/:id/image", resource.ServersControllers.SourceProducts.ServiceUpdateProductImage) // Atualizar apenas imagem
 		productRoutes.DELETE("/:id", resource.ServersControllers.SourceProducts.ServiceDeleteProduct)
 	}
 }
@@ -214,5 +221,40 @@ func setupOrganizationRoutes(r gin.IRouter) {
 		organizationRoutes.PUT("/:id", resource.ServersControllers.SourceOrganization.UpdateOrganization)
 		organizationRoutes.DELETE("/:id", resource.ServersControllers.SourceOrganization.SoftDeleteOrganization)
 		organizationRoutes.DELETE("/:id/permanent", resource.ServersControllers.SourceOrganization.HardDeleteOrganization)
+	}
+}
+
+// setupPublicRoutes configura rotas públicas (sem autenticação)
+func setupPublicRoutes(r *gin.Engine) {
+	publicRoutes := r.Group("/public")
+	{
+		// Cardápio público
+		publicRoutes.GET("/menu/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceGetPublicMenu)
+
+		// Informações do projeto
+		publicRoutes.GET("/project/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceGetProjectInfo)
+
+		// Horários disponíveis
+		publicRoutes.GET("/times/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceGetAvailableTimes)
+
+		// Criar reserva pública
+		publicRoutes.POST("/reservation/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceCreatePublicReservation)
+	}
+}
+
+// setupUploadRoutes configura rotas de upload (com autenticação)
+func setupUploadRoutes(r *gin.Engine) {
+	// Rotas públicas para servir imagens estáticas
+	// Nova estrutura: /uploads/orgId/projId/category/filename
+	r.GET("/uploads/:orgId/:projId/:category/:filename", resource.ServersControllers.SourceUpload.ServiceGetUploadedFile)
+	// Estrutura de compatibilidade: /static/category/filename (evita conflito de rotas)
+	r.GET("/static/:category/:filename", resource.ServersControllers.SourceUpload.ServiceGetUploadedFile)
+
+	// Rotas protegidas para upload (requerem autenticação)
+	uploadRoutes := r.Group("/upload")
+	uploadRoutes.Use(middleware.HeaderValidationMiddleware())
+	{
+		// Upload de imagem de produto
+		uploadRoutes.POST("/product/image", resource.ServersControllers.SourceUpload.ServiceUploadProductImage)
 	}
 }

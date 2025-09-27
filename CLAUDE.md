@@ -203,7 +203,37 @@ SMTP_PASSWORD=your_app_password
 
 # Cron Jobs (optional)
 ENABLE_CRON_JOBS=true
+
+# Storage Configuration
+STORAGE_TYPE=local                    # "local" for development, "gcs" for production
+STORAGE_BUCKET_NAME=bucket-name       # Required when STORAGE_TYPE=gcs
+BASE_URL=http://localhost:8080        # Base URL for generating public links
 ```
+
+## Image Storage System
+
+O sistema suporta armazenamento híbrido de imagens que detecta automaticamente o ambiente:
+
+### Desenvolvimento (Storage Local)
+- **Localização**: `./uploads/products/`
+- **URLs**: `http://localhost:8080/uploads/products/{filename}`
+- **Configuração**: `STORAGE_TYPE=local` ou não definir a variável
+
+### Produção (Google Cloud Storage)
+- **Bucket**: Criado automaticamente pelo script bootstrap
+- **URLs**: `https://storage.googleapis.com/{bucket-name}/products/{filename}`
+- **Configuração**: `STORAGE_TYPE=gcs` e `STORAGE_BUCKET_NAME`
+
+### Endpoints de Upload
+- `POST /upload/product/image` - Upload de imagem (multipart/form-data)
+- `PUT /product/{id}/image` - Atualizar URL da imagem de um produto
+- `GET /uploads/{category}/{filename}` - Servir imagens locais (apenas desenvolvimento)
+
+### Funcionalidades
+- **Detecção Automática**: Usa storage local no desenvolvimento, GCS na produção
+- **Validações**: Tipos permitidos (JPEG, PNG, WebP, GIF), tamanho máximo 5MB
+- **Performance**: URLs públicas diretas, cache otimizado
+- **Fallback**: Se GCS falhar, usa storage local automaticamente
 
 ## API Endpoints
 

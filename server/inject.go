@@ -17,6 +17,8 @@ type ServerController struct {
 	SourceEnvironment  IEnvironmentServer
 	SourceNotification *NotificationServer
 	SourceReports      IReportsServer
+	SourcePublic       IServerPublic
+	SourceUpload       IServerUpload
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -34,4 +36,6 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceEnvironment = NewEnvironmentServer(handler.HandlerEnvironment)
 	h.SourceNotification = NewNotificationServer(handler.HandlerNotification)
 	h.SourceReports = NewReportsServer(handler.HandlerReports)
+	h.SourcePublic = NewSourceServerPublic(handler)
+	h.SourceUpload = NewSourceServerUpload()
 }

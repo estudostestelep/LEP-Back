@@ -89,6 +89,7 @@ enable_apis() {
         "run.googleapis.com"
         "cloudbuild.googleapis.com"
         "artifactregistry.googleapis.com"
+        "storage.googleapis.com"
     )
 
     gcloud services enable \
@@ -97,6 +98,7 @@ enable_apis() {
         run.googleapis.com \
         cloudbuild.googleapis.com \
         artifactregistry.googleapis.com \
+        storage.googleapis.com \
         --project=$PROJECT_ID
 
     log_success "APIs enabled successfully"
@@ -184,6 +186,55 @@ create_cloud_sql() {
     fi
 }
 
+# Create storage bucket for images
+create_storage_bucket() {
+    log_step "Creating Cloud Storage bucket for images..."
+
+    local bucket_name="${PROJECT_ID}-lep-images-${ENVIRONMENT}"
+
+    if gsutil ls -b gs://$bucket_name &>/dev/null; then
+        log_warn "Storage bucket already exists: $bucket_name"
+    else
+        log_info "Creating storage bucket: $bucket_name"
+
+        # Create bucket with regional storage in same region as other resources
+        gsutil mb -p $PROJECT_ID -c STANDARD -l $REGION gs://$bucket_name
+
+        # Set public access for images (read-only)
+        gsutil iam ch allUsers:objectViewer gs://$bucket_name
+
+        # Set CORS policy for web access
+        cat > /tmp/cors.json << 'EOF'
+[
+    {
+        "origin": ["*"],
+        "method": ["GET", "HEAD"],
+        "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"],
+        "maxAgeSeconds": 3600
+    }
+]
+EOF
+
+        gsutil cors set /tmp/cors.json gs://$bucket_name
+        rm -f /tmp/cors.json
+
+        log_info "Bucket created with public read access and CORS configured"
+    fi
+
+    # Store bucket name in Secret Manager for application use
+    local bucket_secret_name="lep-storage-bucket-name"
+
+    if gcloud secrets describe $bucket_secret_name &>/dev/null; then
+        log_info "Updating existing bucket name secret..."
+        echo -n "$bucket_name" | gcloud secrets versions add $bucket_secret_name --data-file=-
+    else
+        log_info "Creating bucket name secret..."
+        echo -n "$bucket_name" | gcloud secrets create $bucket_secret_name --data-file=-
+    fi
+
+    log_success "Storage bucket created and configured: gs://$bucket_name"
+}
+
 # Configure Docker authentication
 configure_docker_auth() {
     log_step "Configuring Docker authentication..."
@@ -231,6 +282,9 @@ main() {
     echo ""
 
     create_cloud_sql
+    echo ""
+
+    create_storage_bucket
     echo ""
 
     configure_docker_auth
