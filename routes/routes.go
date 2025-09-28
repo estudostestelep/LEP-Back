@@ -254,7 +254,10 @@ func setupUploadRoutes(r *gin.Engine) {
 	uploadRoutes := r.Group("/upload")
 	uploadRoutes.Use(middleware.HeaderValidationMiddleware())
 	{
-		// Upload de imagem de produto
+		// Rota genérica para upload de qualquer categoria
+		uploadRoutes.POST("/:category/image", resource.ServersControllers.SourceUpload.ServiceUploadImage)
+
+		// Rota de retrocompatibilidade para produtos
 		uploadRoutes.POST("/product/image", resource.ServersControllers.SourceUpload.ServiceUploadProductImage)
 	}
 }

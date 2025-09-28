@@ -289,13 +289,13 @@ docker build -t us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:$
 docker push us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:$(date +%Y%m%d-%H%M)
 
 # 2. Deploy Cloud Run
-gcloud run deploy leps-backend-dev \
+gcloud run deploy lep-system \
     --image=us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:$(date +%Y%m%d-%H%M) \
     --region=us-central1 \
     --allow-unauthenticated
 
 # 3. Verificar
-curl https://$(gcloud run services describe leps-backend-dev --region=us-central1 --format="value(status.url)")/health
+curl https://$(gcloud run services describe lep-system --region=us-central1 --format="value(status.url)")/health
 ```
 
 ## 📋 Recursos Adicionais

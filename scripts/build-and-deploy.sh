@@ -8,7 +8,7 @@ set -e
 # Configuration
 PROJECT_ID="leps-472702"
 REGION="us-central1"
-SERVICE_NAME="leps-backend-dev"
+SERVICE_NAME="lep-system"
 REPOSITORY="lep-backend"
 IMAGE_TAG="latest"
 

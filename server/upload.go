@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"lep/config"
+	"lep/constants"
 	"lep/utils"
 	"mime/multipart"
 	"net/http"
@@ -20,12 +21,13 @@ type ResourceUpload struct {
 }
 
 type IServerUpload interface {
-	ServiceUploadProductImage(c *gin.Context)
+	ServiceUploadImage(c *gin.Context)        // Método genérico para qualquer categoria
+	ServiceUploadProductImage(c *gin.Context) // Mantido para retrocompatibilidade
 	ServiceGetUploadedFile(c *gin.Context)
 }
 
-// ServiceUploadProductImage faz upload de imagem de produto
-func (r *ResourceUpload) ServiceUploadProductImage(c *gin.Context) {
+// ServiceUploadImage faz upload de imagem genérico para qualquer categoria
+func (r *ResourceUpload) ServiceUploadImage(c *gin.Context) {
 	// Headers validados pelo middleware - acessar via context
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
@@ -35,17 +37,24 @@ func (r *ResourceUpload) ServiceUploadProductImage(c *gin.Context) {
 		return
 	}
 
+	// Obter categoria da URL
+	category := c.Param("category")
+	if !constants.IsValidUploadCategory(category) {
+		utils.SendBadRequestError(c, constants.ErrorInvalidCategory, nil)
+		return
+	}
+
 	// Parse do form multipart
-	err := c.Request.ParseMultipartForm(10 << 20) // 10MB limit
+	err := c.Request.ParseMultipartForm(constants.MaxFormSize)
 	if err != nil {
-		utils.SendBadRequestError(c, "Error parsing multipart form", err)
+		utils.SendBadRequestError(c, constants.ErrorParsingForm, err)
 		return
 	}
 
 	// Obter o arquivo
 	file, handler, err := c.Request.FormFile("image")
 	if err != nil {
-		utils.SendBadRequestError(c, "No image file provided", err)
+		utils.SendBadRequestError(c, constants.ErrorNoFile, err)
 		return
 	}
 	defer file.Close()
@@ -53,20 +62,19 @@ func (r *ResourceUpload) ServiceUploadProductImage(c *gin.Context) {
 	// Validações
 	contentType := handler.Header.Get("Content-Type")
 	if !utils.IsValidImageType(contentType) {
-		utils.SendBadRequestError(c, "Invalid file type. Only JPEG, PNG, WebP and GIF are allowed", nil)
+		utils.SendBadRequestError(c, constants.ErrorInvalidFileType, nil)
 		return
 	}
 
-	maxSize := int64(5 * 1024 * 1024) // 5MB
-	if !utils.IsValidFileSize(handler.Size, maxSize) {
-		utils.SendBadRequestError(c, "File too large. Maximum size is 5MB", nil)
+	if !utils.IsValidFileSize(handler.Size, constants.MaxUploadSize) {
+		utils.SendBadRequestError(c, constants.ErrorFileTooLarge, nil)
 		return
 	}
 
 	// Upload usando serviço híbrido (local ou GCS) com organização por tenant
-	result, err := r.uploadWithFallback(file, handler, organizationId, projectId, "products")
+	result, err := r.uploadWithFallback(file, handler, organizationId, projectId, category)
 	if err != nil {
-		utils.SendInternalServerError(c, "Error uploading file", err)
+		utils.SendInternalServerError(c, constants.ErrorUploadingFile, err)
 		return
 	}
 
@@ -76,11 +84,21 @@ func (r *ResourceUpload) ServiceUploadProductImage(c *gin.Context) {
 		"image_url":       result.PublicURL,
 		"filename":        result.Filename,
 		"size":            result.Size,
+		"category":        category,
 		"organization_id": organizationId,
 		"project_id":      projectId,
 	}
 
-	utils.SendCreatedSuccess(c, "Image uploaded successfully", response)
+	utils.SendCreatedSuccess(c, constants.SuccessUploadMessage, response)
+}
+
+// ServiceUploadProductImage faz upload de imagem de produto (retrocompatibilidade)
+func (r *ResourceUpload) ServiceUploadProductImage(c *gin.Context) {
+	// Simular parâmetro de categoria para reutilizar o método genérico
+	c.Params = append(c.Params, gin.Param{Key: "category", Value: constants.UploadCategoryProducts})
+
+	// Chamar método genérico
+	r.ServiceUploadImage(c)
 }
 
 // ServiceGetUploadedFile serve arquivos uploadados estaticamente
@@ -116,7 +134,7 @@ func (r *ResourceUpload) ServiceGetUploadedFile(c *gin.Context) {
 	}
 
 	// Validar categoria
-	if category != "products" {
+	if !constants.IsValidUploadCategory(category) {
 		utils.SendNotFoundError(c, "Category")
 		return
 	}

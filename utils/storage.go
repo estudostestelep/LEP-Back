@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"lep/config"
+	"lep/constants"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -204,20 +205,7 @@ func getFileExtension(filename string) string {
 
 // Validar se o tipo MIME é de uma imagem válida
 func IsValidImageType(contentType string) bool {
-	validTypes := []string{
-		"image/jpeg",
-		"image/jpg",
-		"image/png",
-		"image/webp",
-		"image/gif",
-	}
-
-	for _, validType := range validTypes {
-		if contentType == validType {
-			return true
-		}
-	}
-	return false
+	return constants.IsValidImageMimeType(contentType)
 }
 
 // Validar tamanho do arquivo

@@ -924,7 +924,7 @@
       "_id": "req_upload_product_image_production",
       "_type": "request",
       "name": "Upload Product Image (Production)",
-      "url": "https://leps-backend-dev-516622888070.us-central1.run.app/upload/product/image",
+      "url": "https://lep-system-516622888070.us-central1.run.app/upload/product/image",
       "method": "POST",
       "headers": [
         {

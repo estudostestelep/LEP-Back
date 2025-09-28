@@ -24,7 +24,7 @@ docker build -t us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:l
 docker push us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:latest
 
 # Deploy (escolher ambiente)
-gcloud run deploy leps-backend-dev --image=us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:latest --region=us-central1
+gcloud run deploy lep-system --image=us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:latest --region=us-central1
 ```
 
 ## 🎯 Ambientes de Deploy

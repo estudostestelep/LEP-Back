@@ -1,12 +1,12 @@
 # Cloud Run service outputs (hardcoded since managed outside Terraform)
 output "service_url" {
   description = "URL of the Cloud Run service"
-  value       = "https://leps-backend-dev-516622888070.us-central1.run.app"
+  value       = "https://lep-system-516622888070.us-central1.run.app"
 }
 
 output "service_name" {
   description = "Name of the Cloud Run service"
-  value       = "leps-backend-dev"
+  value       = "lep-system"
 }
 
 # Database outputs (hardcoded from bootstrap)
@@ -77,10 +77,10 @@ output "environment" {
 # Deployment commands
 output "docker_build_command" {
   description = "Command to build and push Docker image"
-  value = "docker build -t ${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest . && docker push ${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest"
+  value       = "docker build -t ${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest . && docker push ${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest"
 }
 
 output "cloud_run_deploy_command" {
   description = "Command to deploy to Cloud Run"
-  value = "gcloud run deploy leps-backend-dev --source . --region=${var.region} --platform=managed --allow-unauthenticated"
+  value       = "gcloud run deploy lep-system --source . --region=${var.region} --platform=managed --allow-unauthenticated"
 }

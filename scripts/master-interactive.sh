@@ -1206,7 +1206,7 @@ deploy_application_only() {
         docker push "$image_tag"
 
         log_info "Fazendo deploy para Cloud Run..."
-        gcloud run deploy "leps-backend-dev" \
+        gcloud run deploy "lep-system" \
             --image="$image_tag" \
             --region="$REGION" \
             --platform=managed \
@@ -1215,7 +1215,7 @@ deploy_application_only() {
         log_success "Deploy da aplicação concluído!"
 
         # Obter URL do serviço
-        local service_url=$(gcloud run services describe "leps-backend-dev" \
+        local service_url=$(gcloud run services describe "lep-system" \
             --region="$REGION" \
             --format="value(status.url)" 2>/dev/null)
 

@@ -191,7 +191,7 @@ check_gcp_environment() {
     local service_name=""
     case $env in
         "gcp-dev")
-            service_name="leps-backend-dev"
+            service_name="lep-system"
             ;;
         "gcp-stage")
             service_name="leps-backend-stage"
