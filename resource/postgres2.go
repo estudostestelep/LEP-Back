@@ -4,17 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"lep/config"
+	"log"
 	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func OpenConnDBPostgres2() (*gorm.DB, error) {
+func OpenConnDBPostgres() (*gorm.DB, error) {
 	// For local development (traditional host:port connection)
-	if config.IsLocalDev() {
+	if config.IsDev() {
 		dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=America/Sao_Paulo",
 			config.DB_HOST, config.DB_USER, config.DB_PASS, config.DB_NAME, config.DB_PORT, config.DB_SSL_MODE)
 
@@ -77,8 +77,8 @@ func configureConnectionPool(db *sql.DB) {
 	// For Cloud Run: Lower values to avoid exceeding database connection limits
 	if config.IsGCP() {
 		// Very conservative for db-f1-micro (max 10 total connections)
-		db.SetMaxOpenConns(2)  // Extremely conservative for f1-micro
-		db.SetMaxIdleConns(1)  // Minimal idle connections
+		db.SetMaxOpenConns(2) // Extremely conservative for f1-micro
+		db.SetMaxIdleConns(1) // Minimal idle connections
 	} else {
 		// Local development
 		db.SetMaxOpenConns(10)

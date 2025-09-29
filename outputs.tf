@@ -84,3 +84,24 @@ output "cloud_run_deploy_command" {
   description = "Command to deploy to Cloud Run"
   value       = "gcloud run deploy lep-system --source . --region=${var.region} --platform=managed --allow-unauthenticated"
 }
+
+# Bucket configuration outputs
+output "bucket_name" {
+  description = "GCS bucket name for image storage"
+  value       = var.bucket_name
+}
+
+output "bucket_cache_control" {
+  description = "Cache control header for uploaded files"
+  value       = var.bucket_cache_control
+}
+
+output "bucket_timeout" {
+  description = "Timeout in seconds for GCS operations"
+  value       = var.bucket_timeout
+}
+
+output "bucket_url" {
+  description = "Full bucket URL for storage access"
+  value       = var.bucket_name != "" ? "https://storage.googleapis.com/${var.bucket_name}" : ""
+}

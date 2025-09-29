@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
@@ -41,8 +42,15 @@ type GCSStorageService struct {
 // NewStorageService cria uma instância do serviço de storage baseado no ambiente
 func NewStorageService() StorageService {
 	if config.IsGCSStorage() {
-		// Ambiente GCP - usar Cloud Storage
-		if config.STORAGE_BUCKET_NAME == "" {
+		// Ambientes stage/prod - usar Cloud Storage
+
+		// Usar BUCKET_NAME se disponível, senão fallback para STORAGE_BUCKET_NAME
+		bucketName := config.BUCKET_NAME
+		if bucketName == "" {
+			bucketName = config.STORAGE_BUCKET_NAME
+		}
+
+		if bucketName == "" {
 			// Fallback para storage local se bucket não estiver configurado
 			return NewLocalStorageService()
 		}
@@ -55,12 +63,12 @@ func NewStorageService() StorageService {
 
 		return &GCSStorageService{
 			client:     client,
-			bucketName: config.STORAGE_BUCKET_NAME,
+			bucketName: bucketName,
 			baseURL:    config.BASE_URL,
 		}
 	}
 
-	// Ambiente local - usar storage local
+	// Ambiente dev - usar storage local
 	return NewLocalStorageService()
 }
 
@@ -133,7 +141,14 @@ func (s *LocalStorageService) DeleteFile(filename, orgId, projId, category strin
 
 // GCSStorageService implementation
 func (s *GCSStorageService) UploadFile(file multipart.File, header *multipart.FileHeader, orgId, projId, category string) (*UploadResult, error) {
-	ctx := context.Background()
+	// Usar timeout configurado ou fallback
+	timeout := time.Duration(config.BUCKET_TIMEOUT) * time.Second
+	if timeout <= 0 {
+		timeout = 30 * time.Second // fallback: 30 segundos
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	// Gerar nome único com estrutura orgId/projId/category
 	fileExt := getFileExtension(header.Filename)
@@ -144,19 +159,30 @@ func (s *GCSStorageService) UploadFile(file multipart.File, header *multipart.Fi
 
 	// Criar writer
 	writer := obj.NewWriter(ctx)
-	defer writer.Close()
 
 	// Definir metadados
 	writer.ContentType = header.Header.Get("Content-Type")
-	writer.CacheControl = "public, max-age=604800" // 1 semana
+
+	// Usar configuração de cache control ou fallback
+	cacheControl := config.BUCKET_CACHE_CONTROL
+	if cacheControl == "" {
+		cacheControl = "public, max-age=604800" // fallback: 1 semana
+	}
+	writer.CacheControl = cacheControl
 
 	// Copiar dados
 	size, err := io.Copy(writer, file)
 	if err != nil {
+		writer.Close() // Fechar writer em caso de erro
 		return nil, fmt.Errorf("error uploading to GCS: %w", err)
 	}
 
-	// Definir ACL público para leitura
+	// IMPORTANTE: Fechar writer primeiro para finalizar o upload
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("error finalizing upload: %w", err)
+	}
+
+	// AGORA definir ACL público para leitura (após o objeto existir)
 	if err := obj.ACL().Set(ctx, storage.AllUsers, storage.RoleReader); err != nil {
 		// Log do erro, mas não falha o upload
 		fmt.Printf("Warning: Could not set public ACL for %s: %v\n", objectName, err)

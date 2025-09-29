@@ -18,13 +18,13 @@ import (
 
 // TestConfig holds configuration for testing environment
 type TestConfig struct {
-	DB           *gorm.DB
-	Router       *gin.Engine
-	OrgID        string
-	ProjectID    string
-	AuthToken    string
-	TestData     *TestData
-	SeedData     *utils.SeedData
+	DB        *gorm.DB
+	Router    *gin.Engine
+	OrgID     string
+	ProjectID string
+	AuthToken string
+	TestData  *TestData
+	SeedData  *utils.SeedData
 }
 
 // NewTestConfig creates a new test configuration with real database and handlers
@@ -41,7 +41,7 @@ func NewTestConfig() *TestConfig {
 	}
 
 	// Connect to test database
-	db, err := resource.OpenConnDBPostgres2()
+	db, err := resource.OpenConnDBPostgres()
 	if err != nil {
 		log.Fatalf("Failed to connect to test database: %v", err)
 	}

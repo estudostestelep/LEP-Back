@@ -182,7 +182,7 @@ func (r *ResourceUpload) uploadWithFallback(file multipart.File, handler *multip
 	result, err := r.storageService.UploadFile(file, handler, orgId, projId, category)
 	if err != nil {
 		// Se falhou e tem fallback disponível, tentar fallback
-		if r.fallbackStorage != nil {
+		if r.fallbackStorage != nil && config.ENV == "local-dev" {
 			// Reset file pointer para início
 			if _, seekErr := file.Seek(0, 0); seekErr != nil {
 				return nil, fmt.Errorf("error resetting file pointer: %w", seekErr)

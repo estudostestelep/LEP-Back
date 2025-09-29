@@ -39,6 +39,11 @@ smtp_password = "your-app-password"                  # UPDATE THIS
 # Application configuration
 enable_cron_jobs = true    # Enable all features
 
+# Bucket configuration for production
+bucket_name          = "leps-472702-lep-images-prod"
+bucket_cache_control = "public, max-age=86400"
+bucket_timeout       = 120
+
 # Custom domain - ENABLED for production
 domain_name          = "api.yourdomain.com"         # UPDATE THIS
 enable_custom_domain = true                         # Enable custom domain

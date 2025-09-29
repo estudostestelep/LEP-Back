@@ -55,7 +55,7 @@ func runSeed(cmd *cobra.Command, args []string) {
 
 	// Connect to database
 	fmt.Println("📡 Connecting to database...")
-	db, err := resource.OpenConnDBPostgres2()
+	db, err := resource.OpenConnDBPostgres()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

@@ -98,7 +98,19 @@
       "Bash(ENVIRONMENT=dev gcloud run deploy lep-system --source . --region=us-central1 --platform=managed --allow-unauthenticated --memory=1Gi --cpu=1 --max-instances=2 --add-cloudsql-instances=leps-472702:us-central1:leps-postgres-dev --service-account=lep-backend-sa@leps-472702.iam.gserviceaccount.com --set-env-vars=\"ENVIRONMENT=dev,STORAGE_TYPE=gcs,STORAGE_BUCKET_NAME=leps-472702-lep-images-dev,BASE_URL=https://storage.googleapis.com/leps-472702-lep-images-dev,DB_USER=lep_user,DB_NAME=lep_database,INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-dev\" --set-secrets=\"DB_PASS=db-password-dev:latest,JWT_SECRET_PRIVATE_KEY=jwt-private-key-dev:latest,JWT_SECRET_PUBLIC_KEY=jwt-public-key-dev:latest\")",
       "Bash(for category in products users restaurants banners)",
       "Bash(do echo \"Testing category: $category\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(dir:*)",
+      "Bash(gcloud config get-value:*)",
+      "Bash(gsutil ls:*)",
+      "Bash(scripts/master-interactive.sh:*)",
+      "Bash(./scripts/master-interactive.sh:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker restart:*)",
+      "Bash(gsutil mb:*)",
+      "Bash(ENVIRONMENT=stage gcloud run deploy lep-system --source . --region=us-central1 --platform=managed --allow-unauthenticated --memory=1Gi --cpu=1 --max-instances=2 --add-cloudsql-instances=leps-472702:us-central1:leps-postgres-dev --service-account=lep-backend-sa@leps-472702.iam.gserviceaccount.com --set-env-vars=\"ENVIRONMENT=stage,STORAGE_TYPE=gcs,BUCKET_NAME=leps-472702-lep-images-stage,BASE_URL=https://storage.googleapis.com/leps-472702-lep-images-stage,DB_USER=lep_user,DB_NAME=lep_database,INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-dev\" --set-secrets=\"DB_PASS=db-password-dev:latest,JWT_SECRET_PRIVATE_KEY=jwt-private-key-dev:latest,JWT_SECRET_PUBLIC_KEY=jwt-public-key-dev:latest\")",
+      "Bash(gsutil iam:*)"
     ],
     "deny": [],
     "ask": []

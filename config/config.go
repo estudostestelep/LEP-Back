@@ -39,6 +39,11 @@ var (
 	STORAGE_TYPE        = getStorageType()
 	STORAGE_BUCKET_NAME = os.Getenv("STORAGE_BUCKET_NAME")
 	BASE_URL            = getBaseURL()
+
+	// Bucket configuration
+	BUCKET_NAME          = os.Getenv("BUCKET_NAME")
+	BUCKET_CACHE_CONTROL = os.Getenv("BUCKET_CACHE_CONTROL")
+	BUCKET_TIMEOUT, _    = strconv.Atoi(os.Getenv("BUCKET_TIMEOUT"))
 )
 
 // getEnvironment returns the current environment or defaults to "dev"
@@ -48,8 +53,8 @@ func getEnvironment() string {
 		env = "dev"
 	}
 
-	// Validate environment
-	validEnvs := []string{"local-dev", "dev", "staging", "prod"}
+	// Validate environment - simplified to dev/stage/prod
+	validEnvs := []string{"dev", "stage", "prod"}
 	for _, validEnv := range validEnvs {
 		if env == validEnv {
 			return env
@@ -74,7 +79,7 @@ func getDBSSLMode() string {
 	sslMode := os.Getenv("DB_SSL_MODE")
 	if sslMode == "" {
 		// Default based on environment
-		if ENV == "local-dev" {
+		if ENV == "dev" {
 			return "disable"
 		}
 		return "require"
@@ -87,7 +92,7 @@ func getEnableCronJobs() bool {
 	cronJobs := os.Getenv("ENABLE_CRON_JOBS")
 	if cronJobs == "" {
 		// Default based on environment
-		return ENV == "staging" || ENV == "prod"
+		return ENV == "stage" || ENV == "prod"
 	}
 
 	enabled, err := strconv.ParseBool(cronJobs)
@@ -103,9 +108,7 @@ func getGinMode() string {
 	mode := os.Getenv("GIN_MODE")
 	if mode == "" {
 		// Default based on environment
-		if ENV == "local-dev" {
-			return "debug"
-		} else if ENV == "dev" {
+		if ENV == "dev" {
 			return "debug"
 		}
 		return "release"
@@ -118,7 +121,7 @@ func getLogLevel() string {
 	level := os.Getenv("LOG_LEVEL")
 	if level == "" {
 		// Default based on environment
-		if ENV == "local-dev" || ENV == "dev" {
+		if ENV == "dev" {
 			return "debug"
 		}
 		return "info"
@@ -126,19 +129,14 @@ func getLogLevel() string {
 	return strings.ToLower(level)
 }
 
-// IsLocalDev returns true if running in local development mode
-func IsLocalDev() bool {
-	return ENV == "local-dev"
-}
-
-// IsDev returns true if running in any development mode
+// IsDev returns true if running in development mode
 func IsDev() bool {
-	return ENV == "local-dev" || ENV == "dev"
+	return ENV == "dev"
 }
 
-// IsStaging returns true if running in staging mode
-func IsStaging() bool {
-	return ENV == "staging"
+// IsStage returns true if running in staging mode
+func IsStage() bool {
+	return ENV == "stage"
 }
 
 // IsProd returns true if running in production mode
@@ -148,7 +146,7 @@ func IsProd() bool {
 
 // IsGCP returns true if running on Google Cloud Platform
 func IsGCP() bool {
-	return ENV == "dev" || ENV == "staging" || ENV == "prod"
+	return ENV == "stage" || ENV == "prod"
 }
 
 // getStorageType returns the storage type based on environment
@@ -156,7 +154,7 @@ func getStorageType() string {
 	storageType := os.Getenv("STORAGE_TYPE")
 	if storageType == "" {
 		// Default based on environment
-		if IsLocalDev() {
+		if IsDev() {
 			return "local"
 		}
 		return "gcs"
@@ -172,7 +170,7 @@ func getBaseURL() string {
 		storageType := os.Getenv("STORAGE_TYPE")
 		bucketName := os.Getenv("STORAGE_BUCKET_NAME")
 
-		if (storageType == "gcs" || (storageType == "" && !IsLocalDev())) && bucketName != "" {
+		if (storageType == "gcs" || (storageType == "" && !IsDev())) && bucketName != "" {
 			return "https://storage.googleapis.com/" + bucketName
 		}
 		// Default for local development
