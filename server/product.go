@@ -21,6 +21,7 @@ type IServerProducts interface {
 	ServiceListProducts(c *gin.Context)
 	ServiceCreateProduct(c *gin.Context)
 	ServiceUpdateProduct(c *gin.Context)
+	ServiceUpdateProductImage(c *gin.Context)
 	ServiceDeleteProduct(c *gin.Context)
 }
 
@@ -71,16 +72,27 @@ func (r *ResourceProducts) ServiceCreateProduct(c *gin.Context) {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
-	newProduct.OrganizationId, err = uuid.Parse(c.GetHeader("X-Lpe-Organization-Id"))
+
+	// Headers validados pelo middleware - acessar via context
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	newProduct.OrganizationId, err = uuid.Parse(organizationId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error parsing organization ID", err)
 		return
 	}
-	newProduct.ProjectId, err = uuid.Parse(c.GetHeader("X-Lpe-Project-Id"))
+	newProduct.ProjectId, err = uuid.Parse(projectId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error parsing project ID", err)
 		return
 	}
+
+	// Gerar ID se não fornecido
+	if newProduct.Id == uuid.Nil {
+		newProduct.Id = uuid.New()
+	}
+
 	// Validações estruturadas
 	if err := validation.CreateProductValidation(&newProduct); err != nil {
 		utils.SendValidationError(c, "Validation failed", err)
@@ -160,6 +172,62 @@ func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, products)
+}
+
+func (r *ResourceProducts) ServiceUpdateProductImage(c *gin.Context) {
+	idStr := c.Param("id")
+
+	// Validar formato UUID
+	_, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid product ID format", err)
+		return
+	}
+
+	// Headers validados pelo middleware
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	// Parse do JSON body para receber nova image_url
+	var requestData struct {
+		ImageUrl string `json:"image_url" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&requestData); err != nil {
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+
+	// Buscar produto existente
+	existingProduct, err := r.handler.HandlerProducts.GetProduct(idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting product", err)
+		return
+	}
+
+	if existingProduct == nil {
+		utils.SendNotFoundError(c, "Product")
+		return
+	}
+
+	// Verificar se o produto pertence à organização/projeto corretos
+	if existingProduct.OrganizationId.String() != organizationId ||
+		existingProduct.ProjectId.String() != projectId {
+		utils.SendBadRequestError(c, "Product does not belong to specified organization/project", nil)
+		return
+	}
+
+	// Atualizar apenas o campo ImageUrl
+	existingProduct.ImageUrl = &requestData.ImageUrl
+
+	// Salvar alteração
+	err = r.handler.HandlerProducts.UpdateProduct(existingProduct)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error updating product image", err)
+		return
+	}
+
+	utils.SendOKSuccess(c, "Product image updated successfully", existingProduct)
 }
 
 func (r *ResourceProducts) ServiceDeleteProduct(c *gin.Context) {

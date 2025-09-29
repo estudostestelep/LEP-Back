@@ -1,0 +1,1019 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2025-09-26T00:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8080",
+        "organization_id": "9061ada1-c49f-4ee1-aafb-627e5cad788e",
+        "project_id": "c2d72589-47a4-47e2-abbf-27a39fa7051f",
+        "jwt_token": ""
+      }
+    },
+    {
+      "_id": "req_ping",
+      "_type": "request",
+      "name": "Ping",
+      "url": "{{ _.base_url }}/ping",
+      "method": "GET",
+      "description": "Test basic connectivity"
+    },
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "name": "Health Check",
+      "url": "{{ _.base_url }}/health",
+      "method": "GET",
+      "description": "Health status check"
+    },
+    {
+      "_id": "req_login",
+      "_type": "request",
+      "name": "Login",
+      "url": "{{ _.base_url }}/login",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"admin@lep-demo.com\",\n  \"password\": \"password\"\n}"
+      },
+      "description": "User authentication - Copy token to jwt_token environment variable"
+    },
+    {
+      "_id": "req_check_token",
+      "_type": "request",
+      "name": "Check Token",
+      "url": "{{ _.base_url }}/checkToken",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_logout",
+      "_type": "request",
+      "name": "Logout",
+      "url": "{{ _.base_url }}/logout",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_organization",
+      "_type": "request",
+      "name": "Create Organization",
+      "url": "{{ _.base_url }}/organization",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Test Organization\",\n  \"email\": \"test@example.com\",\n  \"phone\": \"+5511999999999\",\n  \"address\": \"Test Address\",\n  \"business_type\": \"restaurant\"\n}"
+      }
+    },
+    {
+      "_id": "req_get_organization",
+      "_type": "request",
+      "name": "Get Organization",
+      "url": "{{ _.base_url }}/organization/{{ _.organization_id }}",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_update_organization",
+      "_type": "request",
+      "name": "Update Organization",
+      "url": "{{ _.base_url }}/organization/{{ _.organization_id }}",
+      "method": "PUT",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Updated Organization Name\",\n  \"phone\": \"+5511888888888\"\n}"
+      }
+    },
+    {
+      "_id": "req_create_project",
+      "_type": "request",
+      "name": "Create Project",
+      "url": "{{ _.base_url }}/project",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Test Project\",\n  \"description\": \"Test project description\",\n  \"is_active\": true\n}"
+      }
+    },
+    {
+      "_id": "req_list_projects",
+      "_type": "request",
+      "name": "List Projects",
+      "url": "{{ _.base_url }}/project",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_user",
+      "_type": "request",
+      "name": "Create User",
+      "url": "{{ _.base_url }}/user",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Test User\",\n  \"email\": \"testuser@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"garcom\",\n  \"organization_id\": \"{{ _.organization_id }}\",\n  \"project_id\": \"{{ _.project_id }}\"\n}"
+      }
+    },
+    {
+      "_id": "req_get_user",
+      "_type": "request",
+      "name": "Get User",
+      "url": "{{ _.base_url }}/user/USER_ID",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ],
+      "description": "Replace USER_ID with actual user ID"
+    },
+    {
+      "_id": "req_create_product",
+      "_type": "request",
+      "name": "Create Product",
+      "url": "{{ _.base_url }}/product",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Test Product\",\n  \"description\": \"Test product description\",\n  \"price\": 29.90,\n  \"category\": \"main_course\",\n  \"is_available\": true,\n  \"prep_time_minutes\": 15\n}"
+      }
+    },
+    {
+      "_id": "req_list_products",
+      "_type": "request",
+      "name": "List Products",
+      "url": "{{ _.base_url }}/product",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_get_product",
+      "_type": "request",
+      "name": "Get Product",
+      "url": "{{ _.base_url }}/product/PRODUCT_ID",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ],
+      "description": "Replace PRODUCT_ID with actual product ID"
+    },
+    {
+      "_id": "req_update_product",
+      "_type": "request",
+      "name": "Update Product",
+      "url": "{{ _.base_url }}/product/PRODUCT_ID",
+      "method": "PUT",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Updated Product Name\",\n  \"price\": 35.90\n}"
+      },
+      "description": "Replace PRODUCT_ID with actual product ID"
+    },
+    {
+      "_id": "req_delete_product",
+      "_type": "request",
+      "name": "Delete Product",
+      "url": "{{ _.base_url }}/product/PRODUCT_ID",
+      "method": "DELETE",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ],
+      "description": "Replace PRODUCT_ID with actual product ID"
+    },
+    {
+      "_id": "req_create_table",
+      "_type": "request",
+      "name": "Create Table",
+      "url": "{{ _.base_url }}/table",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"number\": 1,\n  \"capacity\": 4,\n  \"status\": \"livre\",\n  \"location\": \"Salão Principal\"\n}"
+      }
+    },
+    {
+      "_id": "req_list_tables",
+      "_type": "request",
+      "name": "List Tables",
+      "url": "{{ _.base_url }}/table",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_customer",
+      "_type": "request",
+      "name": "Create Customer",
+      "url": "{{ _.base_url }}/customer",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"João Silva\",\n  \"email\": \"joao@example.com\",\n  \"phone\": \"+5511987654321\",\n  \"birth_date\": \"1990-05-15\"\n}"
+      }
+    },
+    {
+      "_id": "req_list_customers",
+      "_type": "request",
+      "name": "List Customers",
+      "url": "{{ _.base_url }}/customer",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_order",
+      "_type": "request",
+      "name": "Create Order",
+      "url": "{{ _.base_url }}/order",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"customer_id\": \"CUSTOMER_ID\",\n  \"table_id\": \"TABLE_ID\",\n  \"status\": \"pending\",\n  \"source\": \"internal\",\n  \"items\": [\n    {\n      \"product_id\": \"PRODUCT_ID\",\n      \"quantity\": 2,\n      \"unit_price\": 29.90,\n      \"notes\": \"Sem cebola\"\n    }\n  ]\n}"
+      },
+      "description": "Replace IDs with actual values"
+    },
+    {
+      "_id": "req_list_orders",
+      "_type": "request",
+      "name": "List Orders",
+      "url": "{{ _.base_url }}/orders",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_kitchen_queue",
+      "_type": "request",
+      "name": "Kitchen Queue",
+      "url": "{{ _.base_url }}/kitchen/queue",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_reservation",
+      "_type": "request",
+      "name": "Create Reservation",
+      "url": "{{ _.base_url }}/reservation",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"customer_id\": \"CUSTOMER_ID\",\n  \"table_id\": \"TABLE_ID\",\n  \"datetime\": \"2025-09-27T19:30:00Z\",\n  \"party_size\": 4,\n  \"status\": \"confirmed\",\n  \"notes\": \"Aniversário\"\n}"
+      },
+      "description": "Replace IDs with actual values"
+    },
+    {
+      "_id": "req_list_reservations",
+      "_type": "request",
+      "name": "List Reservations",
+      "url": "{{ _.base_url }}/reservation",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_waitlist",
+      "_type": "request",
+      "name": "Create Waitlist Entry",
+      "url": "{{ _.base_url }}/waitlist",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"customer_id\": \"CUSTOMER_ID\",\n  \"party_size\": 2,\n  \"estimated_wait\": 30,\n  \"status\": \"waiting\",\n  \"notes\": \"Preferência por mesa na janela\"\n}"
+      },
+      "description": "Replace CUSTOMER_ID with actual value"
+    },
+    {
+      "_id": "req_list_waitlist",
+      "_type": "request",
+      "name": "List Waitlist",
+      "url": "{{ _.base_url }}/waitlist",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_get_settings",
+      "_type": "request",
+      "name": "Get Settings",
+      "url": "{{ _.base_url }}/settings",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_update_settings",
+      "_type": "request",
+      "name": "Update Settings",
+      "url": "{{ _.base_url }}/settings",
+      "method": "PUT",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"restaurant_name\": \"Meu Restaurante\",\n  \"opening_hours\": \"09:00-22:00\",\n  \"max_reservation_days\": 30,\n  \"notification_settings\": {\n    \"sms_enabled\": true,\n    \"email_enabled\": true,\n    \"whatsapp_enabled\": false\n  }\n}"
+      }
+    },
+    {
+      "_id": "req_create_environment",
+      "_type": "request",
+      "name": "Create Environment",
+      "url": "{{ _.base_url }}/environment",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Salão Principal\",\n  \"description\": \"Área principal do restaurante\",\n  \"is_active\": true\n}"
+      }
+    },
+    {
+      "_id": "req_list_environments",
+      "_type": "request",
+      "name": "List Environments",
+      "url": "{{ _.base_url }}/environment",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_notification_config",
+      "_type": "request",
+      "name": "Get Notification Config",
+      "url": "{{ _.base_url }}/notification/config",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_notification_config",
+      "_type": "request",
+      "name": "Create Notification Config",
+      "url": "{{ _.base_url }}/notification/config",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"event_type\": \"reservation_created\",\n  \"enabled\": true,\n  \"channels\": [\"sms\", \"email\"],\n  \"template_id\": \"TEMPLATE_ID\"\n}"
+      },
+      "description": "Replace TEMPLATE_ID with actual template ID"
+    },
+    {
+      "_id": "req_notification_templates",
+      "_type": "request",
+      "name": "List Notification Templates",
+      "url": "{{ _.base_url }}/notification/template",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_notification_template",
+      "_type": "request",
+      "name": "Create Notification Template",
+      "url": "{{ _.base_url }}/notification/template",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Confirmação de Reserva\",\n  \"type\": \"reservation_created\",\n  \"channel\": \"sms\",\n  \"subject\": \"Reserva Confirmada\",\n  \"body\": \"Olá {{nome}}! Sua reserva para {{pessoas}} pessoas na mesa {{mesa}} está confirmada para {{data_hora}}.\",\n  \"is_active\": true\n}"
+      }
+    },
+    {
+      "_id": "req_send_manual_notification",
+      "_type": "request",
+      "name": "Send Manual Notification",
+      "url": "{{ _.base_url }}/notification/send",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"recipient\": \"+5511987654321\",\n  \"channel\": \"sms\",\n  \"message\": \"Teste de notificação manual\"\n}"
+      }
+    },
+    {
+      "_id": "req_notification_logs",
+      "_type": "request",
+      "name": "Get Notification Logs",
+      "url": "{{ _.base_url }}/notification/log",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_upload_product_image",
+      "_type": "request",
+      "name": "Upload Product Image",
+      "url": "{{ _.base_url }}/upload/product/image",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ],
+      "body": {
+        "mimeType": "multipart/form-data",
+        "params": [
+          {
+            "name": "image",
+            "type": "file",
+            "fileName": "product.jpg"
+          }
+        ]
+      },
+      "description": "Upload an image file"
+    },
+    {
+      "_id": "req_upload_product_image_production",
+      "_type": "request",
+      "name": "Upload Product Image (Production)",
+      "url": "https://lep-system-516622888070.us-central1.run.app/upload/product/image",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3RlM0BsZXAuY29tIiwiZXhwIjoxNzU5MDEzNTQ1fQ.fXKaIewAObXEfDGkiO2CCKLYw76KhrSKpu33RHpIRXs"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "9061ada1-c49f-4ee1-aafb-627e5cad788e"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "c2d72589-47a4-47e2-abbf-27a39fa7051f"
+        }
+      ],
+      "body": {
+        "mimeType": "multipart/form-data",
+        "params": [
+          {
+            "name": "image",
+            "type": "file",
+            "fileName": "product.jpg"
+          }
+        ]
+      },
+      "description": "Upload image to production GCS bucket - Use this to get real image_url"
+    },
+    {
+      "_id": "req_occupancy_report",
+      "_type": "request",
+      "name": "Occupancy Report",
+      "url": "{{ _.base_url }}/reports/occupancy?start_date=2025-09-01&end_date=2025-09-30",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_reservation_report",
+      "_type": "request",
+      "name": "Reservation Report",
+      "url": "{{ _.base_url }}/reports/reservations?start_date=2025-09-01&end_date=2025-09-30",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_waitlist_report",
+      "_type": "request",
+      "name": "Waitlist Report",
+      "url": "{{ _.base_url }}/reports/waitlist?start_date=2025-09-01&end_date=2025-09-30",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        },
+        {
+          "name": "X-Lpe-Organization-Id",
+          "value": "{{ _.organization_id }}"
+        },
+        {
+          "name": "X-Lpe-Project-Id",
+          "value": "{{ _.project_id }}"
+        }
+      ]
+    }
+  ]
+}

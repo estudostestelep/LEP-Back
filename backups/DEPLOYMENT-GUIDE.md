@@ -272,10 +272,10 @@ docker-compose exec postgres psql -U lep_user -d lep_database
 #### **GCP Environments**
 ```bash
 # Ver logs do Cloud Run
-gcloud run services logs read leps-backend-dev --region=us-central1
+gcloud run services logs read lep-system --region=us-central1
 
 # Verificar status
-gcloud run services describe leps-backend-dev --region=us-central1
+gcloud run services describe lep-system --region=us-central1
 ```
 
 ## 📞 Suporte

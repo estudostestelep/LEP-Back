@@ -7,7 +7,7 @@ variable "project_id" {
 variable "project_name" {
   description = "Project name used for resource naming"
   type        = string
-  default     = "lep"
+  default     = "leps"
 }
 
 variable "region" {
@@ -17,13 +17,13 @@ variable "region" {
 }
 
 variable "environment" {
-  description = "Environment name (dev, staging, prod)"
+  description = "Environment name (dev, stage, prod)"
   type        = string
   default     = "dev"
 
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod."
+    condition     = contains(["dev", "stage", "prod"], var.environment)
+    error_message = "Environment must be one of: dev, stage, prod."
   }
 }
 
@@ -214,4 +214,38 @@ variable "enable_custom_domain" {
   description = "Enable custom domain mapping"
   type        = bool
   default     = false
+}
+
+# Bucket configuration for image storage
+variable "bucket_name" {
+  description = "GCS bucket name for image storage"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = can(regex("^[a-z0-9._-]*$", var.bucket_name)) || var.bucket_name == ""
+    error_message = "Bucket name must contain only lowercase letters, numbers, hyphens, underscores, and periods."
+  }
+}
+
+variable "bucket_cache_control" {
+  description = "Cache control header for uploaded files"
+  type        = string
+  default     = "public, max-age=3600"
+
+  validation {
+    condition = can(regex("^(public|private)(, max-age=[0-9]+)?(, no-cache|, no-store|, must-revalidate)*$", var.bucket_cache_control))
+    error_message = "Cache control must be a valid HTTP cache control directive."
+  }
+}
+
+variable "bucket_timeout" {
+  description = "Timeout in seconds for GCS operations"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.bucket_timeout >= 5 && var.bucket_timeout <= 300
+    error_message = "Bucket timeout must be between 5 and 300 seconds."
+  }
 }

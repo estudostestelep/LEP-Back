@@ -1,12 +1,12 @@
-# Cloud Run service outputs
+# Cloud Run service outputs (hardcoded since managed outside Terraform)
 output "service_url" {
   description = "URL of the Cloud Run service"
-  value       = google_cloud_run_v2_service.lep_backend.uri
+  value       = "https://lep-system-516622888070.us-central1.run.app"
 }
 
 output "service_name" {
   description = "Name of the Cloud Run service"
-  value       = google_cloud_run_v2_service.lep_backend.name
+  value       = "lep-system"
 }
 
 # Database outputs (hardcoded from bootstrap)
@@ -27,7 +27,7 @@ output "database_name" {
 
 output "database_user" {
   description = "Database user"
-  value       = "lep_user"
+  value       = "postgres"
   sensitive   = true
 }
 
@@ -77,10 +77,31 @@ output "environment" {
 # Deployment commands
 output "docker_build_command" {
   description = "Command to build and push Docker image"
-  value = "docker build -t ${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest . && docker push ${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest"
+  value       = "docker build -t ${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest . && docker push ${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest"
 }
 
 output "cloud_run_deploy_command" {
   description = "Command to deploy to Cloud Run"
-  value = "gcloud run deploy ${google_cloud_run_v2_service.lep_backend.name} --image=${var.region}-docker.pkg.dev/${var.project_id}/lep-backend/lep-backend:latest --region=${var.region} --platform=managed"
+  value       = "gcloud run deploy lep-system --source . --region=${var.region} --platform=managed --allow-unauthenticated"
+}
+
+# Bucket configuration outputs
+output "bucket_name" {
+  description = "GCS bucket name for image storage"
+  value       = var.bucket_name
+}
+
+output "bucket_cache_control" {
+  description = "Cache control header for uploaded files"
+  value       = var.bucket_cache_control
+}
+
+output "bucket_timeout" {
+  description = "Timeout in seconds for GCS operations"
+  value       = var.bucket_timeout
+}
+
+output "bucket_url" {
+  description = "Full bucket URL for storage access"
+  value       = var.bucket_name != "" ? "https://storage.googleapis.com/${var.bucket_name}" : ""
 }

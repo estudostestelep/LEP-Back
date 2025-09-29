@@ -31,6 +31,11 @@ var (
 	SampleUserID1   = uuid.MustParse("123e4567-e89b-12d3-a456-426614174002")
 	SampleUserID2   = uuid.MustParse("123e4567-e89b-12d3-a456-426614174003")
 	SampleUserID3   = uuid.MustParse("123e4567-e89b-12d3-a456-426614174004")
+
+	// Administrative users IDs
+	AdminPabloID   = uuid.MustParse("123e4567-e89b-12d3-a456-426614174010")
+	AdminLuanID    = uuid.MustParse("123e4567-e89b-12d3-a456-426614174011")
+	AdminEduardoID = uuid.MustParse("123e4567-e89b-12d3-a456-426614174012")
 )
 
 // GenerateCompleteData creates a complete set of realistic sample data
@@ -66,6 +71,44 @@ func GenerateCompleteData() *SeedData {
 		},
 
 		Users: []models.User{
+			// Administrative users with full access
+			{
+				Id:             AdminPabloID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Pablo Admin",
+				Email:          "pablo@lep.com",
+				Password:       "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
+				Role:           "admin",
+				Permissions:    pq.StringArray{"admin"},
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             AdminLuanID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Luan Admin",
+				Email:          "luan@lep.com",
+				Password:       "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
+				Role:           "admin",
+				Permissions:    pq.StringArray{"admin"},
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             AdminEduardoID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Eduardo Admin",
+				Email:          "eduardo@lep.com",
+				Password:       "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
+				Role:           "admin",
+				Permissions:    pq.StringArray{"admin"},
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			// Demo users for testing
 			{
 				Id:             SampleUserID1,
 				OrganizationId: SampleOrgID,
@@ -154,6 +197,7 @@ func GenerateCompleteData() *SeedData {
 				Category:        "Pizzas",
 				Available:       true,
 				PrepTimeMinutes: 20,
+				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400&h=400&fit=crop&crop=center"),
 				CreatedAt:       now,
 				UpdatedAt:       now,
 			},
@@ -167,6 +211,7 @@ func GenerateCompleteData() *SeedData {
 				Category:        "Hambúrgueres",
 				Available:       true,
 				PrepTimeMinutes: 15,
+				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop&crop=center"),
 				CreatedAt:       now,
 				UpdatedAt:       now,
 			},
@@ -180,6 +225,49 @@ func GenerateCompleteData() *SeedData {
 				Category:        "Bebidas",
 				Available:       true,
 				PrepTimeMinutes: 1,
+				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			},
+			{
+				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
+				OrganizationId:  SampleOrgID,
+				ProjectId:       SampleProjectID,
+				Name:            "Salada Caesar",
+				Description:     "Alface romana, croutons, queijo parmesão e molho caesar",
+				Price:           22.90,
+				Category:        "Saladas",
+				Available:       true,
+				PrepTimeMinutes: 10,
+				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			},
+			{
+				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174005"),
+				OrganizationId:  SampleOrgID,
+				ProjectId:       SampleProjectID,
+				Name:            "Spaghetti Carbonara",
+				Description:     "Macarrão com bacon, ovos, queijo pecorino e pimenta preta",
+				Price:           32.50,
+				Category:        "Massas",
+				Available:       true,
+				PrepTimeMinutes: 18,
+				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			},
+			{
+				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174006"),
+				OrganizationId:  SampleOrgID,
+				ProjectId:       SampleProjectID,
+				Name:            "Brownie com Sorvete",
+				Description:     "Brownie de chocolate quente com sorvete de baunilha",
+				Price:           18.90,
+				Category:        "Sobremesas",
+				Available:       true,
+				PrepTimeMinutes: 8,
+				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=400&fit=crop&crop=center"),
 				CreatedAt:       now,
 				UpdatedAt:       now,
 			},

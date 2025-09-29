@@ -1,7 +1,7 @@
 # Offline Development Dockerfile
 # This version works without internet connectivity by using vendor directory
 
-FROM golang:1.23-alpine
+FROM golang:1.24-alpine
 
 # Set working directory
 WORKDIR /app

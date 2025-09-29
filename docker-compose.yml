@@ -1,8 +1,6 @@
 # LEP System - Local Development Docker Compose
 # This file sets up the complete local development environment
 
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -59,7 +57,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: lep-backend
     environment:
-      - ENVIRONMENT=local-dev
+      - ENVIRONMENT=dev
       - PORT=8080
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -74,9 +72,14 @@ services:
       - ENABLE_CRON_JOBS=false
       - GIN_MODE=debug
       - LOG_LEVEL=debug
-      # Use simple keys for local development
-      - JWT_SECRET_PRIVATE_KEY=local-dev-simple-private-key-for-testing-only
-      - JWT_SECRET_PUBLIC_KEY=local-dev-simple-public-key-for-testing-only
+      # Use standardized keys for dev environment
+      - JWT_SECRET_PRIVATE_KEY=dev-simple-private-key-for-testing-only
+      - JWT_SECRET_PUBLIC_KEY=dev-simple-public-key-for-testing-only
+      # Storage configuration for dev environment
+      - STORAGE_TYPE=local
+      - BUCKET_NAME=lep-dev-bucket
+      - BUCKET_CACHE_CONTROL=public, max-age=3600
+      - BUCKET_TIMEOUT=30
     ports:
       - "8080:8080"
     volumes:
@@ -114,7 +117,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: lep-seeder
     environment:
-      - ENVIRONMENT=local-dev
+      - ENVIRONMENT=dev
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=lep_user

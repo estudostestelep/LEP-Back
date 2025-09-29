@@ -13,7 +13,7 @@ Este é o guia único e consolidado para deployment do LEP System em todos os am
 - Cloud Run + Cloud SQL
 - Artifact Registry
 - Secret Manager
-- **URL**: https://leps-backend-dev-516622888070.us-central1.run.app
+- **URL**: https://lep-system-516622888070.us-central1.run.app
 
 ### 3. 🚀 **gcp-stage** - GCP Staging
 - Configuração similar ao dev
@@ -41,7 +41,7 @@ docker build -t us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:l
 docker push us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:latest
 
 # 3. Update Cloud Run
-gcloud run deploy leps-backend-dev \
+gcloud run deploy lep-system \
   --image=us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:latest \
   --region=us-central1 \
   --project=leps-472702
@@ -74,10 +74,10 @@ gcloud run deploy leps-backend-dev \
 ### Erro "PRI *" no Cloud Run
 ```bash
 # Verificar logs
-gcloud run services logs read leps-backend-dev --region=us-central1
+gcloud run services logs read lep-system --region=us-central1
 
 # Redeploy forçado
-gcloud run deploy leps-backend-dev \
+gcloud run deploy lep-system \
   --image=us-central1-docker.pkg.dev/leps-472702/lep-backend/lep-backend:latest \
   --region=us-central1 --project=leps-472702
 ```
@@ -88,7 +88,7 @@ gcloud run deploy leps-backend-dev \
 curl http://localhost:8080/ping
 
 # GCP
-curl https://leps-backend-dev-516622888070.us-central1.run.app/ping
+curl https://lep-system-516622888070.us-central1.run.app/ping
 ```
 
 ## 📁 Estrutura de Arquivos

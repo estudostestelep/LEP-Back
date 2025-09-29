@@ -203,7 +203,46 @@ SMTP_PASSWORD=your_app_password
 
 # Cron Jobs (optional)
 ENABLE_CRON_JOBS=true
+
+# Storage Configuration
+STORAGE_TYPE=local                    # "local" for development, "gcs" for production
+STORAGE_BUCKET_NAME=bucket-name       # Required when STORAGE_TYPE=gcs (legacy)
+BASE_URL=http://localhost:8080        # Base URL for generating public links
+
+# Bucket Configuration (New)
+BUCKET_NAME=bucket-name               # Bucket name for GCS uploads (overrides STORAGE_BUCKET_NAME)
+BUCKET_CACHE_CONTROL=public, max-age=3600  # Cache control header for uploaded files
+BUCKET_TIMEOUT=30                     # Timeout in seconds for GCS operations
 ```
+
+## Image Storage System
+
+O sistema suporta armazenamento híbrido de imagens que detecta automaticamente o ambiente:
+
+### Desenvolvimento (Storage Local)
+- **Localização**: `./uploads/products/`
+- **URLs**: `http://localhost:8080/uploads/products/{filename}`
+- **Configuração**: `STORAGE_TYPE=local` ou não definir a variável
+
+### Produção (Google Cloud Storage)
+- **Bucket**: Criado automaticamente pelo script bootstrap
+- **URLs**: `https://storage.googleapis.com/{bucket-name}/products/{filename}`
+- **Configuração**: `STORAGE_TYPE=gcs` e `BUCKET_NAME` (ou `STORAGE_BUCKET_NAME` legacy)
+- **Cache Control**: Configurável via `BUCKET_CACHE_CONTROL`
+- **Timeout**: Configurável via `BUCKET_TIMEOUT` (em segundos)
+
+### Endpoints de Upload
+- `POST /upload/product/image` - Upload de imagem (multipart/form-data)
+- `PUT /product/{id}/image` - Atualizar URL da imagem de um produto
+- `GET /uploads/{category}/{filename}` - Servir imagens locais (apenas desenvolvimento)
+
+### Funcionalidades
+- **Detecção Automática**: Usa storage local no desenvolvimento, GCS na produção
+- **Validações**: Tipos permitidos (JPEG, PNG, WebP, GIF), tamanho máximo 5MB
+- **Performance**: URLs públicas diretas, cache configurável via `BUCKET_CACHE_CONTROL`
+- **Timeout Configurável**: Operações GCS com timeout configurável via `BUCKET_TIMEOUT`
+- **Fallback**: Se GCS falhar, usa storage local automaticamente
+- **Compatibilidade**: Suporta tanto `BUCKET_NAME` quanto `STORAGE_BUCKET_NAME` (legacy)
 
 ## API Endpoints
 

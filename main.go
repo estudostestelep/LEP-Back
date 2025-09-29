@@ -50,7 +50,7 @@ func initializeEnvironment() {
 	log.Printf("Cron Jobs Enabled: %t", config.ENABLE_CRON_JOBS)
 
 	// Environment-specific logging
-	if config.IsLocalDev() {
+	if config.IsDev() {
 		log.Println("🚀 Running in LOCAL DEVELOPMENT mode")
 		log.Printf("Database: %s@%s:%s/%s", config.DB_USER, config.DB_HOST, config.DB_PORT, config.DB_NAME)
 	} else if config.IsGCP() {
@@ -62,10 +62,19 @@ func initializeEnvironment() {
 }
 
 func setupCORS(r *gin.Engine) {
-	corsConfig := cors.DefaultConfig()
-
 	if config.IsDev() {
 		// Permissive CORS for development
+		r.Use(cors.New(cors.Config{
+			AllowAllOrigins:  true,
+			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"},
+			ExposeHeaders:    []string{"Content-Length"},
+			AllowCredentials: true,
+			MaxAge:           12 * time.Hour,
+		}))
+		log.Println("CORS: Allowing all origins (development mode)")
+	} else {
+		// Restrictive CORS for production
 		r.Use(cors.New(cors.Config{
 			AllowOrigins: []string{
 				"http://localhost:5173",
@@ -74,6 +83,7 @@ func setupCORS(r *gin.Engine) {
 				"http://localhost:5173/",
 				"http://localhost:5174/",
 				"https://lep-front.vercel.app",
+				"https://lep-front-git-main-leps-projects-a55eafc4.vercel.app/",
 			},
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"},
@@ -81,25 +91,8 @@ func setupCORS(r *gin.Engine) {
 			AllowCredentials: true,
 			MaxAge:           12 * time.Hour,
 		}))
-		corsConfig.AllowAllOrigins = true
-		log.Println("CORS: Allowing all origins (development mode)")
-	} else {
-		// Restrictive CORS for production
-		corsConfig.AllowOrigins = []string{
-			"http://localhost:5173",
-			"http://localhost:5174",
-			"https://lep-front.vercel.app/",
-			"http://localhost:5173/",
-			"http://localhost:5174/",
-			"https://lep-front.vercel.app",
-		}
 		log.Println("CORS: Restricted origins (production mode)")
 	}
-
-	corsConfig.AllowCredentials = true
-	corsConfig.AllowAllOrigins = true
-
-	r.Use(cors.New(corsConfig))
 }
 
 func setupHealthEndpoints(r *gin.Engine) {
@@ -115,7 +108,7 @@ func setupHealthEndpoints(r *gin.Engine) {
 		}
 
 		// Add environment-specific health info
-		if config.IsLocalDev() {
+		if config.IsDev() {
 			response["mode"] = "local-development"
 		} else if config.IsGCP() {
 			response["mode"] = "gcp"
@@ -167,7 +160,7 @@ func startServer(r *gin.Engine) {
 	log.Printf("🌟 LEP System starting on port %s", config.PORT)
 	log.Printf("📍 Environment: %s", config.ENV)
 
-	if config.IsLocalDev() {
+	if config.IsDev() {
 		log.Printf("🔗 Health check: http://localhost:%s/health", config.PORT)
 		log.Printf("🔗 API docs: http://localhost:%s/ping", config.PORT)
 	}

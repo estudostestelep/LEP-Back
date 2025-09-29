@@ -41,6 +41,11 @@ smtp_password = ""  # Your email app password
 # Application configuration
 enable_cron_jobs = true
 
+# Bucket configuration for image storage
+bucket_name          = "your-project-lep-images-dev"
+bucket_cache_control = "public, max-age=3600"
+bucket_timeout       = 30
+
 # Custom domain (optional)
 domain_name           = ""     # e.g., "api.yourdomain.com"
 enable_custom_domain  = false

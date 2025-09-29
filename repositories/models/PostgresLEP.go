@@ -95,6 +95,7 @@ type Product struct {
 	Available       bool       `json:"available"`
 	Stock           *int       `json:"stock,omitempty"`   // opcional
 	PrepTimeMinutes int        `json:"prep_time_minutes"` // tempo de preparo em minutos
+	ImageUrl        *string    `gorm:"column:image_url" json:"image_url,omitempty"` // URL da imagem do produto
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 	DeletedAt       *time.Time `json:"deleted_at,omitempty"`

@@ -2,7 +2,7 @@
 # This Dockerfile is optimized for security and small image size
 
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install necessary packages for building
 RUN apk add --no-cache git ca-certificates tzdata
@@ -31,31 +31,30 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -a -installsuffix cgo \
     -o main .
 
-# Final stage - minimal runtime image
-FROM scratch
+# Final stage - minimal runtime image with shell support for Cloud Run
+FROM alpine:latest
 
-# Copy timezone data
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+# Install CA certificates and timezone data
+RUN apk --no-cache add ca-certificates tzdata
 
-# Copy SSL certificates
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# Create non-root user for security
+RUN adduser -D -g '' lepuser
 
-# Copy user information
-COPY --from=builder /etc/passwd /etc/passwd
+# Set working directory
+WORKDIR /
 
 # Copy the binary
 COPY --from=builder /app/main /main
 
+# Make binary executable
+RUN chmod +x /main
+
 # Use non-root user
 USER lepuser
 
-# Expose port
+# Expose port (Cloud Run will override this with PORT env var)
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/main", "-health-check"] || exit 1
-
-# Run the application
+# Run the application (no health check as Cloud Run handles this)
 ENTRYPOINT ["/main"]
 
