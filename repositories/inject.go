@@ -23,6 +23,10 @@ type DBconn struct {
 	Settings      ISettingsRepository
 	Environments  IEnvironmentRepository
 	Notifications INotificationRepository
+	Tags          ITagRepository
+	Menus         IMenuRepository
+	Categories    ICategoryRepository
+	Subcategories ISubcategoryRepository
 	Migrate       migrate.IMigrate
 }
 
@@ -44,5 +48,9 @@ func (r *DBconn) InjectProstgres(db *gorm.DB) {
 	r.Settings = NewSettingsRepository(db)
 	r.Environments = NewEnvironmentRepository(db)
 	r.Notifications = NewNotificationRepository(db)
+	r.Tags = NewConnTag(db)
+	r.Menus = NewConnMenu(db)
+	r.Categories = NewConnCategory(db)
+	r.Subcategories = NewConnSubcategory(db)
 
 }

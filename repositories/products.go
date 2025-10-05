@@ -20,9 +20,20 @@ type IProductRepository interface {
 	ListProducts(OrganizationId, projectId uuid.UUID) ([]models.Product, error)
 	CreateProduct(product *models.Product) error
 	UpdateProduct(product *models.Product) error
+	UpdateProductOrder(id uuid.UUID, order int) error
+	UpdateProductStatus(id uuid.UUID, active bool) error
 	DeleteProduct(id int) error
 	DeleteProductsByPurchase(purchaseId string) error
 	SoftDeleteProduct(id uuid.UUID) error
+	// Tag management
+	AddTagToProduct(productId, tagId uuid.UUID) error
+	RemoveTagFromProduct(productId, tagId uuid.UUID) error
+	GetProductTags(productId uuid.UUID) ([]models.Tag, error)
+	GetProductsByTag(tagId uuid.UUID) ([]models.Product, error)
+	// Filtros avançados (cardápio)
+	GetProductsByType(organizationId, projectId uuid.UUID, productType string) ([]models.Product, error)
+	GetProductsByCategory(categoryId uuid.UUID) ([]models.Product, error)
+	GetProductsBySubcategory(subcategoryId uuid.UUID) ([]models.Product, error)
 }
 
 func NewConnProduct(db *gorm.DB) IProductRepository {
@@ -88,5 +99,79 @@ func (r *resourceProduct) SoftDeleteProduct(id uuid.UUID) error {
 func (r *resourceProduct) GetProductsByIds(ids []uuid.UUID) ([]models.Product, error) {
 	var products []models.Product
 	err := r.db.Where("id IN ? AND deleted_at IS NULL", ids).Find(&products).Error
+	return products, err
+}
+
+// AddTagToProduct adiciona uma tag a um produto
+func (r *resourceProduct) AddTagToProduct(productId, tagId uuid.UUID) error {
+	productTag := models.ProductTag{
+		Id:        uuid.New(),
+		ProductId: productId,
+		TagId:     tagId,
+		CreatedAt: time.Now(),
+	}
+	return r.db.Create(&productTag).Error
+}
+
+// RemoveTagFromProduct remove uma tag de um produto
+func (r *resourceProduct) RemoveTagFromProduct(productId, tagId uuid.UUID) error {
+	return r.db.Where("product_id = ? AND tag_id = ?", productId, tagId).Delete(&models.ProductTag{}).Error
+}
+
+// GetProductTags retorna todas as tags de um produto
+func (r *resourceProduct) GetProductTags(productId uuid.UUID) ([]models.Tag, error) {
+	var tags []models.Tag
+	err := r.db.Table("tags").
+		Joins("INNER JOIN product_tags ON product_tags.tag_id = tags.id").
+		Where("product_tags.product_id = ? AND tags.deleted_at IS NULL", productId).
+		Find(&tags).Error
+	return tags, err
+}
+
+// GetProductsByTag retorna todos os produtos que possuem uma tag específica
+func (r *resourceProduct) GetProductsByTag(tagId uuid.UUID) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.Table("products").
+		Joins("INNER JOIN product_tags ON product_tags.product_id = products.id").
+		Where("product_tags.tag_id = ? AND products.deleted_at IS NULL", tagId).
+		Order(`products."order" ASC`).
+		Find(&products).Error
+	return products, err
+}
+
+// UpdateProductOrder atualiza a ordem de um produto
+func (r *resourceProduct) UpdateProductOrder(id uuid.UUID, order int) error {
+	return r.db.Model(&models.Product{}).Where("id = ?", id).Update(`"order"`, order).Error
+}
+
+// UpdateProductStatus atualiza o status ativo/inativo de um produto
+func (r *resourceProduct) UpdateProductStatus(id uuid.UUID, active bool) error {
+	return r.db.Model(&models.Product{}).Where("id = ?", id).Update("active", active).Error
+}
+
+// GetProductsByType retorna produtos filtrados por tipo (prato, bebida, vinho)
+func (r *resourceProduct) GetProductsByType(organizationId, projectId uuid.UUID, productType string) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.Where("organization_id = ? AND project_id = ? AND type = ? AND deleted_at IS NULL", organizationId, projectId, productType).
+		Order(`"order" ASC`).
+		Find(&products).Error
+	return products, err
+}
+
+// GetProductsByCategory retorna produtos de uma categoria específica
+func (r *resourceProduct) GetProductsByCategory(categoryId uuid.UUID) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.Where("category_id = ? AND deleted_at IS NULL", categoryId).
+		Order(`"order" ASC`).
+		Find(&products).Error
+	return products, err
+}
+
+// GetProductsBySubcategory retorna produtos de uma subcategoria específica
+func (r *resourceProduct) GetProductsBySubcategory(subcategoryId uuid.UUID) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.Where("subcategory_id = ? AND deleted_at IS NULL", subcategoryId).
+		Order(`"order" ASC`).
+		Find(&products).Error
 	return products, err
 }

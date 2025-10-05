@@ -19,6 +19,10 @@ type ServerController struct {
 	SourceReports      IReportsServer
 	SourcePublic       IServerPublic
 	SourceUpload       IServerUpload
+	SourceTag          IServerTag
+	SourceMenu         IServerMenu
+	SourceCategory     IServerCategory
+	SourceSubcategory  IServerSubcategory
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -38,4 +42,8 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceReports = NewReportsServer(handler.HandlerReports)
 	h.SourcePublic = NewSourceServerPublic(handler)
 	h.SourceUpload = NewSourceServerUpload()
+	h.SourceTag = NewSourceServerTag(handler)
+	h.SourceMenu = NewSourceServerMenu(handler)
+	h.SourceCategory = NewSourceServerCategory(handler)
+	h.SourceSubcategory = NewSourceServerSubcategory(handler)
 }

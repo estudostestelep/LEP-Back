@@ -83,19 +83,54 @@ type Table struct {
 	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 }
 
-// --- Product (item do cardápio) ---
+// --- Product (item do cardápio - REFATORADO) ---
 type Product struct {
+	// Campos base
 	Id              uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
-	OrganizationId  uuid.UUID  `json:"organization_id"`
-	ProjectId       uuid.UUID  `json:"project_id"`
-	Name            string     `json:"name"`
-	Category        string     `json:"category"`
-	Description     string     `json:"description"`
-	Price           float64    `json:"price"`
-	Available       bool       `json:"available"`
-	Stock           *int       `json:"stock,omitempty"`   // opcional
-	PrepTimeMinutes int        `json:"prep_time_minutes"` // tempo de preparo em minutos
-	ImageUrl        *string    `gorm:"column:image_url" json:"image_url,omitempty"` // URL da imagem do produto
+	OrganizationId  uuid.UUID  `json:"organization_id" gorm:"not null"`
+	ProjectId       uuid.UUID  `json:"project_id" gorm:"not null"`
+	Name            string     `json:"name" gorm:"not null"`
+	Description     string     `json:"description,omitempty"`
+	ImageUrl        *string    `gorm:"column:image_url" json:"image_url,omitempty"`
+
+	// NOVOS - Tipo e organização
+	Type            string     `json:"type" gorm:"not null"` // "prato" | "bebida" | "vinho"
+	Order           int        `json:"order" gorm:"default:0"`
+	Active          bool       `json:"active" gorm:"default:true"`
+	PDVCode         *string    `json:"pdv_code,omitempty"` // código para integração PDV
+
+	// NOVOS - Relacionamentos (substituem category string)
+	CategoryId      *uuid.UUID `json:"category_id,omitempty"`
+	SubcategoryId   *uuid.UUID `json:"subcategory_id,omitempty"`
+
+	// Campos de preço (refatorados)
+	PriceNormal     float64    `json:"price_normal" gorm:"not null"`
+	PricePromo      *float64   `json:"price_promo,omitempty"`
+
+	// NOVOS - Campos para Bebida/Vinho
+	Volume          *int       `json:"volume,omitempty"`           // ml
+	AlcoholContent  *float64   `json:"alcohol_content,omitempty"`  // % teor alcoólico
+
+	// NOVOS - Campos específicos de Vinho
+	Vintage         *string        `json:"vintage,omitempty"`          // safra
+	Country         *string        `json:"country,omitempty"`          // país de origem
+	Region          *string        `json:"region,omitempty"`           // região
+	Winery          *string        `json:"winery,omitempty"`           // vinícola
+	WineType        *string        `json:"wine_type,omitempty"`        // tinto, branco, rosé, etc
+	Grapes          pq.StringArray `json:"grapes,omitempty" gorm:"type:text[]"` // uvas (multi-select)
+	PriceBottle     *float64       `json:"price_bottle,omitempty"`     // preço garrafa
+	PriceHalfBottle *float64       `json:"price_half_bottle,omitempty"` // preço meia garrafa
+	PriceGlass      *float64       `json:"price_glass,omitempty"`      // preço taça
+
+	// Campos existentes mantidos
+	Stock           *int       `json:"stock,omitempty"`
+	PrepTimeMinutes int        `json:"prep_time_minutes,omitempty"`
+
+	// DEPRECATED (manter por compatibilidade temporária)
+	Category        string     `json:"category,omitempty" gorm:"-"` // ignorado pelo GORM
+	Available       bool       `json:"available,omitempty" gorm:"-"` // usar Active
+	Price           float64    `json:"price,omitempty" gorm:"-"`     // usar PriceNormal
+
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
@@ -420,4 +455,82 @@ type ReportMetric struct {
 	Value          float64   `json:"value"`                               // valor da métrica
 	Metadata       string    `json:"metadata,omitempty" gorm:"type:json"` // dados extras em JSON
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+// --- Tag (etiquetas/categorias para entidades) ---
+type Tag struct {
+	Id             uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
+	OrganizationId uuid.UUID  `json:"organization_id"`
+	ProjectId      uuid.UUID  `json:"project_id"`
+	Name           string     `json:"name" gorm:"not null"`
+	Color          string     `json:"color,omitempty"`       // código hexadecimal ex: "#FF5733"
+	Description    string     `json:"description,omitempty"`
+	EntityType     string     `json:"entity_type,omitempty"` // "product", "customer", "table" - opcional
+	Active         bool       `json:"active" gorm:"default:true"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+}
+
+// --- ProductTag (relacionamento produto-tag) ---
+type ProductTag struct {
+	Id        uuid.UUID `gorm:"primaryKey;autoIncrement" json:"id"`
+	ProductId uuid.UUID `json:"product_id" gorm:"not null"`
+	TagId     uuid.UUID `json:"tag_id" gorm:"not null"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// --- SISTEMA DE CARDÁPIO ---
+
+// Menu (Cardápio principal)
+type Menu struct {
+	Id             uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
+	OrganizationId uuid.UUID  `json:"organization_id" gorm:"not null"`
+	ProjectId      uuid.UUID  `json:"project_id" gorm:"not null"`
+	Name           string     `json:"name" gorm:"not null"`
+	Styling        *string    `json:"styling,omitempty" gorm:"type:json"` // JSON com configs visuais
+	Order          int        `json:"order" gorm:"default:0"`
+	Active         bool       `json:"active" gorm:"default:true"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+}
+
+// Category (Categoria do cardápio)
+type Category struct {
+	Id             uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
+	OrganizationId uuid.UUID  `json:"organization_id" gorm:"not null"`
+	ProjectId      uuid.UUID  `json:"project_id" gorm:"not null"`
+	MenuId         uuid.UUID  `json:"menu_id" gorm:"not null"`
+	Name           string     `json:"name" gorm:"not null"`
+	Photo          *string    `json:"photo,omitempty"`
+	Notes          *string    `json:"notes,omitempty"`
+	Order          int        `json:"order" gorm:"default:0"`
+	Active         bool       `json:"active" gorm:"default:true"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+}
+
+// Subcategory (Subcategoria)
+type Subcategory struct {
+	Id             uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
+	OrganizationId uuid.UUID  `json:"organization_id" gorm:"not null"`
+	ProjectId      uuid.UUID  `json:"project_id" gorm:"not null"`
+	Name           string     `json:"name" gorm:"not null"`
+	Photo          *string    `json:"photo,omitempty"`
+	Notes          *string    `json:"notes,omitempty"`
+	Order          int        `json:"order" gorm:"default:0"`
+	Active         bool       `json:"active" gorm:"default:true"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+}
+
+// SubcategoryCategory (Relacionamento N:N entre Subcategoria e Categoria)
+type SubcategoryCategory struct {
+	Id            uuid.UUID `gorm:"primaryKey;autoIncrement" json:"id"`
+	SubcategoryId uuid.UUID `json:"subcategory_id" gorm:"not null"`
+	CategoryId    uuid.UUID `json:"category_id" gorm:"not null"`
+	CreatedAt     time.Time `json:"created_at"`
 }

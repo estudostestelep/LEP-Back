@@ -17,6 +17,10 @@ type Handlers struct {
 	HandlerEnvironment  IEnvironmentHandler
 	HandlerNotification *NotificationHandler
 	HandlerReports      IReportsHandler
+	HandlerTag          IHandlerTag
+	HandlerMenu         IHandlerMenu
+	HandlerCategory     IHandlerCategory
+	HandlerSubcategory  IHandlerSubcategory
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn) {
@@ -34,4 +38,8 @@ func (h *Handlers) Inject(repo *repositories.DBconn) {
 	h.HandlerEnvironment = NewEnvironmentHandler(repo.Environments)
 	h.HandlerNotification = NewNotificationHandler(repo.Notifications, repo.Projects)
 	h.HandlerReports = NewReportsHandler(repo)
+	h.HandlerTag = NewSourceHandlerTag(repo)
+	h.HandlerMenu = NewSourceHandlerMenu(repo)
+	h.HandlerCategory = NewSourceHandlerCategory(repo)
+	h.HandlerSubcategory = NewSourceHandlerSubcategory(repo)
 }

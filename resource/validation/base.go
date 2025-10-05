@@ -1,6 +1,8 @@
 package validation
 
 import (
+	"regexp"
+
 	"github.com/invopop/validation"
 	"github.com/invopop/validation/is"
 )
@@ -12,14 +14,19 @@ type ValidationRule struct {
 	Message string
 }
 
+// Regex patterns
+var (
+	colorRegex = regexp.MustCompile(`^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$`)
+)
+
 // Common validation rules that can be reused
 var (
-	RequiredUUID    = []validation.Rule{validation.Required, is.UUID}
-	RequiredString  = []validation.Rule{validation.Required, validation.Length(1, 255)}
-	RequiredEmail   = []validation.Rule{validation.Required, is.Email}
-	RequiredPhone   = []validation.Rule{validation.Required, validation.Length(8, 20)}
-	OptionalString  = []validation.Rule{validation.Length(0, 255)}
-	OptionalURL     = []validation.Rule{is.URL}
+	RequiredUUID     = []validation.Rule{validation.Required, is.UUID}
+	RequiredString   = []validation.Rule{validation.Required, validation.Length(1, 255)}
+	RequiredEmail    = []validation.Rule{validation.Required, is.Email}
+	RequiredPhone    = []validation.Rule{validation.Required, validation.Length(8, 20)}
+	OptionalString   = []validation.Rule{validation.Length(0, 255)}
+	OptionalURL      = []validation.Rule{is.URL}
 	RequiredPositive = []validation.Rule{validation.Required, validation.Min(0.01)}
 )
 

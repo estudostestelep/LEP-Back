@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"lep/config"
+	"lep/repositories/migrate"
 	"lep/repositories/models"
 	"lep/utils"
 
@@ -52,13 +53,19 @@ func Start(db *gorm.DB) {
 		// SPRINT 5 models (Advanced Features)
 		&models.Lead{},
 		&models.ReportMetric{},
+
+		// Menu System models
+		&models.Tag{},
+		&models.ProductTag{},
+		&models.Menu{},
+		&models.Category{},
+		&models.Subcategory{},
+		&models.SubcategoryCategory{},
 	}
 
-	for _, model := range modelsToMigrate {
-		if err := db.AutoMigrate(model); err != nil {
-			panic("error during migration")
-		}
-	}
+	// Usar migrate customizado para lidar com alterações no Product
+	migrator := migrate.NewConnMigrate(db)
+	migrator.MigrateRun(modelsToMigrate...)
 
 	// Check if this is the first run and auto-seed if enabled
 	if config.IsAutoSeedEnabled() && isFirstRun(db) {
