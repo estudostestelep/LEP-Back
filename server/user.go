@@ -34,10 +34,6 @@ func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
 		return
 	}
 
-	// Headers validados pelo middleware - acessar via context
-	organizationId := c.GetString("organization_id")
-	projectId := c.GetString("project_id")
-
 	resp, err := r.handler.GetUser(idStr)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting user", err)
@@ -49,11 +45,8 @@ func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
 		return
 	}
 
-	// Verificar se o usuário pertence à organização/projeto
-	if resp.OrganizationId.String() != organizationId || resp.ProjectId.String() != projectId {
-		utils.SendNotFoundError(c, "User")
-		return
-	}
+	// Não é mais necessário verificar org/proj do user, pois foram removidos
+	// A validação de acesso é feita no middleware
 
 	c.JSON(http.StatusOK, resp)
 }
@@ -76,25 +69,6 @@ func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 	if err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
-	}
-
-	// Para criação de usuário, pode ser público (sem headers) ou protegido
-	// Se headers existem, usar; senão, validar que são fornecidos no body
-	orgHeader := c.GetHeader("X-Lpe-Organization-Id")
-	projHeader := c.GetHeader("X-Lpe-Project-Id")
-
-	if orgHeader != "" && projHeader != "" {
-		// Rota protegida - usar headers
-		newUser.OrganizationId, err = uuid.Parse(orgHeader)
-		if err != nil {
-			utils.SendBadRequestError(c, "Invalid organization ID format", err)
-			return
-		}
-		newUser.ProjectId, err = uuid.Parse(projHeader)
-		if err != nil {
-			utils.SendBadRequestError(c, "Invalid project ID format", err)
-			return
-		}
 	}
 
 	// Gerar ID se não fornecido
@@ -134,20 +108,6 @@ func (r *ResourceUsers) ServiceUpdateUser(c *gin.Context) {
 		return
 	}
 
-	// Headers validados pelo middleware - acessar via context
-	organizationId := c.GetString("organization_id")
-	projectId := c.GetString("project_id")
-
-	updatedUser.OrganizationId, err = uuid.Parse(organizationId)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error parsing organization ID", err)
-		return
-	}
-	updatedUser.ProjectId, err = uuid.Parse(projectId)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error parsing project ID", err)
-		return
-	}
 	updatedUser.Id, err = uuid.Parse(idStr)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error parsing user ID", err)

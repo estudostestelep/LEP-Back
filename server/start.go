@@ -27,6 +27,8 @@ func Start(db *gorm.DB) {
 
 		// Core models
 		&models.User{},
+		&models.UserOrganization{}, // Relacionamento usuário-organização
+		&models.UserProject{},      // Relacionamento usuário-projeto
 		&models.Customer{},
 		&models.Table{},
 		&models.Product{},
@@ -116,6 +118,22 @@ func runFirstTimeSeed(db *gorm.DB) error {
 	for _, user := range seedData.Users {
 		if err := db.Create(&user).Error; err != nil {
 			return fmt.Errorf("failed to create user: %w", err)
+		}
+	}
+
+	// Create user-organization relationships
+	log.Println("  🔗 Creating user-organization relationships...")
+	for _, userOrg := range seedData.UserOrganizations {
+		if err := db.Create(&userOrg).Error; err != nil {
+			return fmt.Errorf("failed to create user-organization: %w", err)
+		}
+	}
+
+	// Create user-project relationships
+	log.Println("  🔗 Creating user-project relationships...")
+	for _, userProj := range seedData.UserProjects {
+		if err := db.Create(&userProj).Error; err != nil {
+			return fmt.Errorf("failed to create user-project: %w", err)
 		}
 	}
 

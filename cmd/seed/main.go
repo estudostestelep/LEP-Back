@@ -107,6 +107,8 @@ func runMigrations(db *gorm.DB) error {
 		&models.Organization{},
 		&models.Project{},
 		&models.User{},
+		&models.UserOrganization{},
+		&models.UserProject{},
 		&models.Customer{},
 		&models.Product{},
 		&models.Table{},
@@ -137,6 +139,8 @@ func clearExistingData(db *gorm.DB) error {
 		"tables",
 		"products",
 		"customers",
+		"user_projects",      // Novo - relacionamentos
+		"user_organizations", // Novo - relacionamentos
 		"users",
 		"projects",
 		"organizations",
@@ -190,7 +194,27 @@ func seedDatabase(db *gorm.DB, data *utils.SeedData) error {
 			return fmt.Errorf("failed to seed user: %v", err)
 		}
 		if verbose {
-			fmt.Printf("    ✓ %s (%s)\n", user.Name, user.Role)
+			fmt.Printf("    ✓ %s (%s)\n", user.Name, user.Email)
+		}
+	}
+
+	fmt.Println("  🔗 Seeding user-organization relationships...")
+	for _, userOrg := range data.UserOrganizations {
+		if err := createOrUpdate(db, &models.UserOrganization{}, userOrg.Id, userOrg); err != nil {
+			return fmt.Errorf("failed to seed user-organization: %v", err)
+		}
+		if verbose {
+			fmt.Printf("    ✓ UserOrg relationship (%s)\n", userOrg.Role)
+		}
+	}
+
+	fmt.Println("  🔗 Seeding user-project relationships...")
+	for _, userProj := range data.UserProjects {
+		if err := createOrUpdate(db, &models.UserProject{}, userProj.Id, userProj); err != nil {
+			return fmt.Errorf("failed to seed user-project: %v", err)
+		}
+		if verbose {
+			fmt.Printf("    ✓ UserProj relationship (%s)\n", userProj.Role)
 		}
 	}
 
@@ -320,12 +344,10 @@ func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
 		return fmt.Errorf("failed to create project: %v", err)
 	}
 
-	// 3. Criar usuário admin usando org e project IDs
+	// 3. Criar usuário admin
 	fmt.Println("  👥 Criando usuário admin...")
 	adminUser := data.Users[0]
-	adminUser.OrganizationId = orgId
-	adminUser.ProjectId = projectId
-	adminToken, err := createAdminUser(router, adminUser)
+	adminToken, err := createAdminUser(router, adminUser, orgId, projectId, data.UserOrganizations[0], data.UserProjects[0])
 	if err != nil {
 		return fmt.Errorf("failed to create admin user: %v", err)
 	}
@@ -343,9 +365,10 @@ func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
 		fmt.Println("  👥 Criando demais usuários...")
 		for i := 1; i < len(data.Users); i++ {
 			user := data.Users[i]
-			user.OrganizationId = orgId
-			user.ProjectId = projectId
-			if err := createUser(router, user, headers); err != nil {
+			userOrg := data.UserOrganizations[i]
+			userProj := data.UserProjects[i]
+
+			if err := createUser(router, user, orgId, projectId, userOrg, userProj, headers); err != nil {
 				return fmt.Errorf("failed to create user %s: %v", user.Name, err)
 			}
 		}
@@ -510,7 +533,7 @@ func createProject(router *gin.Engine, project models.Project, orgId uuid.UUID) 
 }
 
 // Criar usuário admin e retornar token de login (sem headers - rota pública)
-func createAdminUser(router *gin.Engine, user models.User) (string, error) {
+func createAdminUser(router *gin.Engine, user models.User, orgId, projectId uuid.UUID, userOrg models.UserOrganization, userProj models.UserProject) (string, error) {
 	// Criar usuário
 	body, _ := json.Marshal(user)
 
@@ -522,6 +545,34 @@ func createAdminUser(router *gin.Engine, user models.User) (string, error) {
 
 	if w.Code != 201 && w.Code != 409 {
 		return "", fmt.Errorf("failed to create admin user: status %d - %s", w.Code, w.Body.String())
+	}
+
+	// Criar relacionamento usuário-organização
+	userOrg.UserId = user.Id
+	userOrg.OrganizationId = orgId
+	userOrgBody, _ := json.Marshal(userOrg)
+
+	w = httptest.NewRecorder()
+	req, _ = http.NewRequest("POST", fmt.Sprintf("/user/%s/organization", user.Id.String()), bytes.NewBuffer(userOrgBody))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return "", fmt.Errorf("failed to create user-organization: status %d - %s", w.Code, w.Body.String())
+	}
+
+	// Criar relacionamento usuário-projeto
+	userProj.UserId = user.Id
+	userProj.ProjectId = projectId
+	userProjBody, _ := json.Marshal(userProj)
+
+	w = httptest.NewRecorder()
+	req, _ = http.NewRequest("POST", fmt.Sprintf("/user/%s/project", user.Id.String()), bytes.NewBuffer(userProjBody))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return "", fmt.Errorf("failed to create user-project: status %d - %s", w.Code, w.Body.String())
 	}
 
 	// Fazer login para obter token
@@ -551,14 +602,15 @@ func createAdminUser(router *gin.Engine, user models.User) (string, error) {
 	}
 
 	if verbose {
-		fmt.Printf("    ✓ %s (%s)\n", user.Name, user.Role)
+		fmt.Printf("    ✓ %s (%s)\n", user.Name, user.Email)
 	}
 
 	return token, nil
 }
 
 // Criar usuário comum (com autenticação)
-func createUser(router *gin.Engine, user models.User, headers map[string]string) error {
+func createUser(router *gin.Engine, user models.User, orgId, projectId uuid.UUID, userOrg models.UserOrganization, userProj models.UserProject, headers map[string]string) error {
+	// Criar usuário
 	body, _ := json.Marshal(user)
 
 	w := httptest.NewRecorder()
@@ -570,8 +622,42 @@ func createUser(router *gin.Engine, user models.User, headers map[string]string)
 		return fmt.Errorf("status %d - %s", w.Code, w.Body.String())
 	}
 
+	// Criar relacionamento usuário-organização
+	userOrg.UserId = user.Id
+	userOrg.OrganizationId = orgId
+	userOrgBody, _ := json.Marshal(userOrg)
+
+	w = httptest.NewRecorder()
+	req, _ = http.NewRequest("POST", fmt.Sprintf("/user/%s/organization", user.Id.String()), bytes.NewBuffer(userOrgBody))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return fmt.Errorf("failed to create user-organization: status %d - %s", w.Code, w.Body.String())
+	}
+
+	// Criar relacionamento usuário-projeto
+	userProj.UserId = user.Id
+	userProj.ProjectId = projectId
+	userProjBody, _ := json.Marshal(userProj)
+
+	w = httptest.NewRecorder()
+	req, _ = http.NewRequest("POST", fmt.Sprintf("/user/%s/project", user.Id.String()), bytes.NewBuffer(userProjBody))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return fmt.Errorf("failed to create user-project: status %d - %s", w.Code, w.Body.String())
+	}
+
 	if verbose {
-		fmt.Printf("    ✓ %s (%s)\n", user.Name, user.Role)
+		fmt.Printf("    ✓ %s (%s)\n", user.Name, user.Email)
 	}
 
 	return nil

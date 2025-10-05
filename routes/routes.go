@@ -31,6 +31,8 @@ func SetupRoutes(r *gin.Engine) {
 	// Protected routes (require authentication and organization/project headers)
 	setupOrganizationRoutes(protected)
 	setupUserRoutes(protected)
+	setupUserOrganizationRoutes(protected)
+	setupUserProjectRoutes(protected)
 	setupProductRoutes(protected)
 	setupTableRoutes(protected)
 	setupWaitlistRoutes(protected)
@@ -59,6 +61,25 @@ func setupUserRoutes(r gin.IRouter) {
 		userRoutes.PUT("/:id", resource.ServersControllers.SourceUsers.ServiceUpdateUser)
 		userRoutes.DELETE("/:id", resource.ServersControllers.SourceUsers.ServiceDeleteUser)
 	}
+}
+
+func setupUserOrganizationRoutes(r gin.IRouter) {
+	// Rotas para gerenciar relacionamento usuário-organização
+	r.POST("/user/:userId/organization", resource.ServersControllers.SourceUserOrganization.ServiceAddUserToOrganization)
+	r.DELETE("/user/:userId/organization/:orgId", resource.ServersControllers.SourceUserOrganization.ServiceRemoveUserFromOrganization)
+	r.PUT("/user-organization/:id", resource.ServersControllers.SourceUserOrganization.ServiceUpdateUserOrganization)
+	r.GET("/user/:userId/organizations", resource.ServersControllers.SourceUserOrganization.ServiceGetUserOrganizations)
+	r.GET("/organization/:orgId/users", resource.ServersControllers.SourceUserOrganization.ServiceGetOrganizationUsers)
+}
+
+func setupUserProjectRoutes(r gin.IRouter) {
+	// Rotas para gerenciar relacionamento usuário-projeto
+	r.POST("/user/:userId/project", resource.ServersControllers.SourceUserProject.ServiceAddUserToProject)
+	r.DELETE("/user/:userId/project/:projectId", resource.ServersControllers.SourceUserProject.ServiceRemoveUserFromProject)
+	r.PUT("/user-project/:id", resource.ServersControllers.SourceUserProject.ServiceUpdateUserProject)
+	r.GET("/user/:userId/projects", resource.ServersControllers.SourceUserProject.ServiceGetUserProjects)
+	r.GET("/user/:userId/organization/:orgId/projects", resource.ServersControllers.SourceUserProject.ServiceGetUserProjectsByOrganization)
+	r.GET("/project/:projectId/users", resource.ServersControllers.SourceUserProject.ServiceGetProjectUsers)
 }
 
 func setupProductRoutes(r gin.IRouter) {

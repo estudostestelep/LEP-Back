@@ -10,12 +10,9 @@ import (
 // CreateUserValidation valida dados para criação de usuário
 func CreateUserValidation(user *models.User) error {
 	return validation.ValidateStruct(user,
-		validation.Field(&user.OrganizationId, validation.Required, is.UUID),
-		validation.Field(&user.ProjectId, validation.Required, is.UUID),
 		validation.Field(&user.Name, validation.Required, validation.Length(1, 100)),
 		validation.Field(&user.Email, validation.Required, is.Email),
 		validation.Field(&user.Password, validation.Required, validation.Length(6, 255)),
-		validation.Field(&user.Role, validation.Required, validation.In("admin", "manager", "waiter", "kitchen", "cashier")),
 		validation.Field(&user.Permissions, validation.Each(validation.Length(1, 50))),
 	)
 }
@@ -24,13 +21,10 @@ func CreateUserValidation(user *models.User) error {
 func UpdateUserValidation(user *models.User) error {
 	return validation.ValidateStruct(user,
 		validation.Field(&user.Id, validation.Required, is.UUID),
-		validation.Field(&user.OrganizationId, validation.Required, is.UUID),
-		validation.Field(&user.ProjectId, validation.Required, is.UUID),
 		validation.Field(&user.Name, validation.Required, validation.Length(1, 100)),
 		validation.Field(&user.Email, validation.Required, is.Email),
 		// Password é opcional na atualização
 		validation.Field(&user.Password, validation.When(user.Password != "", validation.Length(6, 255))),
-		validation.Field(&user.Role, validation.Required, validation.In("admin", "manager", "waiter", "kitchen", "cashier")),
 		validation.Field(&user.Permissions, validation.Each(validation.Length(1, 50))),
 	)
 }

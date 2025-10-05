@@ -3,28 +3,32 @@ package handler
 import "lep/repositories"
 
 type Handlers struct {
-	HandlerUser         IHandlerUser
-	HandlerProducts     IHandlerProducts
-	HandlerAuth         IHandlerAuth
-	HandlerOrder        IOrderHandler
-	HandlerOrganization IHandlerOrganization
-	HandlerTables       IHandlerTables
-	HandlerWaitlist     IHandlerWaitlist
-	HandlerReservation  IHandlerReservation
-	HandlerCustomer     IHandlerCustomer
-	HandlerProject      IProjectHandler
-	HandlerSettings     ISettingsHandler
-	HandlerEnvironment  IEnvironmentHandler
-	HandlerNotification *NotificationHandler
-	HandlerReports      IReportsHandler
-	HandlerTag          IHandlerTag
-	HandlerMenu         IHandlerMenu
-	HandlerCategory     IHandlerCategory
-	HandlerSubcategory  IHandlerSubcategory
+	HandlerUser             IHandlerUser
+	HandlerUserOrganization IHandlerUserOrganization
+	HandlerUserProject      IHandlerUserProject
+	HandlerProducts         IHandlerProducts
+	HandlerAuth             IHandlerAuth
+	HandlerOrder            IOrderHandler
+	HandlerOrganization     IHandlerOrganization
+	HandlerTables           IHandlerTables
+	HandlerWaitlist         IHandlerWaitlist
+	HandlerReservation      IHandlerReservation
+	HandlerCustomer         IHandlerCustomer
+	HandlerProject          IProjectHandler
+	HandlerSettings         ISettingsHandler
+	HandlerEnvironment      IEnvironmentHandler
+	HandlerNotification     *NotificationHandler
+	HandlerReports          IReportsHandler
+	HandlerTag              IHandlerTag
+	HandlerMenu             IHandlerMenu
+	HandlerCategory         IHandlerCategory
+	HandlerSubcategory      IHandlerSubcategory
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn) {
 	h.HandlerUser = NewSourceHandlerUser(repo)
+	h.HandlerUserOrganization = NewSourceHandlerUserOrganization(repo)
+	h.HandlerUserProject = NewSourceHandlerUserProject(repo)
 	h.HandlerProducts = NewSourceHandlerProducts(repo)
 	h.HandlerAuth = NewAuthHandler(repo)
 	h.HandlerOrder = NewOrderHandler(repo.Orders, repo.Products, repo.KitchenQueue)

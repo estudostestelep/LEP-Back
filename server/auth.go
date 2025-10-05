@@ -47,8 +47,9 @@ func (r *ResourceAuth) ServiceLogin(c *gin.Context) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email": user.Email,
-		"exp":   time.Now().Add(time.Hour * 24).Unix(), // Expira em 24 horas
+		"email":   user.Email,
+		"user_id": user.Id.String(),
+		"exp":     time.Now().Add(time.Hour * 24).Unix(), // Expira em 24 horas
 	})
 
 	tokenString, err := token.SignedString([]byte(config.JWT_SECRET_PRIVATE_KEY))
@@ -63,7 +64,26 @@ func (r *ResourceAuth) ServiceLogin(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"user": user, "token": tokenString})
+	// Buscar organizações do usuário
+	userOrganizations, err := r.handler.HandlerUserOrganization.GetUserOrganizations(user.Id.String())
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Erro ao buscar organizações do usuário"})
+		return
+	}
+
+	// Buscar projetos do usuário
+	userProjects, err := r.handler.HandlerUserProject.GetUserProjects(user.Id.String())
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Erro ao buscar projetos do usuário"})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"user":          user,
+		"token":         tokenString,
+		"organizations": userOrganizations,
+		"projects":      userProjects,
+	})
 }
 
 func (r *ResourceAuth) ServiceLogout(c *gin.Context) {

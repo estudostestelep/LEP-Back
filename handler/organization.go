@@ -185,20 +185,51 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 	}
 
 	user := &models.User{
-		Id:             uuid.New(),
-		OrganizationId: org.Id,
-		ProjectId:      project.Id,
-		Name:           name,
-		Email:          fmt.Sprintf("%s@lep.com", name),
-		Password:       string(hashedPassword),
-		Role:           "admin",
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		Id:          uuid.New(),
+		Name:        name,
+		Email:       fmt.Sprintf("%s@lep.com", name),
+		Password:    string(hashedPassword),
+		Permissions: []string{"admin"},
+		Active:      true,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	err = r.repo.User.CreateUser(user)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao criar usuário: %v", err)
+	}
+
+	// Criar relacionamento usuário-organização
+	userOrg := &models.UserOrganization{
+		Id:             uuid.New(),
+		UserId:         user.Id,
+		OrganizationId: org.Id,
+		Role:           "owner",
+		Active:         true,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+
+	err = r.repo.UserOrganizations.Create(userOrg)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao criar relacionamento usuário-organização: %v", err)
+	}
+
+	// Criar relacionamento usuário-projeto
+	userProj := &models.UserProject{
+		Id:        uuid.New(),
+		UserId:    user.Id,
+		ProjectId: project.Id,
+		Role:      "admin",
+		Active:    true,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err = r.repo.UserProjects.Create(userProj)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao criar relacionamento usuário-projeto: %v", err)
 	}
 
 	// Montar resposta
