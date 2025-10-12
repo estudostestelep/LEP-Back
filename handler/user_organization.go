@@ -4,6 +4,7 @@ import (
 	"errors"
 	"lep/repositories"
 	"lep/repositories/models"
+	"lep/resource/validation"
 
 	"github.com/google/uuid"
 )
@@ -22,6 +23,11 @@ type IHandlerUserOrganization interface {
 }
 
 func (r *resourceUserOrganization) AddUserToOrganization(userOrg *models.UserOrganization) error {
+	// Validar dados
+	if err := validation.CreateUserOrganizationValidation(userOrg); err != nil {
+		return err
+	}
+
 	// Verificar se já existe
 	existing, _ := r.repo.UserOrganizations.GetByUserAndOrganization(userOrg.UserId.String(), userOrg.OrganizationId.String())
 	if existing != nil {
@@ -58,6 +64,11 @@ func (r *resourceUserOrganization) RemoveUserFromOrganization(userId, orgId stri
 }
 
 func (r *resourceUserOrganization) UpdateUserOrganization(userOrg *models.UserOrganization) error {
+	// Validar dados
+	if err := validation.UpdateUserOrganizationValidation(userOrg); err != nil {
+		return err
+	}
+
 	existing, err := r.repo.UserOrganizations.GetById(userOrg.Id.String())
 	if err != nil {
 		return errors.New("relacionamento não encontrado")

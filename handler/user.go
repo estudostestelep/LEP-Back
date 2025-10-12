@@ -23,6 +23,7 @@ type IHandlerUser interface {
 	UpdateUser(updatedUser *models.User) error
 	DeleteUser(id string) error
 	GetUserByEmail(email string) (*models.User, error)
+	GetUserWithRelations(id string) (*models.UserWithRelations, error)
 }
 
 func (r *resourceUser) GetUser(id string) (*models.User, error) {
@@ -103,6 +104,14 @@ func (r *resourceUser) DeleteUser(id string) error {
 
 func (r *resourceUser) GetUserByEmail(email string) (*models.User, error) {
 	resp, err := r.repo.User.GetUserByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (r *resourceUser) GetUserWithRelations(id string) (*models.UserWithRelations, error) {
+	resp, err := r.repo.User.GetUserWithRelations(id)
 	if err != nil {
 		return nil, err
 	}

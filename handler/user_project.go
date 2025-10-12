@@ -4,6 +4,7 @@ import (
 	"errors"
 	"lep/repositories"
 	"lep/repositories/models"
+	"lep/resource/validation"
 
 	"github.com/google/uuid"
 )
@@ -23,6 +24,11 @@ type IHandlerUserProject interface {
 }
 
 func (r *resourceUserProject) AddUserToProject(userProj *models.UserProject) error {
+	// Validar dados
+	if err := validation.CreateUserProjectValidation(userProj); err != nil {
+		return err
+	}
+
 	// Verificar se já existe
 	existing, _ := r.repo.UserProjects.GetByUserAndProject(userProj.UserId.String(), userProj.ProjectId.String())
 	if existing != nil {
@@ -59,6 +65,11 @@ func (r *resourceUserProject) RemoveUserFromProject(userId, projectId string) er
 }
 
 func (r *resourceUserProject) UpdateUserProject(userProj *models.UserProject) error {
+	// Validar dados
+	if err := validation.UpdateUserProjectValidation(userProj); err != nil {
+		return err
+	}
+
 	existing, err := r.repo.UserProjects.GetById(userProj.Id.String())
 	if err != nil {
 		return errors.New("relacionamento não encontrado")

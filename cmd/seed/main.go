@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"lep/repositories/models"
 	"lep/resource"
@@ -48,10 +47,6 @@ func runSeed(cmd *cobra.Command, args []string) {
 	fmt.Printf("Environment: %s\n", environment)
 	fmt.Printf("Clear first: %t\n", clearFirst)
 	fmt.Printf("Verbose: %t\n\n", verbose)
-
-	// Initialize configuration
-	flag.Parse()
-	//config.LoadEnv()
 
 	// Connect to database
 	fmt.Println("📡 Connecting to database...")
@@ -553,7 +548,7 @@ func createAdminUser(router *gin.Engine, user models.User, orgId, projectId uuid
 	userOrgBody, _ := json.Marshal(userOrg)
 
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("POST", fmt.Sprintf("/user/%s/organization", user.Id.String()), bytes.NewBuffer(userOrgBody))
+	req, _ = http.NewRequest("POST", fmt.Sprintf("/user-organization/user/%s", user.Id.String()), bytes.NewBuffer(userOrgBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -567,7 +562,7 @@ func createAdminUser(router *gin.Engine, user models.User, orgId, projectId uuid
 	userProjBody, _ := json.Marshal(userProj)
 
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("POST", fmt.Sprintf("/user/%s/project", user.Id.String()), bytes.NewBuffer(userProjBody))
+	req, _ = http.NewRequest("POST", fmt.Sprintf("/user-project/user/%s", user.Id.String()), bytes.NewBuffer(userProjBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -628,7 +623,7 @@ func createUser(router *gin.Engine, user models.User, orgId, projectId uuid.UUID
 	userOrgBody, _ := json.Marshal(userOrg)
 
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("POST", fmt.Sprintf("/user/%s/organization", user.Id.String()), bytes.NewBuffer(userOrgBody))
+	req, _ = http.NewRequest("POST", fmt.Sprintf("/user-organization/user/%s", user.Id.String()), bytes.NewBuffer(userOrgBody))
 	req.Header.Set("Content-Type", "application/json")
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -645,7 +640,7 @@ func createUser(router *gin.Engine, user models.User, orgId, projectId uuid.UUID
 	userProjBody, _ := json.Marshal(userProj)
 
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("POST", fmt.Sprintf("/user/%s/project", user.Id.String()), bytes.NewBuffer(userProjBody))
+	req, _ = http.NewRequest("POST", fmt.Sprintf("/user-project/user/%s", user.Id.String()), bytes.NewBuffer(userProjBody))
 	req.Header.Set("Content-Type", "application/json")
 	for k, v := range headers {
 		req.Header.Set(k, v)

@@ -12,6 +12,10 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/login", resource.ServersControllers.SourceAuth.ServiceLogin)
 	r.POST("/user", resource.ServersControllers.SourceUsers.ServiceCreateUser)
 	r.POST("/create-organization", resource.ServersControllers.SourceOrganization.ServiceCreateOrganizationBootstrap)
+	r.POST("/organization", resource.ServersControllers.SourceOrganization.CreateOrganization) // For seeding
+	r.POST("/project", resource.ServersControllers.SourceProject.CreateProject) // For seeding with org header
+	r.POST("/user-organization/user/:userId", resource.ServersControllers.SourceUserOrganization.ServiceAddUserToOrganization) // For seeding
+	r.POST("/user-project/user/:userId", resource.ServersControllers.SourceUserProject.ServiceAddUserToProject) // For seeding
 
 	// Public routes for menu and reservations (no authentication)
 	setupPublicRoutes(r)
@@ -21,7 +25,7 @@ func SetupRoutes(r *gin.Engine) {
 
 	// Create protected route group with authentication middlewares
 	protected := r.Group("/")
-	//protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.AuthMiddleware())
 	protected.Use(middleware.HeaderValidationMiddleware())
 
 	// Protected auth routes
@@ -64,22 +68,30 @@ func setupUserRoutes(r gin.IRouter) {
 }
 
 func setupUserOrganizationRoutes(r gin.IRouter) {
-	// Rotas para gerenciar relacionamento usuário-organização
-	r.POST("/user/:userId/organization", resource.ServersControllers.SourceUserOrganization.ServiceAddUserToOrganization)
-	r.DELETE("/user/:userId/organization/:orgId", resource.ServersControllers.SourceUserOrganization.ServiceRemoveUserFromOrganization)
-	r.PUT("/user-organization/:id", resource.ServersControllers.SourceUserOrganization.ServiceUpdateUserOrganization)
-	r.GET("/user/:userId/organizations", resource.ServersControllers.SourceUserOrganization.ServiceGetUserOrganizations)
-	r.GET("/organization/:orgId/users", resource.ServersControllers.SourceUserOrganization.ServiceGetOrganizationUsers)
+	// Rotas para gerenciar relacionamento usuário-organização (todas protegidas)
+	// Nota: POST /user-organization/user/:userId está registrado como rota pública para seeding
+	userOrgRoutes := r.Group("/user-organization")
+	{
+		// POST removed - registered as public route for seeding
+		userOrgRoutes.DELETE("/user/:userId/org/:orgId", resource.ServersControllers.SourceUserOrganization.ServiceRemoveUserFromOrganization)
+		userOrgRoutes.PUT("/:id", resource.ServersControllers.SourceUserOrganization.ServiceUpdateUserOrganization)
+		userOrgRoutes.GET("/user/:userId", resource.ServersControllers.SourceUserOrganization.ServiceGetUserOrganizations)
+		userOrgRoutes.GET("/org/:orgId", resource.ServersControllers.SourceUserOrganization.ServiceGetOrganizationUsers)
+	}
 }
 
 func setupUserProjectRoutes(r gin.IRouter) {
-	// Rotas para gerenciar relacionamento usuário-projeto
-	r.POST("/user/:userId/project", resource.ServersControllers.SourceUserProject.ServiceAddUserToProject)
-	r.DELETE("/user/:userId/project/:projectId", resource.ServersControllers.SourceUserProject.ServiceRemoveUserFromProject)
-	r.PUT("/user-project/:id", resource.ServersControllers.SourceUserProject.ServiceUpdateUserProject)
-	r.GET("/user/:userId/projects", resource.ServersControllers.SourceUserProject.ServiceGetUserProjects)
-	r.GET("/user/:userId/organization/:orgId/projects", resource.ServersControllers.SourceUserProject.ServiceGetUserProjectsByOrganization)
-	r.GET("/project/:projectId/users", resource.ServersControllers.SourceUserProject.ServiceGetProjectUsers)
+	// Rotas para gerenciar relacionamento usuário-projeto (todas protegidas)
+	// Nota: POST /user-project/user/:userId está registrado como rota pública para seeding
+	userProjRoutes := r.Group("/user-project")
+	{
+		// POST removed - registered as public route for seeding
+		userProjRoutes.DELETE("/user/:userId/proj/:projectId", resource.ServersControllers.SourceUserProject.ServiceRemoveUserFromProject)
+		userProjRoutes.PUT("/:id", resource.ServersControllers.SourceUserProject.ServiceUpdateUserProject)
+		userProjRoutes.GET("/user/:userId", resource.ServersControllers.SourceUserProject.ServiceGetUserProjects)
+		userProjRoutes.GET("/user/:userId/org/:orgId", resource.ServersControllers.SourceUserProject.ServiceGetUserProjectsByOrganization)
+		userProjRoutes.GET("/proj/:projectId", resource.ServersControllers.SourceUserProject.ServiceGetProjectUsers)
+	}
 }
 
 func setupProductRoutes(r gin.IRouter) {
@@ -173,14 +185,15 @@ func setupOrderRoutes(r gin.IRouter) {
 	}
 }
 
-// setupProjectRoutes configura rotas para projetos
+// setupProjectRoutes configura rotas para projetos (todas protegidas)
+// Nota: POST /project está registrado como rota pública para seeding
 func setupProjectRoutes(r gin.IRouter) {
 	projectRoutes := r.Group("/project")
 	{
 		projectRoutes.GET("/:id", resource.ServersControllers.SourceProject.GetProjectById)
 		projectRoutes.GET("", resource.ServersControllers.SourceProject.GetProjectsByOrganization)
 		projectRoutes.GET("/active", resource.ServersControllers.SourceProject.GetActiveProjects)
-		projectRoutes.POST("", resource.ServersControllers.SourceProject.CreateProject)
+		// POST removed - registered as public route for seeding
 		projectRoutes.PUT("/:id", resource.ServersControllers.SourceProject.UpdateProject)
 		projectRoutes.DELETE("/:id", resource.ServersControllers.SourceProject.SoftDeleteProject)
 	}
@@ -249,7 +262,8 @@ func setupReportsRoutes(r gin.IRouter) {
 	}
 }
 
-// setupOrganizationRoutes configura rotas para organizações
+// setupOrganizationRoutes configura rotas para organizações (todas protegidas)
+// Nota: POST /organization está registrado como rota pública para seeding
 func setupOrganizationRoutes(r gin.IRouter) {
 	organizationRoutes := r.Group("/organization")
 	{
@@ -257,7 +271,7 @@ func setupOrganizationRoutes(r gin.IRouter) {
 		organizationRoutes.GET("", resource.ServersControllers.SourceOrganization.ListOrganizations)
 		organizationRoutes.GET("/active", resource.ServersControllers.SourceOrganization.ListActiveOrganizations)
 		organizationRoutes.GET("/email", resource.ServersControllers.SourceOrganization.GetOrganizationByEmail)
-		organizationRoutes.POST("", resource.ServersControllers.SourceOrganization.CreateOrganization)
+		// POST removed - registered as public route for seeding
 		organizationRoutes.PUT("/:id", resource.ServersControllers.SourceOrganization.UpdateOrganization)
 		organizationRoutes.DELETE("/:id", resource.ServersControllers.SourceOrganization.SoftDeleteOrganization)
 		organizationRoutes.DELETE("/:id/permanent", resource.ServersControllers.SourceOrganization.HardDeleteOrganization)

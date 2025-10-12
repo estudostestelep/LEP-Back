@@ -34,7 +34,8 @@ func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
 		return
 	}
 
-	resp, err := r.handler.GetUser(idStr)
+	// Buscar usuário com suas organizações e projetos
+	resp, err := r.handler.GetUserWithRelations(idStr)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting user", err)
 		return
@@ -44,9 +45,6 @@ func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
 		utils.SendNotFoundError(c, "User")
 		return
 	}
-
-	// Não é mais necessário verificar org/proj do user, pois foram removidos
-	// A validação de acesso é feita no middleware
 
 	c.JSON(http.StatusOK, resp)
 }
