@@ -63,7 +63,12 @@ func (r *resourceUser) CreateUser(user *models.User) error {
 	}
 
 	user.Password = string(hashedPassword)
-	user.Id = uuid.New()
+
+	// Gerar ID apenas se não foi fornecido
+	if user.Id == uuid.Nil {
+		user.Id = uuid.New()
+	}
+
 	err = r.repo.User.CreateUser(user)
 	if err != nil {
 		return err

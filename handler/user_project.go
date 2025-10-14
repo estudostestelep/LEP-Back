@@ -35,23 +35,12 @@ func (r *resourceUserProject) AddUserToProject(userProj *models.UserProject) err
 		return errors.New("usuário já vinculado a este projeto")
 	}
 
-	// Verificar se usuário existe
-	_, err := r.repo.User.GetUserById(userProj.UserId.String())
-	if err != nil {
-		return errors.New("usuário não encontrado")
-	}
-
-	// Verificar se projeto existe
-	_, err = r.repo.Projects.GetProjectById(userProj.ProjectId)
-	if err != nil {
-		return errors.New("projeto não encontrado")
-	}
-
 	// Gerar ID se necessário
 	if userProj.Id == uuid.Nil {
 		userProj.Id = uuid.New()
 	}
 
+	// Criar relacionamento - foreign keys do banco garantem integridade referencial
 	return r.repo.UserProjects.Create(userProj)
 }
 

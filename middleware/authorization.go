@@ -33,12 +33,13 @@ func RoleBasedAuthMiddleware(requiredRole string) gin.HandlerFunc {
 
 // hasPermission verifica se o role atual tem permissão para o role requerido
 func hasPermission(userRole, requiredRole string) bool {
-	// Hierarquia de roles: admin > manager > waiter > viewer
+	// Hierarquia de roles: master_admin > admin > manager > waiter > viewer
 	roleHierarchy := map[string]int{
-		"admin":   4,
-		"manager": 3,
-		"waiter":  2,
-		"viewer":  1,
+		"master_admin": 5, // Nível mais alto - acesso total ao sistema
+		"admin":        4,
+		"manager":      3,
+		"waiter":       2,
+		"viewer":       1,
 	}
 
 	userLevel := roleHierarchy[userRole]
@@ -61,6 +62,13 @@ func PermissionMiddleware(requiredPermission string) gin.HandlerFunc {
 		}
 
 		permissions := userPermissions.([]string)
+
+		// Master Admins têm acesso a tudo - bypass automático
+		if contains(permissions, "master_admin") {
+			c.Next()
+			return
+		}
+
 		if !contains(permissions, requiredPermission) {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Permission denied: " + requiredPermission,
@@ -81,4 +89,30 @@ func contains(permissions []string, permission string) bool {
 		}
 	}
 	return false
+}
+
+// IsMasterAdmin verifica se um usuário tem permissão de Master Admin
+// Esta função pode ser usada em handlers para lógicas específicas
+func IsMasterAdmin(c *gin.Context) bool {
+	userPermissions, exists := c.Get("user_permissions")
+	if !exists {
+		return false
+	}
+
+	permissions := userPermissions.([]string)
+	return contains(permissions, "master_admin")
+}
+
+// MasterAdminOnlyMiddleware middleware que permite apenas Master Admins
+func MasterAdminOnlyMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !IsMasterAdmin(c) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Access denied: Master Admin only",
+			})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
 }

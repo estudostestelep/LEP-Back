@@ -17,6 +17,8 @@ type IHandlerAuth interface {
 	PostToken(user *models.User, token string) error
 	Logout(token string) error
 	VerificationToken(token string) (*models.User, error)
+	GetUserOrganizationsWithNames(userId string) ([]UserOrganizationWithName, error)
+	GetUserProjectsWithNames(userId string) ([]UserProjectWithName, error)
 }
 
 func (r *resourceAuth) PostToken(user *models.User, token string) error {
@@ -90,6 +92,91 @@ func (r *resourceAuth) VerificationToken(token string) (*models.User, error) {
 	}
 
 	return user, nil
+}
+
+// GetUserOrganizationsWithNames busca organizações do usuário com seus nomes
+func (r *resourceAuth) GetUserOrganizationsWithNames(userId string) ([]UserOrganizationWithName, error) {
+	// Buscar relacionamentos user-organization
+	userOrgs, err := r.repo.UserOrganizations.ListByUser(userId)
+	if err != nil {
+		fmt.Printf("DEBUG: Erro ao buscar user_organizations: %v\n", err)
+		return nil, err
+	}
+
+	fmt.Printf("DEBUG: Encontrados %d user_organizations para user %s\n", len(userOrgs), userId)
+
+	// Criar slice de resposta enriquecida
+	result := make([]UserOrganizationWithName, 0, len(userOrgs))
+
+	// Para cada organização, buscar o nome
+	for _, userOrg := range userOrgs {
+		fmt.Printf("DEBUG: Buscando organização %s\n", userOrg.OrganizationId.String())
+		org, err := r.repo.Organizations.GetOrganizationById(userOrg.OrganizationId)
+		if err != nil {
+			// Se organização não for encontrada, pular
+			fmt.Printf("DEBUG: Erro ao buscar organização %s: %v\n", userOrg.OrganizationId.String(), err)
+			continue
+		}
+
+		fmt.Printf("DEBUG: Organização encontrada: %s\n", org.Name)
+		result = append(result, UserOrganizationWithName{
+			Id:               userOrg.Id,
+			UserId:           userOrg.UserId,
+			OrganizationId:   userOrg.OrganizationId,
+			OrganizationName: org.Name,
+			Role:             userOrg.Role,
+			Active:           userOrg.Active,
+			CreatedAt:        userOrg.CreatedAt,
+			UpdatedAt:        userOrg.UpdatedAt,
+			DeletedAt:        userOrg.DeletedAt,
+		})
+	}
+
+	fmt.Printf("DEBUG: Retornando %d organizações\n", len(result))
+	return result, nil
+}
+
+// GetUserProjectsWithNames busca projetos do usuário com seus nomes
+func (r *resourceAuth) GetUserProjectsWithNames(userId string) ([]UserProjectWithName, error) {
+	// Buscar relacionamentos user-project
+	userProjs, err := r.repo.UserProjects.ListByUser(userId)
+	if err != nil {
+		fmt.Printf("DEBUG: Erro ao buscar user_projects: %v\n", err)
+		return nil, err
+	}
+
+	fmt.Printf("DEBUG: Encontrados %d user_projects para user %s\n", len(userProjs), userId)
+
+	// Criar slice de resposta enriquecida
+	result := make([]UserProjectWithName, 0, len(userProjs))
+
+	// Para cada projeto, buscar o nome
+	for _, userProj := range userProjs {
+		fmt.Printf("DEBUG: Buscando projeto %s\n", userProj.ProjectId.String())
+		proj, err := r.repo.Projects.GetProjectById(userProj.ProjectId)
+		if err != nil {
+			// Se projeto não for encontrado, pular
+			fmt.Printf("DEBUG: Erro ao buscar projeto %s: %v\n", userProj.ProjectId.String(), err)
+			continue
+		}
+
+		fmt.Printf("DEBUG: Projeto encontrado: %s (org: %s)\n", proj.Name, proj.OrganizationId.String())
+		result = append(result, UserProjectWithName{
+			Id:             userProj.Id,
+			UserId:         userProj.UserId,
+			ProjectId:      userProj.ProjectId,
+			ProjectName:    proj.Name,
+			OrganizationId: proj.OrganizationId, // ✅ NOVO: Incluir organization_id
+			Role:           userProj.Role,
+			Active:         userProj.Active,
+			CreatedAt:      userProj.CreatedAt,
+			UpdatedAt:      userProj.UpdatedAt,
+			DeletedAt:      userProj.DeletedAt,
+		})
+	}
+
+	fmt.Printf("DEBUG: Retornando %d projetos\n", len(result))
+	return result, nil
 }
 
 func NewAuthHandler(repo *repositories.DBconn) IHandlerAuth {

@@ -105,7 +105,13 @@ func runMigrations(db *gorm.DB) error {
 		&models.UserOrganization{},
 		&models.UserProject{},
 		&models.Customer{},
+		&models.Menu{},
+		&models.Category{},
+		&models.Subcategory{},
+		&models.SubcategoryCategory{},
+		&models.Tag{},
 		&models.Product{},
+		&models.ProductTag{},
 		&models.Table{},
 		&models.Order{},
 		&models.Reservation{},
@@ -132,7 +138,13 @@ func clearExistingData(db *gorm.DB) error {
 		"reservations",
 		"orders",
 		"tables",
+		"product_tags", // Relacionamento produto-tag
 		"products",
+		"subcategory_categories", // Relacionamento subcategory-category
+		"subcategories",
+		"categories",
+		"menus",
+		"tags",
 		"customers",
 		"user_projects",      // Novo - relacionamentos
 		"user_organizations", // Novo - relacionamentos
@@ -239,7 +251,7 @@ func seedDatabase(db *gorm.DB, data *utils.SeedData) error {
 			return fmt.Errorf("failed to seed product: %v", err)
 		}
 		if verbose {
-			fmt.Printf("    ✓ %s - R$ %.2f\n", product.Name, product.Price)
+			fmt.Printf("    ✓ %s - R$ %.2f\n", product.Name, product.PriceNormal)
 		}
 	}
 
@@ -393,7 +405,43 @@ func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
 		}
 	}
 
-	// 8. Criar products
+	// 8. Criar menus
+	if len(data.Menus) > 0 {
+		fmt.Println("  📖 Criando menus...")
+		for _, menu := range data.Menus {
+			menu.OrganizationId = orgId
+			menu.ProjectId = projectId
+			if err := createMenu(router, menu, headers); err != nil {
+				return fmt.Errorf("failed to create menu %s: %v", menu.Name, err)
+			}
+		}
+	}
+
+	// 9. Criar categories
+	if len(data.Categories) > 0 {
+		fmt.Println("  📂 Criando categories...")
+		for _, category := range data.Categories {
+			category.OrganizationId = orgId
+			category.ProjectId = projectId
+			if err := createCategory(router, category, headers); err != nil {
+				return fmt.Errorf("failed to create category %s: %v", category.Name, err)
+			}
+		}
+	}
+
+	// 10. Criar tags
+	if len(data.Tags) > 0 {
+		fmt.Println("  🏷️  Criando tags...")
+		for _, tag := range data.Tags {
+			tag.OrganizationId = orgId
+			tag.ProjectId = projectId
+			if err := createTag(router, tag, headers); err != nil {
+				return fmt.Errorf("failed to create tag %s: %v", tag.Name, err)
+			}
+		}
+	}
+
+	// 11. Criar products
 	if len(data.Products) > 0 {
 		fmt.Println("  🍽️  Criando products...")
 		for _, product := range data.Products {
@@ -405,7 +453,17 @@ func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
 		}
 	}
 
-	// 9. Criar tables
+	// 12. Criar product tags
+	if len(data.ProductTags) > 0 {
+		fmt.Println("  🔗 Criando product tags...")
+		for _, productTag := range data.ProductTags {
+			if err := createProductTag(router, productTag, headers); err != nil {
+				return fmt.Errorf("failed to create product tag: %v", err)
+			}
+		}
+	}
+
+	// 13. Criar tables
 	if len(data.Tables) > 0 {
 		fmt.Println("  🪑 Criando tables...")
 		for _, table := range data.Tables {
@@ -417,7 +475,7 @@ func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
 		}
 	}
 
-	// 10. Criar orders
+	// 14. Criar orders
 	if len(data.Orders) > 0 {
 		fmt.Println("  📝 Criando orders...")
 		for _, order := range data.Orders {
@@ -429,7 +487,7 @@ func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
 		}
 	}
 
-	// 11. Criar reservations
+	// 15. Criar reservations
 	if len(data.Reservations) > 0 {
 		fmt.Println("  🎫 Criando reservations...")
 		for _, reservation := range data.Reservations {
@@ -441,7 +499,7 @@ func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
 		}
 	}
 
-	// 12. Criar waitlists
+	// 16. Criar waitlists
 	if len(data.Waitlists) > 0 {
 		fmt.Println("  ⏰ Criando waitlists...")
 		for _, waitlist := range data.Waitlists {
@@ -573,7 +631,7 @@ func createAdminUser(router *gin.Engine, user models.User, orgId, projectId uuid
 	// Fazer login para obter token
 	loginData := map[string]string{
 		"email":    user.Email,
-		"password": "password", // Senha padrão do seed data
+		"password": "senha123", // Senha padrão dos Master Admins
 	}
 	loginBody, _ := json.Marshal(loginData)
 
@@ -704,6 +762,75 @@ func createCustomer(router *gin.Engine, customer models.Customer, headers map[st
 	return nil
 }
 
+// Criar menu
+func createMenu(router *gin.Engine, menu models.Menu, headers map[string]string) error {
+	body, _ := json.Marshal(menu)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/menu", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return fmt.Errorf("status %d - %s", w.Code, w.Body.String())
+	}
+
+	if verbose {
+		fmt.Printf("    ✓ %s\n", menu.Name)
+	}
+
+	return nil
+}
+
+// Criar category
+func createCategory(router *gin.Engine, category models.Category, headers map[string]string) error {
+	body, _ := json.Marshal(category)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/category", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return fmt.Errorf("status %d - %s", w.Code, w.Body.String())
+	}
+
+	if verbose {
+		fmt.Printf("    ✓ %s\n", category.Name)
+	}
+
+	return nil
+}
+
+// Criar tag
+func createTag(router *gin.Engine, tag models.Tag, headers map[string]string) error {
+	body, _ := json.Marshal(tag)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/tag", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return fmt.Errorf("status %d - %s", w.Code, w.Body.String())
+	}
+
+	if verbose {
+		fmt.Printf("    ✓ %s\n", tag.Name)
+	}
+
+	return nil
+}
+
 // Criar product
 func createProduct(router *gin.Engine, product models.Product, headers map[string]string) error {
 	body, _ := json.Marshal(product)
@@ -721,7 +848,34 @@ func createProduct(router *gin.Engine, product models.Product, headers map[strin
 	}
 
 	if verbose {
-		fmt.Printf("    ✓ %s - R$ %.2f\n", product.Name, product.Price)
+		fmt.Printf("    ✓ %s - R$ %.2f\n", product.Name, product.PriceNormal)
+	}
+
+	return nil
+}
+
+// Criar product tag
+func createProductTag(router *gin.Engine, productTag models.ProductTag, headers map[string]string) error {
+	// Usar o endpoint correto: POST /product/:id/tags
+	requestBody := map[string]string{
+		"tag_id": productTag.TagId.String(),
+	}
+	body, _ := json.Marshal(requestBody)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", fmt.Sprintf("/product/%s/tags", productTag.ProductId.String()), bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 && w.Code != 200 {
+		return fmt.Errorf("status %d - %s", w.Code, w.Body.String())
+	}
+
+	if verbose {
+		fmt.Printf("    ✓ Product-Tag relationship created\n")
 	}
 
 	return nil
@@ -909,9 +1063,15 @@ func printSeedingSummary(db *gorm.DB) {
 	fmt.Println("\n🎯 Sample Data Available:")
 	fmt.Println("========================")
 	fmt.Println("📧 Login Credentials:")
-	fmt.Println("  • admin@lep-demo.com / password (Admin)")
-	fmt.Println("  • garcom@lep-demo.com / password (Waiter)")
-	fmt.Println("  • gerente@lep-demo.com / password (Manager)")
+	fmt.Println("  🔴 Master Admins (Acesso Total):")
+	fmt.Println("    • pablo@lep.com / senha123")
+	fmt.Println("    • luan@lep.com / senha123")
+	fmt.Println("    • eduardo@lep.com / senha123")
+	fmt.Println("")
+	fmt.Println("  🟡 Demo Users:")
+	fmt.Println("    • teste@gmail.com / password (Admin)")
+	fmt.Println("    • garcom1@gmail.com / password (Waiter)")
+	fmt.Println("    • gerente1@gmail.com / password (Manager)")
 	fmt.Println("")
 	fmt.Println("📊 Data Highlights:")
 	fmt.Println("  • 12 products across 3 categories")
