@@ -12,6 +12,10 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/login", resource.ServersControllers.SourceAuth.ServiceLogin)
 	r.POST("/user", resource.ServersControllers.SourceUsers.ServiceCreateUser)
 	r.POST("/create-organization", resource.ServersControllers.SourceOrganization.ServiceCreateOrganizationBootstrap)
+	r.POST("/organization", resource.ServersControllers.SourceOrganization.CreateOrganization) // For seeding
+	r.POST("/project", resource.ServersControllers.SourceProject.CreateProject) // For seeding with org header
+	r.POST("/user-organization/user/:userId", resource.ServersControllers.SourceUserOrganization.ServiceAddUserToOrganization) // For seeding
+	r.POST("/user-project/user/:userId", resource.ServersControllers.SourceUserProject.ServiceAddUserToProject) // For seeding
 
 	// Public routes for menu and reservations (no authentication)
 	setupPublicRoutes(r)
@@ -21,7 +25,7 @@ func SetupRoutes(r *gin.Engine) {
 
 	// Create protected route group with authentication middlewares
 	protected := r.Group("/")
-	//protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.AuthMiddleware())
 	protected.Use(middleware.HeaderValidationMiddleware())
 
 	// Protected auth routes
@@ -31,6 +35,8 @@ func SetupRoutes(r *gin.Engine) {
 	// Protected routes (require authentication and organization/project headers)
 	setupOrganizationRoutes(protected)
 	setupUserRoutes(protected)
+	setupUserOrganizationRoutes(protected)
+	setupUserProjectRoutes(protected)
 	setupProductRoutes(protected)
 	setupTableRoutes(protected)
 	setupWaitlistRoutes(protected)
@@ -41,6 +47,10 @@ func SetupRoutes(r *gin.Engine) {
 	setupSettingsRoutes(protected)
 	setupEnvironmentRoutes(protected)
 	setupReportsRoutes(protected)
+	setupTagRoutes(protected)
+	setupMenuRoutes(protected)
+	setupCategoryRoutes(protected)
+	setupSubcategoryRoutes(protected)
 
 	// Notification routes (mixed public/protected)
 	setupNotificationRoutes(r)
@@ -57,16 +67,58 @@ func setupUserRoutes(r gin.IRouter) {
 	}
 }
 
+func setupUserOrganizationRoutes(r gin.IRouter) {
+	// Rotas para gerenciar relacionamento usuário-organização (todas protegidas)
+	// Nota: POST /user-organization/user/:userId está registrado como rota pública para seeding
+	userOrgRoutes := r.Group("/user-organization")
+	{
+		// POST removed - registered as public route for seeding
+		userOrgRoutes.DELETE("/user/:userId/org/:orgId", resource.ServersControllers.SourceUserOrganization.ServiceRemoveUserFromOrganization)
+		userOrgRoutes.PUT("/:id", resource.ServersControllers.SourceUserOrganization.ServiceUpdateUserOrganization)
+		userOrgRoutes.GET("/user/:userId", resource.ServersControllers.SourceUserOrganization.ServiceGetUserOrganizations)
+		userOrgRoutes.GET("/org/:orgId", resource.ServersControllers.SourceUserOrganization.ServiceGetOrganizationUsers)
+	}
+}
+
+func setupUserProjectRoutes(r gin.IRouter) {
+	// Rotas para gerenciar relacionamento usuário-projeto (todas protegidas)
+	// Nota: POST /user-project/user/:userId está registrado como rota pública para seeding
+	userProjRoutes := r.Group("/user-project")
+	{
+		// POST removed - registered as public route for seeding
+		userProjRoutes.DELETE("/user/:userId/proj/:projectId", resource.ServersControllers.SourceUserProject.ServiceRemoveUserFromProject)
+		userProjRoutes.PUT("/:id", resource.ServersControllers.SourceUserProject.ServiceUpdateUserProject)
+		userProjRoutes.GET("/user/:userId", resource.ServersControllers.SourceUserProject.ServiceGetUserProjects)
+		userProjRoutes.GET("/user/:userId/org/:orgId", resource.ServersControllers.SourceUserProject.ServiceGetUserProjectsByOrganization)
+		userProjRoutes.GET("/proj/:projectId", resource.ServersControllers.SourceUserProject.ServiceGetProjectUsers)
+	}
+}
+
 func setupProductRoutes(r gin.IRouter) {
 	productRoutes := r.Group("/product")
 	{
 		productRoutes.GET("/:id", resource.ServersControllers.SourceProducts.ServiceGetProduct)
 		productRoutes.GET("/purchase/:id", resource.ServersControllers.SourceProducts.ServiceGetProductByPurchase)
 		productRoutes.GET("", resource.ServersControllers.SourceProducts.ServiceListProducts) // Endpoint de listagem
+		productRoutes.GET("/by-tag", resource.ServersControllers.SourceProducts.ServiceGetProductsByTag) // Buscar produtos por tag
 		productRoutes.POST("", resource.ServersControllers.SourceProducts.ServiceCreateProduct)
 		productRoutes.PUT("/:id", resource.ServersControllers.SourceProducts.ServiceUpdateProduct)
 		productRoutes.PUT("/:id/image", resource.ServersControllers.SourceProducts.ServiceUpdateProductImage) // Atualizar apenas imagem
 		productRoutes.DELETE("/:id", resource.ServersControllers.SourceProducts.ServiceDeleteProduct)
+
+		// Tag management
+		productRoutes.GET("/:id/tags", resource.ServersControllers.SourceProducts.ServiceGetProductTags)
+		productRoutes.POST("/:id/tags", resource.ServersControllers.SourceProducts.ServiceAddTagToProduct)
+		productRoutes.DELETE("/:id/tags/:tagId", resource.ServersControllers.SourceProducts.ServiceRemoveTagFromProduct)
+
+		// Order and status management
+		productRoutes.PUT("/:id/order", resource.ServersControllers.SourceProducts.ServiceUpdateProductOrder)
+		productRoutes.PUT("/:id/status", resource.ServersControllers.SourceProducts.ServiceUpdateProductStatus)
+
+		// Filtering by menu structure
+		productRoutes.GET("/type/:type", resource.ServersControllers.SourceProducts.ServiceGetProductsByType)
+		productRoutes.GET("/category/:categoryId", resource.ServersControllers.SourceProducts.ServiceGetProductsByCategory)
+		productRoutes.GET("/subcategory/:subcategoryId", resource.ServersControllers.SourceProducts.ServiceGetProductsBySubcategory)
 	}
 }
 
@@ -133,14 +185,15 @@ func setupOrderRoutes(r gin.IRouter) {
 	}
 }
 
-// setupProjectRoutes configura rotas para projetos
+// setupProjectRoutes configura rotas para projetos (todas protegidas)
+// Nota: POST /project está registrado como rota pública para seeding
 func setupProjectRoutes(r gin.IRouter) {
 	projectRoutes := r.Group("/project")
 	{
 		projectRoutes.GET("/:id", resource.ServersControllers.SourceProject.GetProjectById)
 		projectRoutes.GET("", resource.ServersControllers.SourceProject.GetProjectsByOrganization)
 		projectRoutes.GET("/active", resource.ServersControllers.SourceProject.GetActiveProjects)
-		projectRoutes.POST("", resource.ServersControllers.SourceProject.CreateProject)
+		// POST removed - registered as public route for seeding
 		projectRoutes.PUT("/:id", resource.ServersControllers.SourceProject.UpdateProject)
 		projectRoutes.DELETE("/:id", resource.ServersControllers.SourceProject.SoftDeleteProject)
 	}
@@ -209,7 +262,8 @@ func setupReportsRoutes(r gin.IRouter) {
 	}
 }
 
-// setupOrganizationRoutes configura rotas para organizações
+// setupOrganizationRoutes configura rotas para organizações (todas protegidas)
+// Nota: POST /organization está registrado como rota pública para seeding
 func setupOrganizationRoutes(r gin.IRouter) {
 	organizationRoutes := r.Group("/organization")
 	{
@@ -217,7 +271,7 @@ func setupOrganizationRoutes(r gin.IRouter) {
 		organizationRoutes.GET("", resource.ServersControllers.SourceOrganization.ListOrganizations)
 		organizationRoutes.GET("/active", resource.ServersControllers.SourceOrganization.ListActiveOrganizations)
 		organizationRoutes.GET("/email", resource.ServersControllers.SourceOrganization.GetOrganizationByEmail)
-		organizationRoutes.POST("", resource.ServersControllers.SourceOrganization.CreateOrganization)
+		// POST removed - registered as public route for seeding
 		organizationRoutes.PUT("/:id", resource.ServersControllers.SourceOrganization.UpdateOrganization)
 		organizationRoutes.DELETE("/:id", resource.ServersControllers.SourceOrganization.SoftDeleteOrganization)
 		organizationRoutes.DELETE("/:id/permanent", resource.ServersControllers.SourceOrganization.HardDeleteOrganization)
@@ -259,5 +313,71 @@ func setupUploadRoutes(r *gin.Engine) {
 
 		// Rota de retrocompatibilidade para produtos
 		uploadRoutes.POST("/product/image", resource.ServersControllers.SourceUpload.ServiceUploadProductImage)
+	}
+}
+
+// setupTagRoutes configura rotas para tags
+func setupTagRoutes(r gin.IRouter) {
+	tagRoutes := r.Group("/tag")
+	{
+		tagRoutes.GET("/:id", resource.ServersControllers.SourceTag.ServiceGetTag)
+		tagRoutes.GET("", resource.ServersControllers.SourceTag.ServiceListTags)
+		tagRoutes.GET("/active", resource.ServersControllers.SourceTag.ServiceListActiveTags)
+		tagRoutes.GET("/entity/:entityType", resource.ServersControllers.SourceTag.ServiceGetTagsByEntityType)
+		tagRoutes.POST("", resource.ServersControllers.SourceTag.ServiceCreateTag)
+		tagRoutes.PUT("/:id", resource.ServersControllers.SourceTag.ServiceUpdateTag)
+		tagRoutes.DELETE("/:id", resource.ServersControllers.SourceTag.ServiceDeleteTag)
+	}
+}
+
+// setupMenuRoutes configura rotas para cardápios/menus
+func setupMenuRoutes(r gin.IRouter) {
+	menuRoutes := r.Group("/menu")
+	{
+		menuRoutes.GET("/:id", resource.ServersControllers.SourceMenu.ServiceGetMenu)
+		menuRoutes.GET("", resource.ServersControllers.SourceMenu.ServiceListMenus)
+		menuRoutes.GET("/active", resource.ServersControllers.SourceMenu.ServiceListActiveMenus)
+		menuRoutes.POST("", resource.ServersControllers.SourceMenu.ServiceCreateMenu)
+		menuRoutes.PUT("/:id", resource.ServersControllers.SourceMenu.ServiceUpdateMenu)
+		menuRoutes.PUT("/:id/order", resource.ServersControllers.SourceMenu.ServiceUpdateMenuOrder)
+		menuRoutes.PUT("/:id/status", resource.ServersControllers.SourceMenu.ServiceUpdateMenuStatus)
+		menuRoutes.DELETE("/:id", resource.ServersControllers.SourceMenu.ServiceDeleteMenu)
+	}
+}
+
+// setupCategoryRoutes configura rotas para categorias
+func setupCategoryRoutes(r gin.IRouter) {
+	categoryRoutes := r.Group("/category")
+	{
+		categoryRoutes.GET("/:id", resource.ServersControllers.SourceCategory.ServiceGetCategory)
+		categoryRoutes.GET("", resource.ServersControllers.SourceCategory.ServiceListCategories)
+		categoryRoutes.GET("/active", resource.ServersControllers.SourceCategory.ServiceListActiveCategories)
+		categoryRoutes.GET("/menu/:menuId", resource.ServersControllers.SourceCategory.ServiceGetCategoriesByMenu)
+		categoryRoutes.POST("", resource.ServersControllers.SourceCategory.ServiceCreateCategory)
+		categoryRoutes.PUT("/:id", resource.ServersControllers.SourceCategory.ServiceUpdateCategory)
+		categoryRoutes.PUT("/:id/order", resource.ServersControllers.SourceCategory.ServiceUpdateCategoryOrder)
+		categoryRoutes.PUT("/:id/status", resource.ServersControllers.SourceCategory.ServiceUpdateCategoryStatus)
+		categoryRoutes.DELETE("/:id", resource.ServersControllers.SourceCategory.ServiceDeleteCategory)
+	}
+}
+
+// setupSubcategoryRoutes configura rotas para subcategorias
+func setupSubcategoryRoutes(r gin.IRouter) {
+	subcategoryRoutes := r.Group("/subcategory")
+	{
+		subcategoryRoutes.GET("/:id", resource.ServersControllers.SourceSubcategory.ServiceGetSubcategory)
+		subcategoryRoutes.GET("", resource.ServersControllers.SourceSubcategory.ServiceListSubcategories)
+		subcategoryRoutes.GET("/active", resource.ServersControllers.SourceSubcategory.ServiceListActiveSubcategories)
+		subcategoryRoutes.GET("/category/:categoryId", resource.ServersControllers.SourceSubcategory.ServiceGetSubcategoriesByCategory)
+		subcategoryRoutes.POST("", resource.ServersControllers.SourceSubcategory.ServiceCreateSubcategory)
+		subcategoryRoutes.PUT("/:id", resource.ServersControllers.SourceSubcategory.ServiceUpdateSubcategory)
+		subcategoryRoutes.PUT("/:id/order", resource.ServersControllers.SourceSubcategory.ServiceUpdateSubcategoryOrder)
+		subcategoryRoutes.PUT("/:id/status", resource.ServersControllers.SourceSubcategory.ServiceUpdateSubcategoryStatus)
+		subcategoryRoutes.DELETE("/:id", resource.ServersControllers.SourceSubcategory.ServiceDeleteSubcategory)
+
+		// Category relationship management
+		subcategoryRoutes.POST("/:id/category/:categoryId", resource.ServersControllers.SourceSubcategory.ServiceAddCategoryToSubcategory)
+		subcategoryRoutes.DELETE("/:id/category/:categoryId", resource.ServersControllers.SourceSubcategory.ServiceRemoveCategoryFromSubcategory)
+		subcategoryRoutes.GET("/:id/categories", resource.ServersControllers.SourceSubcategory.ServiceGetSubcategoryCategories)
 	}
 }

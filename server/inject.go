@@ -3,26 +3,34 @@ package server
 import "lep/handler"
 
 type ServerController struct {
-	SourceUsers        IServerUsers
-	SourceProducts     IServerProducts
-	SourceAuth         IServerAuth
-	SourceOrders       IOrderServer
-	SourceOrganization IServerOrganization
-	SourceTables       IServerTables
-	SourceWaitlist     IServerWaitlist
-	SourceReservation  IServerReservation
-	SourceCustomer     IServerCustomer
-	SourceProject      IProjectServer
-	SourceSettings     ISettingsServer
-	SourceEnvironment  IEnvironmentServer
-	SourceNotification *NotificationServer
-	SourceReports      IReportsServer
-	SourcePublic       IServerPublic
-	SourceUpload       IServerUpload
+	SourceUsers             IServerUsers
+	SourceUserOrganization  IServerUserOrganization
+	SourceUserProject       IServerUserProject
+	SourceProducts          IServerProducts
+	SourceAuth              IServerAuth
+	SourceOrders            IOrderServer
+	SourceOrganization      IServerOrganization
+	SourceTables            IServerTables
+	SourceWaitlist          IServerWaitlist
+	SourceReservation       IServerReservation
+	SourceCustomer          IServerCustomer
+	SourceProject           IProjectServer
+	SourceSettings          ISettingsServer
+	SourceEnvironment       IEnvironmentServer
+	SourceNotification      *NotificationServer
+	SourceReports           IReportsServer
+	SourcePublic            IServerPublic
+	SourceUpload            IServerUpload
+	SourceTag               IServerTag
+	SourceMenu              IServerMenu
+	SourceCategory          IServerCategory
+	SourceSubcategory       IServerSubcategory
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceUsers = NewSourceServerUsers(handler)
+	h.SourceUserOrganization = NewSourceServerUserOrganization(handler)
+	h.SourceUserProject = NewSourceServerUserProject(handler)
 	h.SourceProducts = NewSourceServerProducts(handler)
 	h.SourceAuth = NewSourceServerAuth(handler)
 	h.SourceOrders = NewOrderServer(handler.HandlerOrder)
@@ -38,4 +46,8 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceReports = NewReportsServer(handler.HandlerReports)
 	h.SourcePublic = NewSourceServerPublic(handler)
 	h.SourceUpload = NewSourceServerUpload()
+	h.SourceTag = NewSourceServerTag(handler)
+	h.SourceMenu = NewSourceServerMenu(handler)
+	h.SourceCategory = NewSourceServerCategory(handler)
+	h.SourceSubcategory = NewSourceServerSubcategory(handler)
 }

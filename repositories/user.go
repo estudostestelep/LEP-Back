@@ -21,6 +21,9 @@ type IUserRepository interface {
 	UpdateUser(user *models.User) error
 	SoftDeleteUser(id string) error
 	DeleteUser(id string) error
+	GetUserWithRelations(id string) (*models.UserWithRelations, error)
+	GetUserOrganizations(userId string) ([]models.UserOrganization, error)
+	GetUserProjects(userId string) ([]models.UserProject, error)
 }
 
 func NewUserRepository(db *gorm.DB) IUserRepository {
@@ -60,8 +63,18 @@ func (r *resourceUser) GetUsersByRole(role string) ([]models.User, error) {
 
 func (r *resourceUser) ListUsersByOrganizationAndProject(orgId, projectId string) ([]models.User, error) {
 	var users []models.User
-	// Corrigido: usar nomes corretos dos campos no banco
-	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", orgId, projectId).Find(&users).Error
+
+	// Buscar usuários que têm vínculo com a organização E o projeto
+	err := r.db.
+		Distinct("users.*").
+		Table("users").
+		Joins("INNER JOIN user_organizations ON users.id = user_organizations.user_id").
+		Joins("INNER JOIN user_projects ON users.id = user_projects.user_id").
+		Where("user_organizations.organization_id = ? AND user_organizations.active = true AND user_organizations.deleted_at IS NULL", orgId).
+		Where("user_projects.project_id = ? AND user_projects.active = true AND user_projects.deleted_at IS NULL", projectId).
+		Where("users.deleted_at IS NULL").
+		Find(&users).Error
+
 	return users, err
 }
 
@@ -79,4 +92,70 @@ func (r *resourceUser) SoftDeleteUser(id string) error {
 
 func (r *resourceUser) DeleteUser(id string) error {
 	return r.db.Where("id = ?", id).Delete(&models.User{}).Error
+}
+
+func (r *resourceUser) GetUserOrganizations(userId string) ([]models.UserOrganization, error) {
+	var userOrgs []models.UserOrganization
+	err := r.db.Where("user_id = ? AND deleted_at IS NULL", userId).Find(&userOrgs).Error
+	return userOrgs, err
+}
+
+func (r *resourceUser) GetUserProjects(userId string) ([]models.UserProject, error) {
+	var userProjs []models.UserProject
+	err := r.db.Where("user_id = ? AND deleted_at IS NULL", userId).Find(&userProjs).Error
+	return userProjs, err
+}
+
+func (r *resourceUser) GetUserWithRelations(id string) (*models.UserWithRelations, error) {
+	// Buscar usuário
+	user, err := r.GetUserById(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Buscar organizações do usuário
+	userOrgs, err := r.GetUserOrganizations(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Buscar projetos do usuário
+	userProjs, err := r.GetUserProjects(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Montar DTO
+	userWithRelations := &models.UserWithRelations{
+		Id:            user.Id,
+		Name:          user.Name,
+		Email:         user.Email,
+		Permissions:   user.Permissions,
+		Active:        user.Active,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
+		DeletedAt:     user.DeletedAt,
+		Organizations: make([]models.UserOrgInfo, 0),
+		Projects:      make([]models.UserProjInfo, 0),
+	}
+
+	// Converter organizações
+	for _, org := range userOrgs {
+		userWithRelations.Organizations = append(userWithRelations.Organizations, models.UserOrgInfo{
+			OrganizationId: org.OrganizationId,
+			Role:           org.Role,
+			Active:         org.Active,
+		})
+	}
+
+	// Converter projetos
+	for _, proj := range userProjs {
+		userWithRelations.Projects = append(userWithRelations.Projects, models.UserProjInfo{
+			ProjectId: proj.ProjectId,
+			Role:      proj.Role,
+			Active:    proj.Active,
+		})
+	}
+
+	return userWithRelations, nil
 }

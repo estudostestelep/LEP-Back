@@ -10,18 +10,20 @@ import (
 
 // SeedData contains all sample data for database seeding
 type SeedData struct {
-	Organizations []models.Organization
-	Projects      []models.Project
-	Users         []models.User
-	Customers     []models.Customer
-	Products      []models.Product
-	Tables        []models.Table
-	Orders        []models.Order
-	Reservations  []models.Reservation
-	Waitlists     []models.Waitlist
-	Environments  []models.Environment
-	Settings      []models.Settings
-	Templates     []models.NotificationTemplate
+	Organizations      []models.Organization
+	Projects           []models.Project
+	Users              []models.User
+	UserOrganizations  []models.UserOrganization
+	UserProjects       []models.UserProject
+	Customers          []models.Customer
+	Products           []models.Product
+	Tables             []models.Table
+	Orders             []models.Order
+	Reservations       []models.Reservation
+	Waitlists          []models.Waitlist
+	Environments       []models.Environment
+	Settings           []models.Settings
+	Templates          []models.NotificationTemplate
 }
 
 // Base IDs for consistent relationships
@@ -73,77 +75,187 @@ func GenerateCompleteData() *SeedData {
 		Users: []models.User{
 			// Administrative users with full access
 			{
-				Id:             AdminPabloID,
-				OrganizationId: SampleOrgID,
-				ProjectId:      SampleProjectID,
-				Name:           "Pablo Admin",
-				Email:          "pablo@lep.com",
-				Password:       "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
-				Role:           "admin",
-				Permissions:    pq.StringArray{"admin"},
-				CreatedAt:      now,
-				UpdatedAt:      now,
+				Id:          AdminPabloID,
+				Name:        "Pablo Admin",
+				Email:       "pablo@lep.com",
+				Password:    "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
+				Permissions: pq.StringArray{"admin"},
+				Active:      true,
+				CreatedAt:   now,
+				UpdatedAt:   now,
 			},
 			{
-				Id:             AdminLuanID,
-				OrganizationId: SampleOrgID,
-				ProjectId:      SampleProjectID,
-				Name:           "Luan Admin",
-				Email:          "luan@lep.com",
-				Password:       "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
-				Role:           "admin",
-				Permissions:    pq.StringArray{"admin"},
-				CreatedAt:      now,
-				UpdatedAt:      now,
+				Id:          AdminLuanID,
+				Name:        "Luan Admin",
+				Email:       "luan@lep.com",
+				Password:    "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
+				Permissions: pq.StringArray{"admin"},
+				Active:      true,
+				CreatedAt:   now,
+				UpdatedAt:   now,
 			},
 			{
-				Id:             AdminEduardoID,
-				OrganizationId: SampleOrgID,
-				ProjectId:      SampleProjectID,
-				Name:           "Eduardo Admin",
-				Email:          "eduardo@lep.com",
-				Password:       "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
-				Role:           "admin",
-				Permissions:    pq.StringArray{"admin"},
-				CreatedAt:      now,
-				UpdatedAt:      now,
+				Id:          AdminEduardoID,
+				Name:        "Eduardo Admin",
+				Email:       "eduardo@lep.com",
+				Password:    "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
+				Permissions: pq.StringArray{"admin"},
+				Active:      true,
+				CreatedAt:   now,
+				UpdatedAt:   now,
 			},
 			// Demo users for testing
 			{
-				Id:             SampleUserID1,
+				Id:          SampleUserID1,
+				Name:        "Admin LEP",
+				Email:       "teste@gmail.com",
+				Password:    "password", // password
+				Permissions: pq.StringArray{"admin"},
+				Active:      true,
+				CreatedAt:   now,
+				UpdatedAt:   now,
+			},
+			{
+				Id:          SampleUserID2,
+				Name:        "Garçom João",
+				Email:       "garcom1@gmail.com",
+				Password:    "password", // password
+				Permissions: pq.StringArray{"orders", "tables", "customers"},
+				Active:      true,
+				CreatedAt:   now,
+				UpdatedAt:   now,
+			},
+			{
+				Id:          SampleUserID3,
+				Name:        "Gerente Maria",
+				Email:       "gerente1@gmail.com",
+				Password:    "password", // password
+				Permissions: pq.StringArray{"orders", "tables", "customers", "products", "reports"},
+				Active:      true,
+				CreatedAt:   now,
+				UpdatedAt:   now,
+			},
+		},
+
+		UserOrganizations: []models.UserOrganization{
+			// Pablo tem acesso à org como owner
+			{
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174010"),
+				UserId:         AdminPabloID,
 				OrganizationId: SampleOrgID,
-				ProjectId:      SampleProjectID,
-				Name:           "Admin LEP",
-				Email:          "teste@gmail.com",
-				Password:       "password", // password
+				Role:           "owner",
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			// Luan tem acesso à org como admin
+			{
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174011"),
+				UserId:         AdminLuanID,
+				OrganizationId: SampleOrgID,
 				Role:           "admin",
-				Permissions:    pq.StringArray{"admin"},
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			// Eduardo tem acesso à org como admin
+			{
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174012"),
+				UserId:         AdminEduardoID,
+				OrganizationId: SampleOrgID,
+				Role:           "admin",
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			// Demais usuários demo
+			{
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174013"),
+				UserId:         SampleUserID1,
+				OrganizationId: SampleOrgID,
+				Role:           "admin",
+				Active:         true,
 				CreatedAt:      now,
 				UpdatedAt:      now,
 			},
 			{
-				Id:             SampleUserID2,
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174014"),
+				UserId:         SampleUserID2,
 				OrganizationId: SampleOrgID,
-				ProjectId:      SampleProjectID,
-				Name:           "Garçom João",
-				Email:          "garcom1@gmail.com",
-				Password:       "password", // password
-				Role:           "waiter",
-				Permissions:    pq.StringArray{"orders", "tables", "customers"},
+				Role:           "member",
+				Active:         true,
 				CreatedAt:      now,
 				UpdatedAt:      now,
 			},
 			{
-				Id:             SampleUserID3,
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174015"),
+				UserId:         SampleUserID3,
 				OrganizationId: SampleOrgID,
-				ProjectId:      SampleProjectID,
-				Name:           "Gerente Maria",
-				Email:          "gerente1@gmail.com",
-				Password:       "password", // password
-				Role:           "manager",
-				Permissions:    pq.StringArray{"orders", "tables", "customers", "products", "reports"},
+				Role:           "member",
+				Active:         true,
 				CreatedAt:      now,
 				UpdatedAt:      now,
+			},
+		},
+
+		UserProjects: []models.UserProject{
+			// Pablo tem acesso ao projeto como admin
+			{
+				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174010"),
+				UserId:    AdminPabloID,
+				ProjectId: SampleProjectID,
+				Role:      "admin",
+				Active:    true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			// Luan tem acesso ao projeto como admin
+			{
+				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174011"),
+				UserId:    AdminLuanID,
+				ProjectId: SampleProjectID,
+				Role:      "admin",
+				Active:    true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			// Eduardo tem acesso ao projeto como admin
+			{
+				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174012"),
+				UserId:    AdminEduardoID,
+				ProjectId: SampleProjectID,
+				Role:      "admin",
+				Active:    true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			// Demais usuários demo
+			{
+				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174013"),
+				UserId:    SampleUserID1,
+				ProjectId: SampleProjectID,
+				Role:      "admin",
+				Active:    true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			{
+				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174014"),
+				UserId:    SampleUserID2,
+				ProjectId: SampleProjectID,
+				Role:      "waiter",
+				Active:    true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			{
+				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174015"),
+				UserId:    SampleUserID3,
+				ProjectId: SampleProjectID,
+				Role:      "manager",
+				Active:    true,
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 		},
 

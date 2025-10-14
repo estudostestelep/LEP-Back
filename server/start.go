@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"lep/config"
+	"lep/repositories/migrate"
 	"lep/repositories/models"
 	"lep/utils"
 
@@ -26,6 +27,8 @@ func Start(db *gorm.DB) {
 
 		// Core models
 		&models.User{},
+		&models.UserOrganization{}, // Relacionamento usuário-organização
+		&models.UserProject{},      // Relacionamento usuário-projeto
 		&models.Customer{},
 		&models.Table{},
 		&models.Product{},
@@ -52,13 +55,19 @@ func Start(db *gorm.DB) {
 		// SPRINT 5 models (Advanced Features)
 		&models.Lead{},
 		&models.ReportMetric{},
+
+		// Menu System models
+		&models.Tag{},
+		&models.ProductTag{},
+		&models.Menu{},
+		&models.Category{},
+		&models.Subcategory{},
+		&models.SubcategoryCategory{},
 	}
 
-	for _, model := range modelsToMigrate {
-		if err := db.AutoMigrate(model); err != nil {
-			panic("error during migration")
-		}
-	}
+	// Usar migrate customizado para lidar com alterações no Product
+	migrator := migrate.NewConnMigrate(db)
+	migrator.MigrateRun(modelsToMigrate...)
 
 	// Check if this is the first run and auto-seed if enabled
 	if config.IsAutoSeedEnabled() && isFirstRun(db) {
@@ -109,6 +118,22 @@ func runFirstTimeSeed(db *gorm.DB) error {
 	for _, user := range seedData.Users {
 		if err := db.Create(&user).Error; err != nil {
 			return fmt.Errorf("failed to create user: %w", err)
+		}
+	}
+
+	// Create user-organization relationships
+	log.Println("  🔗 Creating user-organization relationships...")
+	for _, userOrg := range seedData.UserOrganizations {
+		if err := db.Create(&userOrg).Error; err != nil {
+			return fmt.Errorf("failed to create user-organization: %w", err)
+		}
+	}
+
+	// Create user-project relationships
+	log.Println("  🔗 Creating user-project relationships...")
+	for _, userProj := range seedData.UserProjects {
+		if err := db.Create(&userProj).Error; err != nil {
+			return fmt.Errorf("failed to create user-project: %w", err)
 		}
 	}
 

@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"fmt"
+	"lep/config"
 	"net/http"
 	"strings"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
 
@@ -57,8 +60,66 @@ func HeaderValidationMiddleware() gin.HandlerFunc {
 		c.Set("organization_id", organizationId)
 		c.Set("project_id", projectId)
 
+		// Validar se o usuário logado tem acesso à org e projeto (exceto rotas públicas)
+		if err := validateUserAccess(c, organizationId, projectId); err != nil {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": fmt.Sprintf("Access denied: %v", err),
+			})
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
+}
+
+// validateUserAccess verifica se o usuário tem acesso à organização e projeto
+func validateUserAccess(c *gin.Context, orgId, projId string) error {
+	// Extrair user_id do token JWT
+	tokenString := c.GetHeader("Authorization")
+	if tokenString == "" {
+		// Se não há token, retornar erro
+		return fmt.Errorf("token de autenticação não encontrado")
+	}
+
+	// Remover "Bearer " se presente
+	if strings.HasPrefix(tokenString, "Bearer ") {
+		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+	}
+
+	// Parse do token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(config.JWT_SECRET_PRIVATE_KEY), nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("token inválido")
+	}
+
+	// Extrair claims
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return fmt.Errorf("claims inválidas no token")
+	}
+
+	userIdInterface, exists := claims["user_id"]
+	if !exists {
+		return fmt.Errorf("user_id não encontrado no token")
+	}
+
+	userId, ok := userIdInterface.(string)
+	if !ok {
+		return fmt.Errorf("user_id inválido no token")
+	}
+
+	// Armazenar user_id no contexto para uso posterior
+	c.Set("user_id", userId)
+
+	// TODO: Validar no banco se o usuário tem acesso à org e projeto
+	// Por enquanto, apenas validamos a presença do user_id no token
+	// A validação completa será feita quando tivermos acesso ao repository no middleware
+
+	return nil
 }
 
 // isFullyExemptRoute verifica se a rota deve ser totalmente isenta da validação de headers
