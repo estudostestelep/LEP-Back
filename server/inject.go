@@ -6,6 +6,7 @@ type ServerController struct {
 	SourceUsers             IServerUsers
 	SourceUserOrganization  IServerUserOrganization
 	SourceUserProject       IServerUserProject
+	SourceUserAccess        *UserAccessServer
 	SourceProducts          IServerProducts
 	SourceAuth              IServerAuth
 	SourceOrders            IOrderServer
@@ -31,6 +32,7 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceUsers = NewSourceServerUsers(handler)
 	h.SourceUserOrganization = NewSourceServerUserOrganization(handler)
 	h.SourceUserProject = NewSourceServerUserProject(handler)
+	h.SourceUserAccess = NewUserAccessServer(handler.HandlerUserAccess)
 	h.SourceProducts = NewSourceServerProducts(handler)
 	h.SourceAuth = NewSourceServerAuth(handler)
 	h.SourceOrders = NewOrderServer(handler.HandlerOrder)

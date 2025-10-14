@@ -19,6 +19,6 @@ func Inject() {
 	}
 	server.Start(db)
 	Repository.InjectProstgres(db)
-	Handlers.Inject(&Repository)
+	Handlers.Inject(&Repository, db)
 	ServersControllers.Inject(&Handlers)
 }

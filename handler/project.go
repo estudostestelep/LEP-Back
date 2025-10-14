@@ -52,7 +52,11 @@ func (h *ProjectHandler) GetProjectsByOrganization(orgId string) ([]models.Proje
 
 // CreateProject cria novo projeto e configurações padrão
 func (h *ProjectHandler) CreateProject(project *models.Project) error {
-	project.Id = uuid.New()
+	// Gerar ID apenas se não foi fornecido
+	if project.Id == uuid.Nil {
+		project.Id = uuid.New()
+	}
+
 	project.CreatedAt = time.Now()
 	project.UpdatedAt = time.Now()
 

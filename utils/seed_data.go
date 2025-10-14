@@ -16,7 +16,11 @@ type SeedData struct {
 	UserOrganizations  []models.UserOrganization
 	UserProjects       []models.UserProject
 	Customers          []models.Customer
+	Menus              []models.Menu
+	Categories         []models.Category
+	Tags               []models.Tag
 	Products           []models.Product
+	ProductTags        []models.ProductTag
 	Tables             []models.Table
 	Orders             []models.Order
 	Reservations       []models.Reservation
@@ -38,6 +42,19 @@ var (
 	AdminPabloID   = uuid.MustParse("123e4567-e89b-12d3-a456-426614174010")
 	AdminLuanID    = uuid.MustParse("123e4567-e89b-12d3-a456-426614174011")
 	AdminEduardoID = uuid.MustParse("123e4567-e89b-12d3-a456-426614174012")
+
+	// Menu & Category IDs
+	SampleMenuID      = uuid.MustParse("d23e4567-e89b-12d3-a456-426614174001")
+	CategoryPratosID  = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174001")
+	CategoryBebidasID = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174002")
+	CategoryVinhosID  = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174003")
+
+	// Tag IDs
+	TagVegetarianoID = uuid.MustParse("123e4567-e89b-12d3-a456-426614174101")
+	TagVeganoID      = uuid.MustParse("123e4567-e89b-12d3-a456-426614174102")
+	TagPicanteID     = uuid.MustParse("123e4567-e89b-12d3-a456-426614174103")
+	TagSemGlutenID   = uuid.MustParse("123e4567-e89b-12d3-a456-426614174104")
+	TagDestaqueID    = uuid.MustParse("123e4567-e89b-12d3-a456-426614174105")
 )
 
 // GenerateCompleteData creates a complete set of realistic sample data
@@ -73,33 +90,33 @@ func GenerateCompleteData() *SeedData {
 		},
 
 		Users: []models.User{
-			// Administrative users with full access
+			// Master Admins - Acesso total ao sistema
 			{
 				Id:          AdminPabloID,
-				Name:        "Pablo Admin",
+				Name:        "Pablo Master Admin",
 				Email:       "pablo@lep.com",
-				Password:    "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
-				Permissions: pq.StringArray{"admin"},
+				Password:    "senha123", // Será hasheada pelo handler
+				Permissions: pq.StringArray{"master_admin"},
 				Active:      true,
 				CreatedAt:   now,
 				UpdatedAt:   now,
 			},
 			{
 				Id:          AdminLuanID,
-				Name:        "Luan Admin",
+				Name:        "Luan Master Admin",
 				Email:       "luan@lep.com",
-				Password:    "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
-				Permissions: pq.StringArray{"admin"},
+				Password:    "senha123", // Será hasheada pelo handler
+				Permissions: pq.StringArray{"master_admin"},
 				Active:      true,
 				CreatedAt:   now,
 				UpdatedAt:   now,
 			},
 			{
 				Id:          AdminEduardoID,
-				Name:        "Eduardo Admin",
+				Name:        "Eduardo Master Admin",
 				Email:       "eduardo@lep.com",
-				Password:    "$2a$10$C83MMWJFkG/djLU.UfWEZuQ4Xl2gJPz.ABP//wEsbzBggjfRV4kF.", // senha123
-				Permissions: pq.StringArray{"admin"},
+				Password:    "senha123", // Será hasheada pelo handler
+				Permissions: pq.StringArray{"master_admin"},
 				Active:      true,
 				CreatedAt:   now,
 				UpdatedAt:   now,
@@ -138,7 +155,7 @@ func GenerateCompleteData() *SeedData {
 		},
 
 		UserOrganizations: []models.UserOrganization{
-			// Pablo tem acesso à org como owner
+			// Master Admins na organização
 			{
 				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174010"),
 				UserId:         AdminPabloID,
@@ -148,7 +165,6 @@ func GenerateCompleteData() *SeedData {
 				CreatedAt:      now,
 				UpdatedAt:      now,
 			},
-			// Luan tem acesso à org como admin
 			{
 				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174011"),
 				UserId:         AdminLuanID,
@@ -158,7 +174,6 @@ func GenerateCompleteData() *SeedData {
 				CreatedAt:      now,
 				UpdatedAt:      now,
 			},
-			// Eduardo tem acesso à org como admin
 			{
 				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174012"),
 				UserId:         AdminEduardoID,
@@ -199,7 +214,7 @@ func GenerateCompleteData() *SeedData {
 		},
 
 		UserProjects: []models.UserProject{
-			// Pablo tem acesso ao projeto como admin
+			// Master Admins no projeto
 			{
 				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174010"),
 				UserId:    AdminPabloID,
@@ -209,7 +224,6 @@ func GenerateCompleteData() *SeedData {
 				CreatedAt: now,
 				UpdatedAt: now,
 			},
-			// Luan tem acesso ao projeto como admin
 			{
 				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174011"),
 				UserId:    AdminLuanID,
@@ -219,7 +233,6 @@ func GenerateCompleteData() *SeedData {
 				CreatedAt: now,
 				UpdatedAt: now,
 			},
-			// Eduardo tem acesso ao projeto como admin
 			{
 				Id:        uuid.MustParse("323e4567-e89b-12d3-a456-426614174012"),
 				UserId:    AdminEduardoID,
@@ -298,90 +311,244 @@ func GenerateCompleteData() *SeedData {
 			},
 		},
 
+		Menus: []models.Menu{
+			{
+				Id:             SampleMenuID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Cardápio Principal",
+				Order:          1,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+		},
+
+		Categories: []models.Category{
+			{
+				Id:             CategoryPratosID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				MenuId:         SampleMenuID,
+				Name:           "Pratos",
+				Order:          1,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             CategoryBebidasID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				MenuId:         SampleMenuID,
+				Name:           "Bebidas",
+				Order:          2,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             CategoryVinhosID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				MenuId:         SampleMenuID,
+				Name:           "Vinhos",
+				Order:          3,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+		},
+
+		Tags: []models.Tag{
+			{
+				Id:             TagVegetarianoID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Vegetariano",
+				Color:          "#4CAF50",
+				Description:    "Prato vegetariano",
+				EntityType:     "product",
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             TagVeganoID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Vegano",
+				Color:          "#8BC34A",
+				Description:    "Prato vegano",
+				EntityType:     "product",
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             TagPicanteID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Picante",
+				Color:          "#FF5722",
+				Description:    "Prato picante",
+				EntityType:     "product",
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             TagSemGlutenID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Sem Glúten",
+				Color:          "#FFC107",
+				Description:    "Opção sem glúten",
+				EntityType:     "product",
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             TagDestaqueID,
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Destaque",
+				Color:          "#2196F3",
+				Description:    "Prato em destaque",
+				EntityType:     "product",
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+		},
+
 		Products: []models.Product{
 			{
-				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174001"),
-				OrganizationId:  SampleOrgID,
-				ProjectId:       SampleProjectID,
-				Name:            "Pizza Margherita",
-				Description:     "Pizza clássica com molho de tomate, mussarela e manjericão",
-				Price:           35.90,
-				Category:        "Pizzas",
-				Available:       true,
+				Id:             uuid.MustParse("423e4567-e89b-12d3-a456-426614174001"),
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Pizza Margherita",
+				Description:    "Pizza clássica com molho de tomate, mussarela e manjericão",
+				Type:           "prato",
+				CategoryId:     &CategoryPratosID, // ✅ VINCULADO à categoria
+				PriceNormal:    35.90,
+				Active:         true,
+				Order:          1,
+				PrepTimeMinutes: 25,
+				ImageUrl:       func(s string) *string { return &s }("https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             uuid.MustParse("423e4567-e89b-12d3-a456-426614174002"),
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Hambúrguer Clássico",
+				Description:    "Hambúrguer com carne bovina, alface, tomate e queijo",
+				Type:           "prato",
+				CategoryId:     &CategoryPratosID,
+				PriceNormal:    28.50,
+				Active:         true,
+				Order:          2,
 				PrepTimeMinutes: 20,
-				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400&h=400&fit=crop&crop=center"),
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				ImageUrl:       func(s string) *string { return &s }("https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:      now,
+				UpdatedAt:      now,
 			},
 			{
-				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174002"),
-				OrganizationId:  SampleOrgID,
-				ProjectId:       SampleProjectID,
-				Name:            "Hambúrguer Clássico",
-				Description:     "Hambúrguer com carne bovina, alface, tomate e queijo",
-				Price:           28.50,
-				Category:        "Hambúrgueres",
-				Available:       true,
+				Id:             uuid.MustParse("423e4567-e89b-12d3-a456-426614174003"),
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Refrigerante Cola",
+				Description:    "Refrigerante de cola gelado",
+				Type:           "bebida",
+				CategoryId:     &CategoryBebidasID, // ✅ Categoria de bebidas
+				PriceNormal:    5.50,
+				Active:         true,
+				Order:          3,
+				Volume:         func(i int) *int { return &i }(350),
+				PrepTimeMinutes: 2,
+				ImageUrl:       func(s string) *string { return &s }("https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Salada Caesar",
+				Description:    "Alface romana, croutons, queijo parmesão e molho caesar",
+				Type:           "prato",
+				CategoryId:     &CategoryPratosID,
+				PriceNormal:    22.90,
+				Active:         true,
+				Order:          4,
 				PrepTimeMinutes: 15,
-				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop&crop=center"),
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				ImageUrl:       func(s string) *string { return &s }("https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:      now,
+				UpdatedAt:      now,
 			},
 			{
-				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174003"),
-				OrganizationId:  SampleOrgID,
-				ProjectId:       SampleProjectID,
-				Name:            "Refrigerante Cola",
-				Description:     "Refrigerante de cola gelado",
-				Price:           5.50,
-				Category:        "Bebidas",
-				Available:       true,
-				PrepTimeMinutes: 1,
-				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=400&fit=crop&crop=center"),
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				Id:             uuid.MustParse("423e4567-e89b-12d3-a456-426614174005"),
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Spaghetti Carbonara",
+				Description:    "Macarrão com bacon, ovos, queijo pecorino e pimenta preta",
+				Type:           "prato",
+				CategoryId:     &CategoryPratosID,
+				PriceNormal:    32.50,
+				Active:         true,
+				Order:          5,
+				PrepTimeMinutes: 20,
+				ImageUrl:       func(s string) *string { return &s }("https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:      now,
+				UpdatedAt:      now,
 			},
 			{
-				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
-				OrganizationId:  SampleOrgID,
-				ProjectId:       SampleProjectID,
-				Name:            "Salada Caesar",
-				Description:     "Alface romana, croutons, queijo parmesão e molho caesar",
-				Price:           22.90,
-				Category:        "Saladas",
-				Available:       true,
+				Id:             uuid.MustParse("423e4567-e89b-12d3-a456-426614174006"),
+				OrganizationId: SampleOrgID,
+				ProjectId:      SampleProjectID,
+				Name:           "Brownie com Sorvete",
+				Description:    "Brownie de chocolate quente com sorvete de baunilha",
+				Type:           "prato",
+				CategoryId:     &CategoryPratosID,
+				PriceNormal:    18.90,
+				Active:         true,
+				Order:          6,
 				PrepTimeMinutes: 10,
-				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=400&fit=crop&crop=center"),
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				ImageUrl:       func(s string) *string { return &s }("https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=400&fit=crop&crop=center"),
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+		},
+
+		ProductTags: []models.ProductTag{
+			// Pizza Margherita - Vegetariano + Destaque
+			{
+				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174001"),
+				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174001"),
+				TagId:     TagVegetarianoID,
+				CreatedAt: now,
 			},
 			{
-				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174005"),
-				OrganizationId:  SampleOrgID,
-				ProjectId:       SampleProjectID,
-				Name:            "Spaghetti Carbonara",
-				Description:     "Macarrão com bacon, ovos, queijo pecorino e pimenta preta",
-				Price:           32.50,
-				Category:        "Massas",
-				Available:       true,
-				PrepTimeMinutes: 18,
-				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=400&h=400&fit=crop&crop=center"),
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174002"),
+				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174001"),
+				TagId:     TagDestaqueID,
+				CreatedAt: now,
+			},
+			// Salada Caesar - Vegetariano + Sem Glúten
+			{
+				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174003"),
+				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
+				TagId:     TagVegetarianoID,
+				CreatedAt: now,
 			},
 			{
-				Id:              uuid.MustParse("423e4567-e89b-12d3-a456-426614174006"),
-				OrganizationId:  SampleOrgID,
-				ProjectId:       SampleProjectID,
-				Name:            "Brownie com Sorvete",
-				Description:     "Brownie de chocolate quente com sorvete de baunilha",
-				Price:           18.90,
-				Category:        "Sobremesas",
-				Available:       true,
-				PrepTimeMinutes: 8,
-				ImageUrl:        func(s string) *string { return &s }("https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=400&fit=crop&crop=center"),
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174004"),
+				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
+				TagId:     TagSemGlutenID,
+				CreatedAt: now,
 			},
 		},
 

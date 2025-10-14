@@ -144,18 +144,14 @@ type Product struct {
 	PriceHalfBottle *float64       `json:"price_half_bottle,omitempty"` // preço meia garrafa
 	PriceGlass      *float64       `json:"price_glass,omitempty"`      // preço taça
 
-	// Campos existentes mantidos
-	Stock           *int       `json:"stock,omitempty"`
-	PrepTimeMinutes int        `json:"prep_time_minutes,omitempty"`
+	// Campos existentes
+	Stock           *int      `json:"stock,omitempty"`
+	PrepTimeMinutes int       `json:"prep_time_minutes,omitempty"`
 
-	// DEPRECATED (manter por compatibilidade temporária)
-	Category        string     `json:"category,omitempty" gorm:"-"` // ignorado pelo GORM
-	Available       bool       `json:"available,omitempty" gorm:"-"` // usar Active
-	Price           float64    `json:"price,omitempty" gorm:"-"`     // usar PriceNormal
-
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
+	// Timestamps
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
 // --- Reservation (reserva de mesa) ---

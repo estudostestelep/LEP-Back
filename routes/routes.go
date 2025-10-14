@@ -64,6 +64,10 @@ func setupUserRoutes(r gin.IRouter) {
 		userRoutes.GET("", resource.ServersControllers.SourceUsers.ServiceListUsers) // Endpoint de listagem
 		userRoutes.PUT("/:id", resource.ServersControllers.SourceUsers.ServiceUpdateUser)
 		userRoutes.DELETE("/:id", resource.ServersControllers.SourceUsers.ServiceDeleteUser)
+
+		// User Access Management (Master Admin only)
+		userRoutes.GET("/:id/organizations-projects", resource.ServersControllers.SourceUserAccess.ServiceGetUserOrganizationsAndProjects)
+		userRoutes.POST("/:id/organizations-projects", resource.ServersControllers.SourceUserAccess.ServiceUpdateUserOrganizationsAndProjects)
 	}
 }
 
