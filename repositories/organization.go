@@ -29,7 +29,7 @@ func NewConnOrganization(db *gorm.DB) IOrganizationRepository {
 
 func (r *resourceOrganization) GetOrganizationById(id uuid.UUID) (*models.Organization, error) {
 	var organization models.Organization
-	err := r.db.Preload("Projects").First(&organization, "id = ? AND deleted_at IS NULL", id).Error
+	err := r.db.First(&organization, "id = ? AND deleted_at IS NULL", id).Error
 	if err != nil {
 		return nil, err
 	}

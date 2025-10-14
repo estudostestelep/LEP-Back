@@ -34,23 +34,12 @@ func (r *resourceUserOrganization) AddUserToOrganization(userOrg *models.UserOrg
 		return errors.New("usuário já vinculado a esta organização")
 	}
 
-	// Verificar se usuário existe
-	_, err := r.repo.User.GetUserById(userOrg.UserId.String())
-	if err != nil {
-		return errors.New("usuário não encontrado")
-	}
-
-	// Verificar se organização existe
-	_, err = r.repo.Organizations.GetOrganizationById(userOrg.OrganizationId)
-	if err != nil {
-		return errors.New("organização não encontrada")
-	}
-
 	// Gerar ID se necessário
 	if userOrg.Id == uuid.Nil {
 		userOrg.Id = uuid.New()
 	}
 
+	// Criar relacionamento - foreign keys do banco garantem integridade referencial
 	return r.repo.UserOrganizations.Create(userOrg)
 }
 

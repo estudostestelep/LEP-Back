@@ -64,15 +64,15 @@ func (r *ResourceAuth) ServiceLogin(c *gin.Context) {
 		return
 	}
 
-	// Buscar organizações do usuário
-	userOrganizations, err := r.handler.HandlerUserOrganization.GetUserOrganizations(user.Id.String())
+	// Buscar organizações do usuário COM NOMES
+	userOrganizations, err := r.handler.HandlerAuth.GetUserOrganizationsWithNames(user.Id.String())
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Erro ao buscar organizações do usuário"})
 		return
 	}
 
-	// Buscar projetos do usuário
-	userProjects, err := r.handler.HandlerUserProject.GetUserProjects(user.Id.String())
+	// Buscar projetos do usuário COM NOMES
+	userProjects, err := r.handler.HandlerAuth.GetUserProjectsWithNames(user.Id.String())
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Erro ao buscar projetos do usuário"})
 		return

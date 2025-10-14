@@ -29,10 +29,20 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if !resource.ServersControllers.SourceAuth.ServiceValidateTokenIn(c) {
+		// Validar token e obter dados do usuário
+		user, err := resource.Handlers.HandlerAuth.VerificationToken(token)
+		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido ou expirado"})
 			c.Abort()
 			return
+		}
+
+		// ✅ CORREÇÃO: Adicionar permissões do usuário ao contexto
+		if user != nil {
+			c.Set("user_id", user.Id.String())
+			c.Set("user_email", user.Email)
+			c.Set("user_permissions", user.Permissions)
+			c.Set("user", user)
 		}
 
 		c.Next()

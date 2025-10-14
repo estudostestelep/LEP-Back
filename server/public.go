@@ -51,7 +51,7 @@ func (r *ResourcePublic) ServiceGetPublicMenu(c *gin.Context) {
 	// Filtrar apenas produtos disponíveis
 	var availableProducts []models.Product
 	for _, product := range products {
-		if product.Available {
+		if product.Active {
 			availableProducts = append(availableProducts, product)
 		}
 	}

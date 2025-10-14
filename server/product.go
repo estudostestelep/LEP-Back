@@ -176,6 +176,69 @@ func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
+	// Verificar se há filtros nos query parameters
+	categoryIdStr := c.Query("category_id")
+	subcategoryIdStr := c.Query("subcategory_id")
+	tagIdStr := c.Query("tag_id")
+	productType := c.Query("type")
+	activeStr := c.Query("active")
+
+	// Se há algum filtro, usar ListProductsWithFilters
+	if categoryIdStr != "" || subcategoryIdStr != "" || tagIdStr != "" || productType != "" || activeStr != "" {
+		filters := handler.ProductFilters{}
+
+		// Parse category_id
+		if categoryIdStr != "" {
+			catUUID, err := uuid.Parse(categoryIdStr)
+			if err != nil {
+				utils.SendBadRequestError(c, "Invalid category_id format", err)
+				return
+			}
+			filters.CategoryId = &catUUID
+		}
+
+		// Parse subcategory_id
+		if subcategoryIdStr != "" {
+			subUUID, err := uuid.Parse(subcategoryIdStr)
+			if err != nil {
+				utils.SendBadRequestError(c, "Invalid subcategory_id format", err)
+				return
+			}
+			filters.SubcategoryId = &subUUID
+		}
+
+		// Parse tag_id
+		if tagIdStr != "" {
+			tagUUID, err := uuid.Parse(tagIdStr)
+			if err != nil {
+				utils.SendBadRequestError(c, "Invalid tag_id format", err)
+				return
+			}
+			filters.TagId = &tagUUID
+		}
+
+		// Parse type
+		if productType != "" {
+			filters.Type = &productType
+		}
+
+		// Parse active
+		if activeStr != "" {
+			active := activeStr == "true"
+			filters.Active = &active
+		}
+
+		products, err := r.handler.HandlerProducts.ListProductsWithFilters(organizationId, projectId, filters)
+		if err != nil {
+			utils.SendInternalServerError(c, "Error listing products with filters", err)
+			return
+		}
+
+		c.JSON(http.StatusOK, products)
+		return
+	}
+
+	// Sem filtros, usar listagem normal
 	products, err := r.handler.HandlerProducts.ListProducts(organizationId, projectId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error listing products", err)
@@ -432,10 +495,10 @@ func (r *ResourceProducts) ServiceUpdateProductStatus(c *gin.Context) {
 
 // ServiceGetProductsByType filtra produtos por tipo (prato, bebida, vinho)
 func (r *ResourceProducts) ServiceGetProductsByType(c *gin.Context) {
-	productType := c.Query("type")
+	productType := c.Param("type")
 
 	if productType == "" {
-		utils.SendBadRequestError(c, "type query parameter is required", nil)
+		utils.SendBadRequestError(c, "type parameter is required", nil)
 		return
 	}
 
@@ -453,10 +516,10 @@ func (r *ResourceProducts) ServiceGetProductsByType(c *gin.Context) {
 
 // ServiceGetProductsByCategory filtra produtos por categoria
 func (r *ResourceProducts) ServiceGetProductsByCategory(c *gin.Context) {
-	categoryId := c.Query("category_id")
+	categoryId := c.Param("categoryId")
 
 	if categoryId == "" {
-		utils.SendBadRequestError(c, "category_id query parameter is required", nil)
+		utils.SendBadRequestError(c, "category_id parameter is required", nil)
 		return
 	}
 
@@ -477,10 +540,10 @@ func (r *ResourceProducts) ServiceGetProductsByCategory(c *gin.Context) {
 
 // ServiceGetProductsBySubcategory filtra produtos por subcategoria
 func (r *ResourceProducts) ServiceGetProductsBySubcategory(c *gin.Context) {
-	subcategoryId := c.Query("subcategory_id")
+	subcategoryId := c.Param("subcategoryId")
 
 	if subcategoryId == "" {
-		utils.SendBadRequestError(c, "subcategory_id query parameter is required", nil)
+		utils.SendBadRequestError(c, "subcategory_id parameter is required", nil)
 		return
 	}
 

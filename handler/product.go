@@ -11,10 +11,19 @@ type resourceProducts struct {
 	repo *repositories.DBconn
 }
 
+type ProductFilters struct {
+	CategoryId    *uuid.UUID
+	SubcategoryId *uuid.UUID
+	TagId         *uuid.UUID
+	Type          *string
+	Active        *bool
+}
+
 type IHandlerProducts interface {
 	GetProduct(id string) (*models.Product, error)
 	GetProductByPurchase(id string) ([]models.Product, error)
 	ListProducts(orgId, projectId string) ([]models.Product, error)
+	ListProductsWithFilters(orgId, projectId string, filters ProductFilters) ([]models.Product, error)
 	CreateProduct(product *models.Product) error
 	UpdateProduct(updatedProduct *models.Product) error
 	UpdateProductOrder(id string, order int) error
@@ -98,6 +107,43 @@ func (r *resourceProducts) ListProducts(orgId, projectId string) ([]models.Produ
 	}
 
 	resp, err := r.repo.Products.ListProducts(orgUUID, projectUUID)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (r *resourceProducts) ListProductsWithFilters(orgId, projectId string, filters ProductFilters) ([]models.Product, error) {
+	// Converter strings para UUID
+	orgUUID, err := uuid.Parse(orgId)
+	if err != nil {
+		return nil, err
+	}
+
+	projectUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Converter ProductFilters para map para passar ao repository
+	filterMap := make(map[string]interface{})
+	if filters.CategoryId != nil {
+		filterMap["CategoryId"] = filters.CategoryId
+	}
+	if filters.SubcategoryId != nil {
+		filterMap["SubcategoryId"] = filters.SubcategoryId
+	}
+	if filters.TagId != nil {
+		filterMap["TagId"] = filters.TagId
+	}
+	if filters.Type != nil {
+		filterMap["Type"] = filters.Type
+	}
+	if filters.Active != nil {
+		filterMap["Active"] = filters.Active
+	}
+
+	resp, err := r.repo.Products.ListProductsWithFilters(orgUUID, projectUUID, filterMap)
 	if err != nil {
 		return nil, err
 	}

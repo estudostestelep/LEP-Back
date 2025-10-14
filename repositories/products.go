@@ -18,6 +18,7 @@ type IProductRepository interface {
 	GetProductsByIds(ids []uuid.UUID) ([]models.Product, error)
 	GetProductByPurchase(id string) ([]models.Product, error)
 	ListProducts(OrganizationId, projectId uuid.UUID) ([]models.Product, error)
+	ListProductsWithFilters(organizationId, projectId uuid.UUID, filters interface{}) ([]models.Product, error)
 	CreateProduct(product *models.Product) error
 	UpdateProduct(product *models.Product) error
 	UpdateProductOrder(id uuid.UUID, order int) error
@@ -52,6 +53,53 @@ func (r *resourceProduct) GetProductById(id uuid.UUID) (*models.Product, error) 
 func (r *resourceProduct) ListProducts(OrganizationId, projectId uuid.UUID) ([]models.Product, error) {
 	var products []models.Product
 	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&products).Error
+	return products, err
+}
+
+func (r *resourceProduct) ListProductsWithFilters(organizationId, projectId uuid.UUID, filters interface{}) ([]models.Product, error) {
+	query := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", organizationId, projectId)
+
+	// Type assertion para acessar os filtros
+	if f, ok := filters.(map[string]interface{}); ok {
+		// Filtro por categoria
+		if categoryId, exists := f["CategoryId"]; exists && categoryId != nil {
+			if catUUID, ok := categoryId.(*uuid.UUID); ok && catUUID != nil {
+				query = query.Where("category_id = ?", catUUID)
+			}
+		}
+
+		// Filtro por subcategoria
+		if subcategoryId, exists := f["SubcategoryId"]; exists && subcategoryId != nil {
+			if subUUID, ok := subcategoryId.(*uuid.UUID); ok && subUUID != nil {
+				query = query.Where("subcategory_id = ?", subUUID)
+			}
+		}
+
+		// Filtro por tipo (prato, bebida, vinho)
+		if productType, exists := f["Type"]; exists && productType != nil {
+			if typeStr, ok := productType.(*string); ok && typeStr != nil {
+				query = query.Where("type = ?", *typeStr)
+			}
+		}
+
+		// Filtro por status ativo
+		if active, exists := f["Active"]; exists && active != nil {
+			if activePtr, ok := active.(*bool); ok && activePtr != nil {
+				query = query.Where("active = ?", *activePtr)
+			}
+		}
+
+		// Filtro por tag (requer JOIN)
+		if tagId, exists := f["TagId"]; exists && tagId != nil {
+			if tagUUID, ok := tagId.(*uuid.UUID); ok && tagUUID != nil {
+				query = query.Joins("INNER JOIN product_tags ON product_tags.product_id = products.id").
+					Where("product_tags.tag_id = ?", tagUUID)
+			}
+		}
+	}
+
+	var products []models.Product
+	err := query.Order(`"order" ASC`).Find(&products).Error
 	return products, err
 }
 

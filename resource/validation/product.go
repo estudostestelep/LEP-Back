@@ -14,7 +14,7 @@ func CreateProductValidation(product *models.Product) error {
 		validation.Field(&product.ProjectId, validation.Required, is.UUID),
 		validation.Field(&product.Name, validation.Required, validation.Length(1, 100)),
 		validation.Field(&product.Description, validation.Length(0, 500)),
-		validation.Field(&product.Price, validation.Required, validation.Min(0.01)),
+		validation.Field(&product.PriceNormal, validation.Required, validation.Min(0.01)),
 		validation.Field(&product.PrepTimeMinutes, validation.Required, validation.Min(1)),
 	)
 }
@@ -27,7 +27,7 @@ func UpdateProductValidation(product *models.Product) error {
 		validation.Field(&product.ProjectId, validation.Required, is.UUID),
 		validation.Field(&product.Name, validation.Required, validation.Length(1, 100)),
 		validation.Field(&product.Description, validation.Length(0, 500)),
-		validation.Field(&product.Price, validation.Required, validation.Min(0.01)),
+		validation.Field(&product.PriceNormal, validation.Required, validation.Min(0.01)),
 		validation.Field(&product.PrepTimeMinutes, validation.Required, validation.Min(1)),
 	)
 }

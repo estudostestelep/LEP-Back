@@ -116,7 +116,14 @@
       "Bash(docker builder:*)",
       "Bash(set GOTOOLCHAIN=go1.24.0)",
       "Bash(\"C:\\Go\\bin\\go.exe\" get cloud.google.com/go/storage@v1.43.0)",
-      "Bash(\"C:\\Go\\bin\\go.exe\" mod tidy)"
+      "Bash(\"C:\\Go\\bin\\go.exe\" mod tidy)",
+      "Bash(\"C:\\Go\\bin\\go.exe\" run cmd/create-master-admins/main.go)",
+      "Bash(\"C:\\Go\\bin\\go.exe\" run cmd/check-database/main.go)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(awk:*)",
+      "Bash(\"C:\\Go\\bin\\go.exe\" run cmd/debug-login/main.go)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

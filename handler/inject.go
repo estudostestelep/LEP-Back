@@ -6,6 +6,7 @@ type Handlers struct {
 	HandlerUser             IHandlerUser
 	HandlerUserOrganization IHandlerUserOrganization
 	HandlerUserProject      IHandlerUserProject
+	HandlerUserAccess       UserAccessHandler
 	HandlerProducts         IHandlerProducts
 	HandlerAuth             IHandlerAuth
 	HandlerOrder            IOrderHandler
@@ -25,10 +26,11 @@ type Handlers struct {
 	HandlerSubcategory      IHandlerSubcategory
 }
 
-func (h *Handlers) Inject(repo *repositories.DBconn) {
+func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerUser = NewSourceHandlerUser(repo)
 	h.HandlerUserOrganization = NewSourceHandlerUserOrganization(repo)
 	h.HandlerUserProject = NewSourceHandlerUserProject(repo)
+	h.HandlerUserAccess = NewUserAccessHandler(db)
 	h.HandlerProducts = NewSourceHandlerProducts(repo)
 	h.HandlerAuth = NewAuthHandler(repo)
 	h.HandlerOrder = NewOrderHandler(repo.Orders, repo.Products, repo.KitchenQueue)
