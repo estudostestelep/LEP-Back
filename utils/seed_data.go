@@ -526,26 +526,26 @@ func GenerateCompleteData() *SeedData {
 		ProductTags: []models.ProductTag{
 			// Pizza Margherita - Vegetariano + Destaque
 			{
-				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174001"),
+				Id:        uuid.MustParse("a13e4567-e89b-12d3-a456-426614174001"),
 				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174001"),
 				TagId:     TagVegetarianoID,
 				CreatedAt: now,
 			},
 			{
-				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174002"),
+				Id:        uuid.MustParse("a13e4567-e89b-12d3-a456-426614174002"),
 				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174001"),
 				TagId:     TagDestaqueID,
 				CreatedAt: now,
 			},
 			// Salada Caesar - Vegetariano + Sem Glúten
 			{
-				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174003"),
+				Id:        uuid.MustParse("a13e4567-e89b-12d3-a456-426614174003"),
 				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
 				TagId:     TagVegetarianoID,
 				CreatedAt: now,
 			},
 			{
-				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174004"),
+				Id:        uuid.MustParse("a13e4567-e89b-12d3-a456-426614174004"),
 				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
 				TagId:     TagSemGlutenID,
 				CreatedAt: now,

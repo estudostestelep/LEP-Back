@@ -337,26 +337,18 @@ func setupTestRouter() *gin.Engine {
 }
 
 func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
-	// 1. Criar organização primeiro (sem auth)
-	fmt.Println("  📋 Criando organização...")
-	orgId, err := createOrganization(router, data.Organizations[0])
+	// 1. Usar rota de bootstrap para criar organização + projeto + usuário master admin
+	fmt.Println("  🚀 Criando organização via bootstrap...")
+	orgId, projectId, adminEmail, err := createOrganizationBootstrap(router, data.Organizations[0].Name)
 	if err != nil {
-		return fmt.Errorf("failed to create organization: %v", err)
+		return fmt.Errorf("failed to create organization bootstrap: %v", err)
 	}
 
-	// 2. Criar projeto usando o ID da organização
-	fmt.Println("  📁 Criando projeto...")
-	projectId, err := createProject(router, data.Projects[0], orgId)
+	// 2. Fazer login com o usuário master admin para obter token
+	fmt.Println("  🔐 Fazendo login do usuário master admin...")
+	adminToken, err := loginUser(router, adminEmail, "senha123")
 	if err != nil {
-		return fmt.Errorf("failed to create project: %v", err)
-	}
-
-	// 3. Criar usuário admin
-	fmt.Println("  👥 Criando usuário admin...")
-	adminUser := data.Users[0]
-	adminToken, err := createAdminUser(router, adminUser, orgId, projectId, data.UserOrganizations[0], data.UserProjects[0])
-	if err != nil {
-		return fmt.Errorf("failed to create admin user: %v", err)
+		return fmt.Errorf("failed to login admin user: %v", err)
 	}
 
 	// 4. Configurar headers para requests autenticados
