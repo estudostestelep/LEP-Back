@@ -109,6 +109,15 @@ func (s *ProjectServer) CreateProject(c *gin.Context) {
 
 	err = s.handler.CreateProject(&project)
 	if err != nil {
+		// Verificar se é erro de duplicata
+		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "already exists") {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "Project already exists",
+				"message": "A project with this ID or name already exists",
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating project"})
 		return
 	}
