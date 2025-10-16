@@ -140,7 +140,12 @@
       "Bash(ENVIRONMENT=stage ./scripts/stage-deploy.sh:*)",
       "Bash(gcloud artifacts repositories list:*)",
       "Bash(\"C:\\Go\\bin\\go.exe\" build -o lep-seed.exe cmd/seed/*.go)",
-      "Bash(set ENVIRONMENT=stage)"
+      "Bash(set ENVIRONMENT=stage)",
+      "Bash(./lep-seed-remote.exe --url https://lep-system-516622888070.us-central1.run.app --clear-first --verbose)",
+      "Bash(set INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-stage)",
+      "Bash(set DB_PASS=lep_password)",
+      "Bash(\"C:\\Go\\bin\\go.exe\" build -o lep-reset-passwords.exe cmd/reset-passwords/main.go)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

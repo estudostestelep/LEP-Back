@@ -17,6 +17,9 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/user-organization/user/:userId", resource.ServersControllers.SourceUserOrganization.ServiceAddUserToOrganization) // For seeding
 	r.POST("/user-project/user/:userId", resource.ServersControllers.SourceUserProject.ServiceAddUserToProject) // For seeding
 
+	// Admin routes (temporary - for password reset)
+	r.POST("/admin/reset-passwords", resource.ServersControllers.SourceAdmin.ServiceResetPasswords)
+
 	// Public routes for menu and reservations (no authentication)
 	setupPublicRoutes(r)
 
