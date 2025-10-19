@@ -292,6 +292,12 @@ func setupPublicRoutes(r *gin.Engine) {
 		// Cardápio público
 		publicRoutes.GET("/menu/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceGetPublicMenu)
 
+		// Categorias públicas
+		publicRoutes.GET("/categories/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceGetPublicCategories)
+
+		// Menus públicos
+		publicRoutes.GET("/menus/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceGetPublicMenus)
+
 		// Informações do projeto
 		publicRoutes.GET("/project/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceGetProjectInfo)
 

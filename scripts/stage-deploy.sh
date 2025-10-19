@@ -33,9 +33,9 @@ fi
 
 echo "✅ Google Cloud configurado: $PROJECT_ID"
 
-# Verificar se Cloud SQL existe (usando instância dev para stage)
-if ! gcloud sql instances describe leps-postgres-dev >/dev/null 2>&1; then
-    echo "❌ Erro: Instância Cloud SQL não encontrada."
+# Verificar se Cloud SQL existe (instância stage)
+if ! gcloud sql instances describe leps-postgres-stage >/dev/null 2>&1; then
+    echo "❌ Erro: Instância Cloud SQL stage não encontrada."
     exit 1
 fi
 
@@ -60,10 +60,10 @@ ENVIRONMENT=stage gcloud run deploy $SERVICE_NAME \
     --cpu=2 \
     --min-instances=0 \
     --max-instances=10 \
-    --add-cloudsql-instances=leps-472702:us-central1:leps-postgres-dev \
+    --add-cloudsql-instances=leps-472702:us-central1:leps-postgres-stage \
     --service-account=lep-backend-sa@leps-472702.iam.gserviceaccount.com \
-    --set-env-vars="ENVIRONMENT=stage,STORAGE_TYPE=gcs,BUCKET_NAME=leps-472702-lep-images-stage,BASE_URL=https://storage.googleapis.com/leps-472702-lep-images-stage,DB_USER=lep_user,DB_NAME=lep_database,INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-dev" \
-    --set-secrets="DB_PASS=db-password-dev:latest,JWT_SECRET_PRIVATE_KEY=jwt-private-key-dev:latest,JWT_SECRET_PUBLIC_KEY=jwt-public-key-dev:latest"
+    --set-env-vars="ENVIRONMENT=stage,STORAGE_TYPE=gcs,BUCKET_NAME=leps-472702-lep-images-stage,BASE_URL=https://storage.googleapis.com/leps-472702-lep-images-stage,DB_USER=lep_user,DB_NAME=lep_database,INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-stage" \
+    --set-secrets="DB_PASS=db-password-stage:latest,JWT_SECRET_PRIVATE_KEY=jwt-private-key-stage:latest,JWT_SECRET_PUBLIC_KEY=jwt-public-key-stage:latest"
 
 # Obter URL do serviço
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format="value(status.url)")

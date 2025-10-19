@@ -21,6 +21,8 @@ type IServerPublic interface {
 	ServiceGetProjectInfo(c *gin.Context)
 	ServiceGetAvailableTimes(c *gin.Context)
 	ServiceCreatePublicReservation(c *gin.Context)
+	ServiceGetPublicCategories(c *gin.Context)
+	ServiceGetPublicMenus(c *gin.Context)
 }
 
 // ServiceGetPublicMenu retorna produtos do cardápio sem autenticação
@@ -80,19 +82,50 @@ func (r *ResourcePublic) ServiceGetProjectInfo(c *gin.Context) {
 	// Buscar informações do projeto
 	project, err := r.handler.HandlerProject.GetProjectById(projIdStr)
 	if err != nil {
+		// Se o projeto não existe, retornar informações padrão
+		if err.Error() == "record not found" {
+			c.JSON(http.StatusOK, gin.H{
+				"name":        "Restaurante",
+				"description": "",
+				"contact_info": gin.H{
+					"phone":   "",
+					"email":   "",
+					"address": "",
+				},
+			})
+			return
+		}
 		utils.SendInternalServerError(c, "Error getting project info", err)
 		return
 	}
 
 	if project == nil {
-		utils.SendNotFoundError(c, "Project")
+		// Retornar informações padrão se projeto é nil
+		c.JSON(http.StatusOK, gin.H{
+			"name":        "Restaurante",
+			"description": "",
+			"contact_info": gin.H{
+				"phone":   "",
+				"email":   "",
+				"address": "",
+			},
+		})
 		return
 	}
 
 	// Buscar informações da organização
 	organization, err := r.handler.HandlerOrganization.GetOrganizationById(orgIdStr)
 	if err != nil {
-		utils.SendInternalServerError(c, "Error getting organization info", err)
+		// Se a organização não existe, retornar apenas info do projeto
+		c.JSON(http.StatusOK, gin.H{
+			"name":        project.Name,
+			"description": project.Description,
+			"contact_info": gin.H{
+				"phone":   "",
+				"email":   "",
+				"address": "",
+			},
+		})
 		return
 	}
 
@@ -291,6 +324,78 @@ func generateAvailableTimeSlots(date time.Time, partySize int, orgId, projId str
 	}
 
 	return availableTimes
+}
+
+// ServiceGetPublicCategories retorna categorias ativas sem autenticação
+func (r *ResourcePublic) ServiceGetPublicCategories(c *gin.Context) {
+	orgIdStr := c.Param("orgId")
+	projIdStr := c.Param("projId")
+
+	// Validar UUIDs
+	_, err := uuid.Parse(orgIdStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid organization ID format", err)
+		return
+	}
+
+	_, err = uuid.Parse(projIdStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid project ID format", err)
+		return
+	}
+
+	// Buscar categorias ativas
+	categories, err := r.handler.HandlerCategory.ListCategories(orgIdStr, projIdStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting categories", err)
+		return
+	}
+
+	// Filtrar apenas categorias ativas
+	var activeCategories []models.Category
+	for _, category := range categories {
+		if category.Active {
+			activeCategories = append(activeCategories, category)
+		}
+	}
+
+	c.JSON(http.StatusOK, activeCategories)
+}
+
+// ServiceGetPublicMenus retorna menus ativos sem autenticação
+func (r *ResourcePublic) ServiceGetPublicMenus(c *gin.Context) {
+	orgIdStr := c.Param("orgId")
+	projIdStr := c.Param("projId")
+
+	// Validar UUIDs
+	_, err := uuid.Parse(orgIdStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid organization ID format", err)
+		return
+	}
+
+	_, err = uuid.Parse(projIdStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid project ID format", err)
+		return
+	}
+
+	// Buscar menus ativos
+	menus, err := r.handler.HandlerMenu.ListMenus(orgIdStr, projIdStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting menus", err)
+		return
+	}
+
+	// Filtrar apenas menus ativos
+	var activeMenus []models.Menu
+	for _, menu := range menus {
+		if menu.Active {
+			activeMenus = append(activeMenus, menu)
+		}
+	}
+
+	c.JSON(http.StatusOK, activeMenus)
 }
 
 func NewSourceServerPublic(handler *handler.Handlers) IServerPublic {

@@ -37,8 +37,8 @@ backups/
 .env
 .env.*
 
-# Dependencies (will be downloaded during build)
-go.sum
+# Dependencies (go.sum is needed for builds)
+# go.sum
 
 # Local files
 cmd/debug-login/

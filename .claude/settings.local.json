@@ -145,7 +145,13 @@
       "Bash(set INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-stage)",
       "Bash(set DB_PASS=lep_password)",
       "Bash(\"C:\\Go\\bin\\go.exe\" build -o lep-reset-passwords.exe cmd/reset-passwords/main.go)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(gcloud builds list --limit=1 --format=\"value(id)\")",
+      "Bash(gcloud builds log f0fb564b-1dd4-4572-a19b-8f08a578863c --limit=50)",
+      "Bash(gcloud builds log f0fb564b-1dd4-4572-a19b-8f08a578863c)",
+      "Always allow for this folder",
+      "Bash(gcloud builds list --limit=3 --format=\"table(id,status,createTime,duration)\")",
+      "Bash(gcloud builds describe f0fb564b-1dd4-4572-a19b-8f08a578863c --format=\"value(status,statusDetail)\")"
     ],
     "deny": [],
     "ask": []
