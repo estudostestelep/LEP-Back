@@ -72,7 +72,12 @@ func (r *CategoryRepository) GetActiveCategoryList(organizationId, projectId uui
 }
 
 func (r *CategoryRepository) UpdateCategory(category *models.Category) error {
-	return r.db.Save(category).Error
+	// Usar Updates com Select para garantir que campos ponteiros (como Photo) sejam atualizados
+	// mesmo quando são nil
+	return r.db.Model(&models.Category{}).
+		Where("id = ?", category.Id).
+		Select("*").  // Selecionar todos os campos para atualização
+		Updates(category).Error
 }
 
 func (r *CategoryRepository) UpdateCategoryOrder(id uuid.UUID, order int) error {

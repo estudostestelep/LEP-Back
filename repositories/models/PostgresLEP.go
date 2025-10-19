@@ -521,7 +521,7 @@ type Category struct {
 	ProjectId      uuid.UUID  `json:"project_id" gorm:"not null"`
 	MenuId         uuid.UUID  `json:"menu_id" gorm:"not null"`
 	Name           string     `json:"name" gorm:"not null"`
-	Photo          *string    `json:"photo"`
+	ImageUrl       *string    `json:"image_url" gorm:"column:photo"`
 	Notes          *string    `json:"notes,omitempty"`
 	Order          int        `json:"order" gorm:"default:0"`
 	Active         bool       `json:"active" gorm:"default:true"`
