@@ -26,6 +26,7 @@ type ServerController struct {
 	SourceMenu              IServerMenu
 	SourceCategory          IServerCategory
 	SourceSubcategory       IServerSubcategory
+	SourceAdmin             *AdminController
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -52,4 +53,5 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceMenu = NewSourceServerMenu(handler)
 	h.SourceCategory = NewSourceServerCategory(handler)
 	h.SourceSubcategory = NewSourceServerSubcategory(handler)
+	// AdminController is initialized separately with DB in resource/inject.go
 }

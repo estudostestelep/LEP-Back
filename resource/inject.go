@@ -21,4 +21,6 @@ func Inject() {
 	Repository.InjectProstgres(db)
 	Handlers.Inject(&Repository, db)
 	ServersControllers.Inject(&Handlers)
+	// Initialize AdminController with DB
+	ServersControllers.SourceAdmin = &server.AdminController{DB: db}
 }

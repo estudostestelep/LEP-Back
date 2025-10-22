@@ -538,6 +538,88 @@ Todas as operações são registradas com:
 - Entidade afetada
 - Dados antes/depois da operação
 
+## Seeding de Dados
+
+### Seed Local (Desenvolvimento)
+
+Para popular o banco de dados local com dados de exemplo:
+
+```bash
+# Executar seed padrão
+bash ./scripts/run_seed.sh
+
+# Com verbose
+bash ./scripts/run_seed.sh --verbose
+
+# Limpar dados antes de popular
+bash ./scripts/run_seed.sh --clear-first
+
+# Especificar ambiente
+bash ./scripts/run_seed.sh --environment=test
+```
+
+### Seed Remoto (Staging/Produção)
+
+Para popular o banco de dados remoto via HTTP API (sem acesso direto ao PostgreSQL):
+
+**Windows:**
+```bash
+# Seed para staging (padrão)
+scripts\run_seed_remote.bat
+
+# Com verbose
+scripts\run_seed_remote.bat --verbose
+
+# URL customizada
+scripts\run_seed_remote.bat --url https://api.example.com --environment prod
+```
+
+**Linux/Mac:**
+```bash
+# Seed para staging (padrão)
+bash ./scripts/run_seed_remote.sh
+
+# Com verbose
+bash ./scripts/run_seed_remote.sh --verbose
+
+# URL customizada
+bash ./scripts/run_seed_remote.sh --url https://api.example.com --environment prod
+```
+
+**Execução direta:**
+```bash
+# Build do binário
+go build -o lep-seed-remote.exe cmd/seed-remote/main.go
+
+# Executar
+./lep-seed-remote.exe --url https://lep-system-516622888070.us-central1.run.app --verbose
+```
+
+### Credenciais após Seeding
+
+**Master Admins (Acesso Total):**
+- pablo@lep.com / senha123
+- luan@lep.com / senha123
+- eduardo@lep.com / senha123
+
+**Demo Users:**
+- teste@gmail.com / password (Admin)
+- garcom1@gmail.com / password (Waiter)
+- gerente1@gmail.com / password (Manager)
+
+### Dados Gerados
+
+O seed cria automaticamente:
+- 1 organização e 1 projeto
+- 6 usuários (3 master admins + 3 demo users)
+- 12 produtos em 3 categorias
+- 8 mesas com diferentes status
+- 4 pedidos ativos
+- 6 reservas (passadas, presentes, futuras)
+- 3 entradas na lista de espera
+- 5 clientes com preferências
+- 5 templates de notificação
+
 ## Documentação Adicional
 
 - **[API Routes Documentation](routes/routes.md)** - Documentação completa dos endpoints

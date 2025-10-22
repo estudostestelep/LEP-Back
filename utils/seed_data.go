@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 	"lep/repositories/models"
 )
 
@@ -57,6 +59,16 @@ var (
 	TagDestaqueID    = uuid.MustParse("123e4567-e89b-12d3-a456-426614174105")
 )
 
+// hashPassword generates bcrypt hash for a password
+func hashPassword(password string) string {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Warning: Failed to hash password, using plaintext: %v", err)
+		return password
+	}
+	return string(hashedPassword)
+}
+
 // GenerateCompleteData creates a complete set of realistic sample data
 func GenerateCompleteData() *SeedData {
 	now := time.Now()
@@ -95,7 +107,7 @@ func GenerateCompleteData() *SeedData {
 				Id:          AdminPabloID,
 				Name:        "Pablo Master Admin",
 				Email:       "pablo@lep.com",
-				Password:    "senha123", // Será hasheada pelo handler
+				Password:    hashPassword("senha123"), // Hash bcrypt automático
 				Permissions: pq.StringArray{"master_admin"},
 				Active:      true,
 				CreatedAt:   now,
@@ -105,7 +117,7 @@ func GenerateCompleteData() *SeedData {
 				Id:          AdminLuanID,
 				Name:        "Luan Master Admin",
 				Email:       "luan@lep.com",
-				Password:    "senha123", // Será hasheada pelo handler
+				Password:    hashPassword("senha123"), // Hash bcrypt automático
 				Permissions: pq.StringArray{"master_admin"},
 				Active:      true,
 				CreatedAt:   now,
@@ -115,7 +127,7 @@ func GenerateCompleteData() *SeedData {
 				Id:          AdminEduardoID,
 				Name:        "Eduardo Master Admin",
 				Email:       "eduardo@lep.com",
-				Password:    "senha123", // Será hasheada pelo handler
+				Password:    hashPassword("senha123"), // Hash bcrypt automático
 				Permissions: pq.StringArray{"master_admin"},
 				Active:      true,
 				CreatedAt:   now,
@@ -125,8 +137,8 @@ func GenerateCompleteData() *SeedData {
 			{
 				Id:          SampleUserID1,
 				Name:        "Admin LEP",
-				Email:       "teste@gmail.com",
-				Password:    "password", // password
+				Email:       "admin@lep-demo.com",
+				Password:    hashPassword("password"), // Hash bcrypt automático
 				Permissions: pq.StringArray{"admin"},
 				Active:      true,
 				CreatedAt:   now,
@@ -135,8 +147,8 @@ func GenerateCompleteData() *SeedData {
 			{
 				Id:          SampleUserID2,
 				Name:        "Garçom João",
-				Email:       "garcom1@gmail.com",
-				Password:    "password", // password
+				Email:       "garcom@lep-demo.com",
+				Password:    hashPassword("password"), // Hash bcrypt automático
 				Permissions: pq.StringArray{"orders", "tables", "customers"},
 				Active:      true,
 				CreatedAt:   now,
@@ -145,8 +157,8 @@ func GenerateCompleteData() *SeedData {
 			{
 				Id:          SampleUserID3,
 				Name:        "Gerente Maria",
-				Email:       "gerente1@gmail.com",
-				Password:    "password", // password
+				Email:       "gerente@lep-demo.com",
+				Password:    hashPassword("password"), // Hash bcrypt automático
 				Permissions: pq.StringArray{"orders", "tables", "customers", "products", "reports"},
 				Active:      true,
 				CreatedAt:   now,
@@ -526,26 +538,26 @@ func GenerateCompleteData() *SeedData {
 		ProductTags: []models.ProductTag{
 			// Pizza Margherita - Vegetariano + Destaque
 			{
-				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174001"),
+				Id:        uuid.MustParse("a13e4567-e89b-12d3-a456-426614174001"),
 				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174001"),
 				TagId:     TagVegetarianoID,
 				CreatedAt: now,
 			},
 			{
-				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174002"),
+				Id:        uuid.MustParse("a13e4567-e89b-12d3-a456-426614174002"),
 				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174001"),
 				TagId:     TagDestaqueID,
 				CreatedAt: now,
 			},
 			// Salada Caesar - Vegetariano + Sem Glúten
 			{
-				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174003"),
+				Id:        uuid.MustParse("a13e4567-e89b-12d3-a456-426614174003"),
 				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
 				TagId:     TagVegetarianoID,
 				CreatedAt: now,
 			},
 			{
-				Id:        uuid.MustParse("pt3e4567-e89b-12d3-a456-426614174004"),
+				Id:        uuid.MustParse("a13e4567-e89b-12d3-a456-426614174004"),
 				ProductId: uuid.MustParse("423e4567-e89b-12d3-a456-426614174004"),
 				TagId:     TagSemGlutenID,
 				CreatedAt: now,

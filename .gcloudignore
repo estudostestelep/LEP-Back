@@ -1,0 +1,47 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# using gcloud. It follows the same syntax as .gitignore, with the addition of
+# "#!include" directives (which insert the entries of the given .gitignore-style
+# file at that point).
+
+.gcloudignore
+.git
+.gitignore
+
+# Binaries and executables
+*.exe
+lep-system
+lep-seed*
+lep-migrate*
+lep-reset-passwords*
+test_orderitem_fix*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test and temporary files
+*_test.go
+*.test
+*.out
+*.log
+
+# Documentation
+README.md
+*.md
+backups/
+
+# Environment files (secrets are passed via env vars)
+.env
+.env.*
+
+# Dependencies (go.sum is needed for builds)
+# go.sum
+
+# Local files
+cmd/debug-login/
+cmd/check-database/
+cmd/create-master-admins/
+scripts/validate-implementation.sh

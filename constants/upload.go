@@ -13,6 +13,9 @@ const (
 
 	// UploadCategoryBanners representa uploads de banners promocionais
 	UploadCategoryBanners = "banners"
+
+	// UploadCategoryCategories representa uploads de imagens de categorias do cardápio
+	UploadCategoryCategories = "categories"
 )
 
 // Upload Limits - Limitações de upload
@@ -45,7 +48,7 @@ const (
 // Upload Validation Messages - Mensagens de validação para upload
 const (
 	// ErrorInvalidCategory mensagem para categoria inválida
-	ErrorInvalidCategory = "Invalid category. Allowed: products, users, restaurants, banners"
+	ErrorInvalidCategory = "Invalid category. Allowed: products, users, restaurants, banners, categories"
 
 	// ErrorNoFile mensagem quando nenhum arquivo é enviado
 	ErrorNoFile = "No image file provided"
@@ -73,6 +76,7 @@ func GetValidUploadCategories() []string {
 		UploadCategoryUsers,
 		UploadCategoryRestaurants,
 		UploadCategoryBanners,
+		UploadCategoryCategories,
 	}
 }
 
