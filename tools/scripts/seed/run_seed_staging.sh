@@ -73,7 +73,9 @@ fi
 print_success "Found .env.staging configuration"
 
 # Load environment variables from .env.staging
-export $(grep -v '^#' "$ENV_FILE" | xargs)
+set -a
+source "$ENV_FILE"
+set +a
 
 # Validate required variables
 required_vars=("DB_USER" "DB_PASS" "DB_NAME" "ENVIRONMENT")
