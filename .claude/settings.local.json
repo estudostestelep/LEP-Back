@@ -1,12 +1,32 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir:*)",
+      "Bash(go run:*)",
+      "Bash(.seed_test.exe:*)",
+      "Bash(timeout 30 go run:*)",
+      "Bash(tee:*)",
+      "Bash(cat:*)",
       "Bash(go build:*)",
-      "Bash(chmod:*)",
-      "Bash(tree:*)",
-      "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nFeat: Implement Fattoria seed and master admin auto-assignment\n\nThis commit includes:\n\n1. **Fattoria Pizzeria Seed**\n   - Added utils/seed_fattoria.go with complete seed data\n   - Support for --restaurant=fattoria flag in cmd/seed/main.go\n   - Created bash script tools/scripts/seed/run_seed_fattoria.sh\n   - Includes 9 products (5 pizzas + 4 beverages) with full details\n\n2. **Project Reorganization**\n   - Moved all documentation to docs/ with subfolders\n   - Created docs_seeds/ for seed-specific documentation\n   - Organized scripts in tools/scripts/\n   - Created navigation READMEs in each folder\n   - Kept root clean with only README.md, CLAUDE.md, STRUCTURE.md\n\n3. **Master Admin Auto-Assignment (Business Rule)**\n   - Modified handler/organization.go CreateOrganizationBootstrap()\n   - Implemented addMasterAdminsToOrganization() helper function\n   - Master admins (pablo, luan, eduardo) automatically added to new orgs\n   - Idempotent design - safe to run multiple times\n   - Includes comprehensive documentation in docs/guides/MASTER_ADMIN_ACCESS.md\n\n4. **Documentation**\n   - docs/seed/SEED_ARCHITECTURE.md - Explains bootstrap flow and multi-tenant architecture\n   - docs/guides/MASTER_ADMIN_ACCESS.md - Business rule documentation\n   - docs_seeds/fattoria/ - Complete Fattoria seed documentation with examples\n\nAll code compiles successfully and follows project conventions.\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(./seed_cli:*)",
+      "Bash(timeout 45 go run:*)",
+      "Bash(pg_isready:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(timeout 90 go run:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(timeout 120 go run:*)",
+      "Bash(docker-compose run:*)",
+      "Bash(go mod download:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(timeout 180 go run:*)",
+      "Bash(./bin/seed:*)",
+      "Bash(rm:*)",
+      "Bash(go version:*)",
+      "Bash(docker-compose exec:*)",
+      "Bash(timeout 600 docker-compose run:*)",
+      "Bash(git restore:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

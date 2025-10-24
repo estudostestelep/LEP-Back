@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -37,6 +38,10 @@ func main() {
 	rootCmd.Flags().StringVar(&environment, "environment", "dev", "Environment to seed (dev, test, staging)")
 	rootCmd.Flags().BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 	rootCmd.Flags().StringVar(&restaurant, "restaurant", "default", "Restaurant to seed (default, fattoria)")
+
+	// Forçar output do Cobra (fix para silent output)
+	rootCmd.SetOut(os.Stdout)
+	rootCmd.SetErr(os.Stderr)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
