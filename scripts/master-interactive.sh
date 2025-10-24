@@ -447,7 +447,9 @@ show_database_menu() {
     echo "  3. 🧹 Limpar e repopular DEV"
     echo "  4. 🧹 Limpar e repopular STAGE"
     echo "  5. 👥 Apenas usuários demo"
-    echo "  6. 📊 Status das databases"
+    echo "  6. 🍕 Seed Fattoria (DEV)"
+    echo "  7. 🍕 Seed Fattoria (STAGE)"
+    echo "  8. 📊 Status das databases"
     echo "  0. ⬅️  Voltar ao menu principal"
     echo ""
 }
@@ -463,7 +465,9 @@ handle_database_menu() {
             3) database_clear_and_seed_dev ;;
             4) database_clear_and_seed_stage ;;
             5) database_seed_users_only ;;
-            6) database_status ;;
+            6) database_seed_fattoria_dev ;;
+            7) database_seed_fattoria_stage ;;
+            8) database_status ;;
             0) return ;;
             *) log_error "Opção inválida. Tente novamente." ; press_enter ;;
         esac
@@ -516,6 +520,49 @@ database_seed_users_only() {
     if confirm_action "Criar estes usuários?"; then
         cd "$ROOT_DIR"
         go run cmd/seed/main.go --users-only --verbose 2>/dev/null || go run cmd/seed/main.go --verbose
+    fi
+    press_enter
+}
+
+database_seed_fattoria_dev() {
+    log_step "Populando Seed Fattoria Pizzeria no ambiente DEV..."
+    echo ""
+    echo "🍕 Fattoria Pizzeria"
+    echo "  - 9 produtos (5 pizzas + 4 bebidas)"
+    echo "  - 3 mesas"
+    echo "  - Usuário: admin@fattoria.com.br / password"
+    echo ""
+
+    if confirm_action "Executar seed Fattoria no DEV?"; then
+        cd "$ROOT_DIR"
+        if [ -f "scripts/run_seed_fattoria.sh" ]; then
+            chmod +x scripts/run_seed_fattoria.sh
+            ENVIRONMENT=dev ./scripts/run_seed_fattoria.sh --verbose
+        else
+            ENVIRONMENT=dev go run cmd/seed/main.go --restaurant=fattoria --environment=dev --verbose
+        fi
+    fi
+    press_enter
+}
+
+database_seed_fattoria_stage() {
+    log_step "Populando Seed Fattoria Pizzeria no ambiente STAGE..."
+    echo ""
+    echo "🍕 Fattoria Pizzeria"
+    echo "  - 9 produtos (5 pizzas + 4 bebidas)"
+    echo "  - 3 mesas"
+    echo "  - Usuário: admin@fattoria.com.br / password"
+    echo ""
+
+    log_warn "Isso populará o Cloud SQL STAGE com dados Fattoria"
+    if confirm_action "Continuar?"; then
+        cd "$ROOT_DIR"
+        if [ -f "scripts/run_seed_staging.sh" ]; then
+            chmod +x scripts/run_seed_staging.sh
+            ./scripts/run_seed_staging.sh --verbose
+        else
+            ENVIRONMENT=staging go run cmd/seed/main.go --restaurant=fattoria --environment=staging --verbose
+        fi
     fi
     press_enter
 }
@@ -1215,12 +1262,14 @@ handle_batch_mode() {
             echo "Uso: $0 [OPÇÃO]"
             echo ""
             echo "Opções:"
-            echo "  --help, -h       Mostrar ajuda"
-            echo "  --dev            Iniciar ambiente DEV"
-            echo "  --stage          Menu ambiente STAGE"
-            echo "  --seed-dev       Popular dados DEV"
-            echo "  --test           Executar testes"
-            echo "  --status         Status do projeto"
+            echo "  --help, -h           Mostrar ajuda"
+            echo "  --dev                Iniciar ambiente DEV"
+            echo "  --stage              Menu ambiente STAGE"
+            echo "  --seed-dev           Popular dados DEV (padrão)"
+            echo "  --seed-fattoria-dev  Popular Fattoria DEV"
+            echo "  --seed-fattoria-stage Popular Fattoria STAGE"
+            echo "  --test               Executar testes"
+            echo "  --status             Status do projeto"
             echo ""
             exit 0
             ;;
@@ -1234,6 +1283,14 @@ handle_batch_mode() {
             ;;
         "--seed-dev")
             database_seed_dev
+            exit 0
+            ;;
+        "--seed-fattoria-dev")
+            database_seed_fattoria_dev
+            exit 0
+            ;;
+        "--seed-fattoria-stage")
+            database_seed_fattoria_stage
             exit 0
             ;;
         "--test")
