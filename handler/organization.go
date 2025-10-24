@@ -236,6 +236,12 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 		return nil, fmt.Errorf("erro ao criar relacionamento usuário-projeto: %v", err)
 	}
 
+	// 🔑 REGRA DE NEGÓCIO: Adicionar master admins automaticamente à nova org
+	// Master admins têm acesso a todas as organizações
+	if err := r.addMasterAdminsToOrganization(org.Id, project.Id); err != nil {
+		return nil, fmt.Errorf("erro ao adicionar master admins: %v", err)
+	}
+
 	// Montar resposta
 	response := &OrganizationBootstrapResponse{
 		Organization: struct {
@@ -269,6 +275,61 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 	}
 
 	return response, nil
+}
+
+// addMasterAdminsToOrganization adiciona automaticamente todos os master admins
+// à nova organização criada (REGRA DE NEGÓCIO)
+func (r *resourceOrganization) addMasterAdminsToOrganization(
+	organizationId, projectId uuid.UUID,
+) error {
+	// Master admin IDs (definidos no seed_data.go)
+	masterAdminEmails := []string{
+		"pablo@lep.com",
+		"luan@lep.com",
+		"eduardo@lep.com",
+	}
+
+	now := time.Now()
+
+	// Buscar cada master admin e criar relacionamentos
+	for _, email := range masterAdminEmails {
+		// Buscar usuário por email
+		user, err := r.repo.User.GetUserByEmail(email)
+		if err != nil {
+			// Se não encontrar, pular (pode não estar cadastrado ainda)
+			continue
+		}
+
+		// Criar relacionamento usuário-organização (se não existir)
+		userOrg := &models.UserOrganization{
+			Id:             uuid.New(),
+			UserId:         user.Id,
+			OrganizationId: organizationId,
+			Role:           "admin", // Master admins são admins da org
+			Active:         true,
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}
+
+		// Ignorar erro se já existe (idempotente)
+		_ = r.repo.UserOrganizations.Create(userOrg)
+
+		// Criar relacionamento usuário-projeto (se não existir)
+		userProj := &models.UserProject{
+			Id:        uuid.New(),
+			UserId:    user.Id,
+			ProjectId: projectId,
+			Role:      "admin",
+			Active:    true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		// Ignorar erro se já existe (idempotente)
+		_ = r.repo.UserProjects.Create(userProj)
+	}
+
+	return nil
 }
 
 func NewSourceHandlerOrganization(repo *repositories.DBconn) IHandlerOrganization {

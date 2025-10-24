@@ -22,6 +22,7 @@ var (
 	clearFirst  bool
 	environment string
 	verbose     bool
+	restaurant  string // "default" or "fattoria"
 )
 
 func main() {
@@ -35,6 +36,7 @@ func main() {
 	rootCmd.Flags().BoolVar(&clearFirst, "clear-first", false, "Clear existing data before seeding")
 	rootCmd.Flags().StringVar(&environment, "environment", "dev", "Environment to seed (dev, test, staging)")
 	rootCmd.Flags().BoolVar(&verbose, "verbose", false, "Enable verbose logging")
+	rootCmd.Flags().StringVar(&restaurant, "restaurant", "default", "Restaurant to seed (default, fattoria)")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
@@ -46,7 +48,8 @@ func runSeed(cmd *cobra.Command, args []string) {
 	fmt.Println("======================")
 	fmt.Printf("Environment: %s\n", environment)
 	fmt.Printf("Clear first: %t\n", clearFirst)
-	fmt.Printf("Verbose: %t\n\n", verbose)
+	fmt.Printf("Verbose: %t\n", verbose)
+	fmt.Printf("Restaurant: %s\n\n", restaurant)
 
 	// Connect to database
 	fmt.Println("📡 Connecting to database...")
@@ -73,7 +76,15 @@ func runSeed(cmd *cobra.Command, args []string) {
 
 	// Generate seed data
 	fmt.Println("📊 Generating seed data...")
-	seedData := utils.GenerateCompleteData()
+	var seedData *utils.SeedData
+	switch restaurant {
+	case "fattoria":
+		fmt.Println("🍕 Usando seed para Fattoria Pizzeria...")
+		seedData = utils.GenerateFattoriaData()
+	default:
+		fmt.Println("🏢 Usando seed padrão LEP...")
+		seedData = utils.GenerateCompleteData()
+	}
 
 	// Initialize server handlers for seeding
 	fmt.Println("🔧 Initializing server handlers...")

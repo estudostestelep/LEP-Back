@@ -1,0 +1,238 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                ║
+║                    🍕 FATTORIA PIZZERIA - CARDÁPIO COMPLETO 🍕                  ║
+║                                                                                ║
+║                          Sistema LEP - Seed de Dados                          ║
+║                                                                                ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                 🍷 INFORMAÇÕES                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Nome do Restaurante:  Fattoria Pizzeria
+  Email:               contato@fattoria.com.br
+  Website:             https://fattoria.com.br
+  Endereço:            Rua dos Italianos, 456 - São Paulo, SP
+  Telefone:            +55 11 9999-9999
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                               🔐 ACESSO DO ADMIN                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Email:    admin@fattoria.com.br
+  Senha:    password
+  Permissões: admin, products, orders, reservations, customers, tables, reports
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            🍕 PIZZAS E ENTRADAS                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  📍 ENTRADAS
+
+    🥐 Crostini ...................................... R$ 30,00
+       Massa fina levemente crocante com alecrim, parmesão e azeite
+       ⏱️  15 minutos de preparo
+       Tags: -
+
+
+  📍 PIZZAS
+
+    🌱 Marguerita ..................................... R$ 80,00
+       Molho pomodoro, mussarela de búfala, manjericão fresco, azeite de oliva e orégano
+       ⏱️  25 minutos de preparo
+       Tags: Vegetariana 🌱
+
+    🌿 Marinara ....................................... R$ 58,00
+       Molho pomodoro, alho em lascas, azeite de oliva e orégano
+       ⏱️  25 minutos de preparo
+       Tags: Vegana 🌿
+
+    🍖 Parma .......................................... R$ 109,00
+       Molho pomodoro, mussarela, tomate seco, orégano, parmesão, presunto parma e rúcula
+       ⏱️  25 minutos de preparo
+       Tags: -
+
+    🌿 Vegana ......................................... R$ 60,00
+       Molho pomodoro, tomate confit, alho em lascas, azeitona preta, manjericão fresco e orégano
+       ⏱️  25 minutos de preparo
+       Tags: Vegana 🌿
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              🥤 BEBIDAS                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  📍 SOFT DRINKS
+
+    🥤 Suco de Caju Integral ......................... R$ 15,00
+       Suco natural de caju integral
+       Volume: 300ml | ⏱️  2 minutos
+
+
+  📍 CERVEJAS
+
+    🍺 Heineken s/ Álcool ............................ R$ 13,00
+       Cerveja Heineken sem álcool
+       Volume: 330ml | ⏱️  2 minutos
+
+
+  📍 CERVEJAS ARTESANAIS
+
+    🍻 Baden Baden IPA ............................... R$ 23,00
+       Cerveja artesanal Baden Baden IPA
+       Volume: 600ml | ⏱️  2 minutos
+
+
+  📍 COQUETÉIS
+
+    🍸 Sônia e Zé .................................... R$ 32,00
+       Suco de limão siciliano, Ramazzotti, cachaça Dom Drinks,
+       Monin de flor de sabugueiro e manjericão para decorar
+       ⏱️  5 minutos
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         📊 RESUMO DO CARDÁPIO                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Total de Itens:        9 produtos
+
+  Categorizados por:
+    • Pizzas (5 itens)
+      └─ Entradas (1 item)
+      └─ Pizzas (4 itens)
+    • Bebidas (4 itens)
+      └─ Soft drinks (1 item)
+      └─ Cervejas (1 item)
+      └─ Cervejas artesanais (1 item)
+      └─ Coquetéis (1 item)
+
+  Tags Disponíveis:
+    🌱 Vegetariana - Marguerita
+    🌿 Vegana - Marinara, Vegana
+
+  Preços:
+    • Menor: R$ 13,00 (Heineken s/ álcool)
+    • Maior: R$ 109,00 (Parma)
+    • Média: R$ 53,67
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     🪑 INFRAESTRUTURA DO RESTAURANTE                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  MESAS
+
+    Mesa 1  │ 4 lugares │ Salão Principal - Entrada   │ Livre
+    Mesa 2  │ 2 lugares │ Salão Principal - Janela    │ Livre
+    Mesa 3  │ 6 lugares │ Salão Principal - Fundo     │ Livre
+
+    Total de Lugares: 12
+    Capacidade Total do Salão: 60 pessoas
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        🚀 COMO USAR O SEED                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  OPÇÃO 1: Script Bash (Recomendado)
+  ──────────────────────────────────
+
+    # Seed com limpeza completa
+    bash scripts/run_seed_fattoria.sh --clear-first
+
+    # Seed mantendo dados existentes
+    bash scripts/run_seed_fattoria.sh
+
+    # Seed com saída verbosa
+    bash scripts/run_seed_fattoria.sh --verbose
+
+
+  OPÇÃO 2: Comando Go Direto
+  ──────────────────────────
+
+    # Seed básico
+    go run cmd/seed/main.go --restaurant=fattoria
+
+    # Com opções
+    go run cmd/seed/main.go --restaurant=fattoria --clear-first --verbose
+
+
+  OPÇÃO 3: Setup Completo
+  ──────────────────────
+
+    1. go mod tidy                                          # Instalar deps
+    2. bash scripts/run_seed_fattoria.sh --clear-first     # Seed com limpeza
+    3. go run main.go                                       # Iniciar servidor
+    4. curl http://localhost:8080/health                   # Verificar saúde
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          📚 DOCUMENTAÇÃO DISPONÍVEL                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  📖 SEED_FATTORIA.md
+     → Documentação completa e detalhada
+
+  📋 cmd/seed/README_FATTORIA.md
+     → Quick start (30 segundos para começar)
+
+  🔗 cmd/seed/FATTORIA_IDS.md
+     → Referência completa de IDs
+
+  📝 SEED_FATTORIA_SUMMARY.md
+     → Resumo executivo da implementação
+
+  🔨 utils/seed_fattoria.go
+     → Código-fonte do seed
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         🔗 ESTRUTURA DO PROJETO                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Organização: Fattoria Pizzeria
+    └─ Projeto: Fattoria Pizzeria - Projeto Principal
+         ├─ Cardápio Principal
+         │  ├─ Pizzas
+         │  │  ├─ Entradas
+         │  │  │  └─ Crostini
+         │  │  └─ Pizzas
+         │  │     ├─ Marguerita 🌱
+         │  │     ├─ Marinara 🌿
+         │  │     ├─ Parma
+         │  │     └─ Vegana 🌿
+         │  └─ Bebidas
+         │     ├─ Soft drinks
+         │     │  └─ Suco de Caju
+         │     ├─ Cervejas
+         │     │  └─ Heineken s/álc
+         │     ├─ Cervejas artesanais
+         │     │  └─ Baden Baden IPA
+         │     └─ Coquetéis
+         │        └─ Sônia e Zé
+         ├─ Salão Principal
+         │  ├─ Mesa 1 (4 lugares)
+         │  ├─ Mesa 2 (2 lugares)
+         │  └─ Mesa 3 (6 lugares)
+         ├─ Tags
+         │  ├─ Vegetariana 🌱
+         │  └─ Vegana 🌿
+         └─ Admin
+            └─ admin@fattoria.com.br
+
+
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                ║
+║                          ✅ PRONTO PARA USAR!                                  ║
+║                                                                                ║
+║               bash scripts/run_seed_fattoria.sh --clear-first                 ║
+║                                                                                ║
+║                      Será gerado um restaurante completo                      ║
+║                      com todos os dados da Fattoria                           ║
+║                                                                                ║
+╚════════════════════════════════════════════════════════════════════════════════╝
