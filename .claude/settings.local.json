@@ -26,7 +26,13 @@
       "Bash(docker-compose exec:*)",
       "Bash(timeout 600 docker-compose run:*)",
       "Bash(git restore:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix: Add output redirection to Cobra CLI seed command\n\nIssues identified and fixed:\n- Seed was executing silently (no console output) despite success\n- Root cause: Cobra SetOut/SetErr not configured\n- Solution: Added explicit stdout/stderr configuration\n\nChanges:\n- Added os import to cmd/seed/main.go\n- Configured Cobra output streams: rootCmd.SetOut(os.Stdout) and SetErr(os.Stderr)\n- Created SEED_EXECUTION_REPORT.md documenting issue and solutions\n- Validated seed execution with database checks\n\nImpact:\n- Seed Fattoria now shows progress messages\n- Easier debugging for seed operations\n- No functional changes to data insertion\n\nDocumentation:\n- docs/seed/SEED_ARCHITECTURE.md explains the architecture\n- SEED_EXECUTION_REPORT.md documents troubleshooting steps\n- Ready for production use\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(\"c:\\Users\\pablo\\OneDrive\\Área de Trabalho\\Trabalho Be Growth\\Projetos\\LEP\\LEP-Back\\tools\\scripts\\seed\\run_seed_staging.sh\")",
+      "Bash(bash -n:*)",
+      "Bash(bash -c '\nset -a\nsource .env.staging\nset +a\necho \"\"✅ Variáveis carregadas com sucesso:\"\"\necho \"\"   DB_USER=$DB_USER\"\"\necho \"\"   DB_NAME=$DB_NAME\"\"\necho \"\"   ENVIRONMENT=$ENVIRONMENT\"\"\necho \"\"   BUCKET_CACHE_CONTROL=$BUCKET_CACHE_CONTROL\"\"\n')",
+      "Bash(bash -c '\nset -a\nsource .env.staging\nset +a\necho \"\"✅ Variáveis carregadas com sucesso:\"\"\necho \"\"   DB_USER=$DB_USER\"\"\necho \"\"   DB_NAME=$DB_NAME\"\"\necho \"\"   ENVIRONMENT=$ENVIRONMENT\"\"\necho \"\"   BUCKET_CACHE_CONTROL=$BUCKET_CACHE_CONTROL\"\"\necho \"\"   BUCKET_TIMEOUT=$BUCKET_TIMEOUT\"\"\n')"
     ],
     "deny": [],
     "ask": []
