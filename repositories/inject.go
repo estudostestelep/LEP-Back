@@ -7,29 +7,30 @@ import (
 )
 
 type DBconn struct {
-	AuditLogs          IAuditLogsRepository
-	BannedLists        IBannedListsRepository
-	Customers          ICustomersRepository
-	LoggedLists        ILoggedListsRepository
-	Orders             IOrderRepository
-	Organizations      IOrganizationRepository
-	Products           IProductRepository
-	Reservations       IReservationRepository
-	Tables             ITableRepository
-	User               IUserRepository
-	UserOrganizations  IUserOrganizationRepository
-	UserProjects       IUserProjectRepository
-	Waitlists          WaitlistRepositoryInterface
-	KitchenQueue       IKitchenQueueRepository
-	Projects           IProjectRepository
-	Settings           ISettingsRepository
-	Environments       IEnvironmentRepository
-	Notifications      INotificationRepository
-	Tags               ITagRepository
-	Menus              IMenuRepository
-	Categories         ICategoryRepository
-	Subcategories      ISubcategoryRepository
-	Migrate            migrate.IMigrate
+	AuditLogs            IAuditLogsRepository
+	BannedLists          IBannedListsRepository
+	Customers            ICustomersRepository
+	LoggedLists          ILoggedListsRepository
+	Orders               IOrderRepository
+	Organizations        IOrganizationRepository
+	Products             IProductRepository
+	Reservations         IReservationRepository
+	Tables               ITableRepository
+	User                 IUserRepository
+	UserOrganizations    IUserOrganizationRepository
+	UserProjects         IUserProjectRepository
+	Waitlists            WaitlistRepositoryInterface
+	KitchenQueue         IKitchenQueueRepository
+	Projects             IProjectRepository
+	Settings             ISettingsRepository
+	Environments         IEnvironmentRepository
+	Notifications        INotificationRepository
+	Tags                 ITagRepository
+	Menus                IMenuRepository
+	Categories           ICategoryRepository
+	Subcategories        ISubcategoryRepository
+	EntityFileReference  IEntityFileReferenceRepository
+	Migrate              migrate.IMigrate
 }
 
 func (r *DBconn) InjectProstgres(db *gorm.DB) {
@@ -56,5 +57,6 @@ func (r *DBconn) InjectProstgres(db *gorm.DB) {
 	r.Menus = NewConnMenu(db)
 	r.Categories = NewConnCategory(db)
 	r.Subcategories = NewConnSubcategory(db)
+	r.EntityFileReference = NewEntityFileReferenceRepository(db)
 
 }

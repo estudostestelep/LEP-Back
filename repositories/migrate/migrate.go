@@ -18,19 +18,22 @@ func (r *resourceMigrate) MigrateRun(modelsToMigrate ...interface{}) {
 	// Migração customizada para novos campos de Product
 	r.migrateProductFields()
 
+	// Migração de tabelas de referência de imagens (file references)
+	r.migrateFileReferences()
+
 	// Migração automática para novas tabelas
 	for _, model := range modelsToMigrate {
 		migrator := r.db.Migrator()
 		if !migrator.HasTable(model) {
 			if err := r.db.AutoMigrate(model); err != nil {
-				panic("erro na migrate")
+				panic(fmt.Sprintf("erro ao migrar tabela %T: %v", model, err))
 			}
 		}
 	}
 
 	// AutoMigrate para adicionar novos campos em tabelas existentes
 	if err := r.db.AutoMigrate(modelsToMigrate...); err != nil {
-		panic("erro na migrate")
+		panic(fmt.Sprintf("erro na migrate AutoMigrate: %v", err))
 	}
 }
 
