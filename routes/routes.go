@@ -12,10 +12,10 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/login", resource.ServersControllers.SourceAuth.ServiceLogin)
 	r.POST("/user", resource.ServersControllers.SourceUsers.ServiceCreateUser)
 	r.POST("/create-organization", resource.ServersControllers.SourceOrganization.ServiceCreateOrganizationBootstrap)
-	r.POST("/organization", resource.ServersControllers.SourceOrganization.CreateOrganization) // For seeding
-	r.POST("/project", resource.ServersControllers.SourceProject.CreateProject) // For seeding with org header
+	r.POST("/organization", resource.ServersControllers.SourceOrganization.CreateOrganization)                                 // For seeding
+	r.POST("/project", resource.ServersControllers.SourceProject.CreateProject)                                                // For seeding with org header
 	r.POST("/user-organization/user/:userId", resource.ServersControllers.SourceUserOrganization.ServiceAddUserToOrganization) // For seeding
-	r.POST("/user-project/user/:userId", resource.ServersControllers.SourceUserProject.ServiceAddUserToProject) // For seeding
+	r.POST("/user-project/user/:userId", resource.ServersControllers.SourceUserProject.ServiceAddUserToProject)                // For seeding
 
 	// Admin routes (temporary - for password reset)
 	r.POST("/admin/reset-passwords", resource.ServersControllers.SourceAdmin.ServiceResetPasswords)
@@ -54,6 +54,7 @@ func SetupRoutes(r *gin.Engine) {
 	setupMenuRoutes(protected)
 	setupCategoryRoutes(protected)
 	setupSubcategoryRoutes(protected)
+	setupImageManagementRoutes(protected)
 
 	// Notification routes (mixed public/protected)
 	setupNotificationRoutes(r)
@@ -106,7 +107,7 @@ func setupProductRoutes(r gin.IRouter) {
 	{
 		productRoutes.GET("/:id", resource.ServersControllers.SourceProducts.ServiceGetProduct)
 		productRoutes.GET("/purchase/:id", resource.ServersControllers.SourceProducts.ServiceGetProductByPurchase)
-		productRoutes.GET("", resource.ServersControllers.SourceProducts.ServiceListProducts) // Endpoint de listagem
+		productRoutes.GET("", resource.ServersControllers.SourceProducts.ServiceListProducts)            // Endpoint de listagem
 		productRoutes.GET("/by-tag", resource.ServersControllers.SourceProducts.ServiceGetProductsByTag) // Buscar produtos por tag
 		productRoutes.POST("", resource.ServersControllers.SourceProducts.ServiceCreateProduct)
 		productRoutes.PUT("/:id", resource.ServersControllers.SourceProducts.ServiceUpdateProduct)
@@ -392,5 +393,17 @@ func setupSubcategoryRoutes(r gin.IRouter) {
 		subcategoryRoutes.POST("/:id/category/:categoryId", resource.ServersControllers.SourceSubcategory.ServiceAddCategoryToSubcategory)
 		subcategoryRoutes.DELETE("/:id/category/:categoryId", resource.ServersControllers.SourceSubcategory.ServiceRemoveCategoryFromSubcategory)
 		subcategoryRoutes.GET("/:id/categories", resource.ServersControllers.SourceSubcategory.ServiceGetSubcategoryCategories)
+	}
+}
+
+// setupImageManagementRoutes configura rotas para gerenciamento de imagens (admin)
+func setupImageManagementRoutes(r gin.IRouter) {
+	adminRoutes := r.Group("/admin/images")
+	{
+		// Limpar arquivos órfãos (soft deletados, sem referências)
+		adminRoutes.POST("/cleanup", resource.ServersControllers.SourceImageManagement.ServiceCleanupOrphanedFiles)
+
+		// Obter estatísticas de imagens
+		adminRoutes.GET("/stats", resource.ServersControllers.SourceImageManagement.ServiceGetImageStats)
 	}
 }

@@ -2,11 +2,11 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"lep/config"
 	"lep/repositories/migrate"
 	"lep/repositories/models"
 	"lep/utils"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -63,6 +63,10 @@ func Start(db *gorm.DB) {
 		&models.Category{},
 		&models.Subcategory{},
 		&models.SubcategoryCategory{},
+
+		// Image Management models (Deduplication & References)
+		&models.FileReference{},
+		&models.EntityFileReference{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product

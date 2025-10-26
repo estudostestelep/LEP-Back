@@ -170,7 +170,8 @@ func getBaseURL() string {
 		storageType := os.Getenv("STORAGE_TYPE")
 		bucketName := os.Getenv("STORAGE_BUCKET_NAME")
 
-		if (storageType == "gcs" || (storageType == "" && !IsDev())) && bucketName != "" {
+		// Stage/prod ambientes usam GCS por padrão
+		if (storageType == "gcs" || storageType == "stage" || storageType == "prod" || (storageType == "" && !IsDev())) && bucketName != "" {
 			return "https://storage.googleapis.com/" + bucketName
 		}
 		// Default for local development
@@ -186,7 +187,7 @@ func IsLocalStorage() bool {
 
 // IsGCSStorage returns true if using Google Cloud Storage
 func IsGCSStorage() bool {
-	return STORAGE_TYPE == "gcs"
+	return STORAGE_TYPE == "gcs" || STORAGE_TYPE == "stage" || STORAGE_TYPE == "prod"
 }
 
 // getDisableAutoSeed returns whether auto-seeding should be disabled

@@ -42,6 +42,10 @@ func (r *resourceBannedLists) GetBannedAllList() (*[]models.BannedLists, error) 
 }
 
 func (r *resourceBannedLists) CreateBannedList(bannedList *models.BannedLists) error {
+	// Gerar ID se não fornecido
+	if bannedList.BannedListId == uuid.Nil {
+		bannedList.BannedListId = uuid.New()
+	}
 	result := r.db.Create(bannedList)
 	if result.Error != nil {
 		return result.Error

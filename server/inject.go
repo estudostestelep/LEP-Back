@@ -21,11 +21,12 @@ type ServerController struct {
 	SourceNotification      *NotificationServer
 	SourceReports           IReportsServer
 	SourcePublic            IServerPublic
-	SourceUpload            IServerUpload
+	SourceUpload            *ResourceUpload  // Mudado para *ResourceUpload para permitir injeção
 	SourceTag               IServerTag
 	SourceMenu              IServerMenu
 	SourceCategory          IServerCategory
 	SourceSubcategory       IServerSubcategory
+	SourceImageManagement   IServerImageManagement
 	SourceAdmin             *AdminController
 }
 
@@ -48,7 +49,14 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceNotification = NewNotificationServer(handler.HandlerNotification)
 	h.SourceReports = NewReportsServer(handler.HandlerReports)
 	h.SourcePublic = NewSourceServerPublic(handler)
-	h.SourceUpload = NewSourceServerUpload()
+
+	// Criar Upload controller e injetar ImageManagement service
+	uploadServer := NewSourceServerUpload()
+	h.SourceImageManagement = NewServerImageManagement(handler.HandlerImageManagement)
+	// Injetar o service direto (não o handler)
+	uploadServer.SetImageManagementService(handler.ImageManagementService)
+	h.SourceUpload = uploadServer
+
 	h.SourceTag = NewSourceServerTag(handler)
 	h.SourceMenu = NewSourceServerMenu(handler)
 	h.SourceCategory = NewSourceServerCategory(handler)

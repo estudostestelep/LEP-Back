@@ -1,40 +1,37 @@
 package repositories
 
 import (
-	"lep/repositories/migrate"
-
 	"gorm.io/gorm"
 )
 
 type DBconn struct {
-	AuditLogs            IAuditLogsRepository
-	BannedLists          IBannedListsRepository
-	Customers            ICustomersRepository
-	LoggedLists          ILoggedListsRepository
-	Orders               IOrderRepository
-	Organizations        IOrganizationRepository
-	Products             IProductRepository
-	Reservations         IReservationRepository
-	Tables               ITableRepository
-	User                 IUserRepository
-	UserOrganizations    IUserOrganizationRepository
-	UserProjects         IUserProjectRepository
-	Waitlists            WaitlistRepositoryInterface
-	KitchenQueue         IKitchenQueueRepository
-	Projects             IProjectRepository
-	Settings             ISettingsRepository
-	Environments         IEnvironmentRepository
-	Notifications        INotificationRepository
-	Tags                 ITagRepository
-	Menus                IMenuRepository
-	Categories           ICategoryRepository
-	Subcategories        ISubcategoryRepository
-	EntityFileReference  IEntityFileReferenceRepository
-	Migrate              migrate.IMigrate
+	AuditLogs           IAuditLogsRepository
+	BannedLists         IBannedListsRepository
+	Customers           ICustomersRepository
+	LoggedLists         ILoggedListsRepository
+	Orders              IOrderRepository
+	Organizations       IOrganizationRepository
+	Products            IProductRepository
+	Reservations        IReservationRepository
+	Tables              ITableRepository
+	User                IUserRepository
+	UserOrganizations   IUserOrganizationRepository
+	UserProjects        IUserProjectRepository
+	Waitlists           WaitlistRepositoryInterface
+	KitchenQueue        IKitchenQueueRepository
+	Projects            IProjectRepository
+	Settings            ISettingsRepository
+	Environments        IEnvironmentRepository
+	Notifications       INotificationRepository
+	Tags                ITagRepository
+	Menus               IMenuRepository
+	Categories          ICategoryRepository
+	Subcategories       ISubcategoryRepository
+	EntityFileReference IEntityFileReferenceRepository
+	FileReference       IFileReferenceRepository
 }
 
-func (r *DBconn) InjectProstgres(db *gorm.DB) {
-	r.Migrate = migrate.NewConnMigrate(db)
+func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.Organizations = NewConnOrganization(db)
 	r.User = NewUserRepository(db)
 	r.UserOrganizations = NewUserOrganizationRepository(db)
@@ -58,5 +55,6 @@ func (r *DBconn) InjectProstgres(db *gorm.DB) {
 	r.Categories = NewConnCategory(db)
 	r.Subcategories = NewConnSubcategory(db)
 	r.EntityFileReference = NewEntityFileReferenceRepository(db)
+	r.FileReference = NewFileReferenceRepository(db)
 
 }

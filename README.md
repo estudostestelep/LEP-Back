@@ -30,6 +30,48 @@ O LEP System é uma aplicação backend robusta desenvolvida em Go, utilizando a
 - ✅ **Sistema de Notificações** - SMS, WhatsApp e Email automatizados
 - ✅ **Cron Jobs** - Confirmações 24h e processamento de eventos
 - ✅ **Relatórios Avançados** - Analytics de ocupação, reservas e waitlist
+- ✅ **Gerenciamento de Imagens** - Sistema de deduplicação com FileReference e EntityFileReference
+- ✅ **Upload de Imagens** - Suporte para armazenamento local e Google Cloud Storage (GCS)
+
+---
+
+## Mudanças Recentes (v2025-10-26)
+
+### Novas Funcionalidades
+
+#### 📁 Sistema de Gerenciamento de Imagens
+- **FileReference** - Armazena metadados de arquivos com deduplicação via SHA-256
+- **EntityFileReference** - Rastreia quais entidades usam quais imagens (Product, Category, Menu, etc.)
+- **Deduplicação Automática** - Uma imagem pode ser reutilizada por múltiplas entidades
+- **Referência de Contagem** - Contador desnormalizado para otimizar queries
+- **Soft Delete** - Limpeza posterior de imagens órfãs
+
+#### 🖼️ Upload de Imagens
+- **POST /upload/product/image** - Upload específico para produtos
+- **POST /upload/:category/image** - Upload genérico por categoria
+- **PUT /product/:id/image** - Atualizar URL da imagem de um produto
+- **Validações Automáticas** - Tipos permitidos: JPEG, PNG, WebP, GIF (máx 5MB)
+- **Storage Híbrido** - Local em desenvolvimento, Google Cloud Storage em produção
+
+#### 🔧 Correções de Migração
+- **Foreign Key Constraint** - Corrigido erro na criação de `EntityFileReference`
+  - Adicionado `type:uuid;constraint:OnDelete:CASCADE,OnUpdate:CASCADE` ao campo `FileId`
+  - Relacionamento GORM adequadamente definido
+- **Melhor Logging** - Mensagens de erro detalhadas durante migrações
+
+#### 🐳 Docker e Cloud Deployment
+- **Dockerfile Multi-Stage** - Build otimizado com Go 1.23 Alpine
+- **Google Container Registry** - Imagem pronta em `gcr.io/leps-472702/lep-backend:stage`
+- **Cloud Run Ready** - Aplicação pronta para deploy em serverless GCP
+- **Seed Staging** - Script dedicado `run_seed_staging.sh` para popular banco em staging
+
+### Dados de Teste (Fattoria Pizzeria)
+O seed staging inclui dados especiais para Fattoria Pizzeria:
+- 1 Organização (Fattoria Pizzeria)
+- 1 Projeto (Fattoria)
+- 9 Produtos (Pizzas, Bebidas, Sobremesas)
+- 3 Mesas (Salão Principal)
+- 1 Admin User para testes
 
 ---
 
@@ -153,6 +195,31 @@ O sistema segue o padrão de **Arquitetura Limpa** com três camadas principais:
    curl http://localhost:8080/ping
    # Resposta esperada: "pong"
    ```
+
+### Compilação e Validação Local
+
+O backend foi validado localmente com sucesso:
+
+```bash
+# Build local
+go build -o lep-system .
+
+# Execução local
+./lep-system
+
+# Verificação de Inicialização
+# ✅ Servidor inicia na porta 8080
+# ✅ Migração de campos do Product completada
+# ✅ Todas as 100+ rotas registradas
+# ✅ Banco de dados conectado
+# ✅ Sistema de Notificações pronto
+```
+
+**Status da Validação Local:**
+- ✅ Compilação Go: Sucesso
+- ✅ Execução: Sucesso sem erros
+- ✅ Migrações: Completadas com sucesso
+- ✅ Rotas: Todas as 100+ rotas registradas
 
 ### Variáveis de Ambiente
 
@@ -594,6 +661,88 @@ go build -o lep-seed-remote.exe cmd/seed-remote/main.go
 # Executar
 ./lep-seed-remote.exe --url https://lep-system-516622888070.us-central1.run.app --verbose
 ```
+
+---
+
+## Docker e Cloud Deployment
+
+### Build e Push da Imagem
+
+```bash
+# Build local da imagem Docker
+docker build -t lep-backend:stage .
+
+# Configurar Docker para autenticar com GCP
+gcloud auth configure-docker gcr.io
+
+# Tag da imagem para Google Container Registry
+docker tag lep-backend:stage gcr.io/leps-472702/lep-backend:stage
+
+# Push para GCP Container Registry
+docker push gcr.io/leps-472702/lep-backend:stage
+```
+
+### Staging Environment
+
+**Arquivo: `.env.staging`**
+
+```bash
+ENVIRONMENT=staging
+PORT=8080
+DB_USER=lep_user
+DB_PASS=lep_passwordA1
+DB_NAME=lep_database
+INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-stage
+STORAGE_TYPE=gcs
+BUCKET_NAME=leps-472702-lep-images-stage
+ENABLE_CRON_JOBS=true
+GIN_MODE=release
+```
+
+**Seed Staging:**
+
+```bash
+# Executar seed para staging
+bash ./scripts/run_seed_staging.sh --clear-first --verbose
+```
+
+### Cloud Run Deployment
+
+```bash
+# Deploy da imagem no Cloud Run
+gcloud run deploy lep-system \
+  --image=gcr.io/leps-472702/lep-backend:stage \
+  --region=us-central1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --set-env-vars ENVIRONMENT=staging,PORT=8080
+
+# Verificar status do deployment
+gcloud run services describe lep-system --region=us-central1
+```
+
+### Terraform Infrastructure
+
+```bash
+# Initialize Terraform
+terraform init
+
+# Plan deployment para staging
+terraform plan -var-file="environments/gcp-stage.tfvars" -out=tfplan-stage
+
+# Apply infrastructure
+terraform apply tfplan-stage
+```
+
+**Recursos Criados:**
+- ✅ Cloud SQL Instance (PostgreSQL 15)
+- ✅ Database e User
+- ✅ Storage Bucket (GCS)
+- ✅ Secret Manager (Secrets)
+- ✅ Service Account e IAM Roles
+- ✅ Cloud Run Service
+
+---
 
 ### Credenciais após Seeding
 

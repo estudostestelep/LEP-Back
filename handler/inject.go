@@ -1,29 +1,36 @@
 package handler
 
-import "lep/repositories"
+import (
+	"lep/repositories"
+	"lep/service"
+
+	"gorm.io/gorm"
+)
 
 type Handlers struct {
-	HandlerUser             IHandlerUser
-	HandlerUserOrganization IHandlerUserOrganization
-	HandlerUserProject      IHandlerUserProject
-	HandlerUserAccess       UserAccessHandler
-	HandlerProducts         IHandlerProducts
-	HandlerAuth             IHandlerAuth
-	HandlerOrder            IOrderHandler
-	HandlerOrganization     IHandlerOrganization
-	HandlerTables           IHandlerTables
-	HandlerWaitlist         IHandlerWaitlist
-	HandlerReservation      IHandlerReservation
-	HandlerCustomer         IHandlerCustomer
-	HandlerProject          IProjectHandler
-	HandlerSettings         ISettingsHandler
-	HandlerEnvironment      IEnvironmentHandler
-	HandlerNotification     *NotificationHandler
-	HandlerReports          IReportsHandler
-	HandlerTag              IHandlerTag
-	HandlerMenu             IHandlerMenu
-	HandlerCategory         IHandlerCategory
-	HandlerSubcategory      IHandlerSubcategory
+	HandlerUser               IHandlerUser
+	HandlerUserOrganization   IHandlerUserOrganization
+	HandlerUserProject        IHandlerUserProject
+	HandlerUserAccess         UserAccessHandler
+	HandlerProducts           IHandlerProducts
+	HandlerAuth               IHandlerAuth
+	HandlerOrder              IOrderHandler
+	HandlerOrganization       IHandlerOrganization
+	HandlerTables             IHandlerTables
+	HandlerWaitlist           IHandlerWaitlist
+	HandlerReservation        IHandlerReservation
+	HandlerCustomer           IHandlerCustomer
+	HandlerProject            IProjectHandler
+	HandlerSettings           ISettingsHandler
+	HandlerEnvironment        IEnvironmentHandler
+	HandlerNotification       *NotificationHandler
+	HandlerReports            IReportsHandler
+	HandlerTag                IHandlerTag
+	HandlerMenu               IHandlerMenu
+	HandlerCategory           IHandlerCategory
+	HandlerSubcategory        IHandlerSubcategory
+	HandlerImageManagement    IHandlerImageManagement
+	ImageManagementService    service.IImageManagementService // Service direto para o Upload server
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
@@ -48,4 +55,13 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerMenu = NewSourceHandlerMenu(repo)
 	h.HandlerCategory = NewSourceHandlerCategory(repo)
 	h.HandlerSubcategory = NewSourceHandlerSubcategory(repo)
+
+	// Image Management Service e Handler
+	// Nota: db é *gorm.DB, necessário para os novos repositories
+	gormDB := db.(*gorm.DB)
+	fileRefRepo := repositories.NewFileReferenceRepository(gormDB)
+	entityFileRefRepo := repositories.NewEntityFileReferenceRepository(gormDB)
+	imageManagementSvc := service.NewImageManagementService(fileRefRepo, entityFileRefRepo, "./uploads")
+	h.HandlerImageManagement = NewHandlerImageManagement(imageManagementSvc)
+	h.ImageManagementService = imageManagementSvc // Armazenar o service direto para o Upload server
 }

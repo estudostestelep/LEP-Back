@@ -18,7 +18,7 @@ func Inject() {
 		panic(fmt.Sprintf("Conexão com banco falhou: %v", err))
 	}
 	server.Start(db)
-	Repository.InjectProstgres(db)
+	Repository.InjectPostgres(db)
 	Handlers.Inject(&Repository, db)
 	ServersControllers.Inject(&Handlers)
 	// Initialize AdminController with DB
