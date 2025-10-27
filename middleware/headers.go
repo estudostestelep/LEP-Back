@@ -132,6 +132,8 @@ func isFullyExemptRoute(path, method string) bool {
 		{"/ping", "GET"},
 		{"/health", "GET"},
 		{"/webhook/*", "*"}, // All webhook routes
+		{"/user/*/organizations-projects", "GET"},  // Get user access - does its own validation
+		{"/user/*/organizations-projects", "POST"}, // Update user access - does its own validation
 	}
 
 	for _, route := range exemptRoutes {
@@ -144,6 +146,19 @@ func isFullyExemptRoute(path, method string) bool {
 				prefix := strings.TrimSuffix(route.Path, "/*")
 				if strings.HasPrefix(path, prefix) {
 					return true
+				}
+			}
+			// Check for patterns with wildcard in the middle (e.g., /user/*/organizations-projects)
+			if strings.Contains(route.Path, "/*") && !strings.HasSuffix(route.Path, "/*") {
+				// Pattern like /user/*/organizations-projects
+				// Split by * and check if path matches the pattern
+				parts := strings.Split(route.Path, "*")
+				if len(parts) == 2 {
+					prefix := parts[0]
+					suffix := parts[1]
+					if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, suffix) {
+						return true
+					}
 				}
 			}
 		}

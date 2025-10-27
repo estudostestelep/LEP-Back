@@ -61,7 +61,21 @@ func PermissionMiddleware(requiredPermission string) gin.HandlerFunc {
 			return
 		}
 
-		permissions := userPermissions.([]string)
+		// Handle both []string and pq.StringArray types
+		var permissions []string
+		switch v := userPermissions.(type) {
+		case []string:
+			permissions = v
+		default:
+			// Try to convert to []string for other array types
+			if arr, ok := v.([]interface{}); ok {
+				for _, item := range arr {
+					if str, ok := item.(string); ok {
+						permissions = append(permissions, str)
+					}
+				}
+			}
+		}
 
 		// Master Admins têm acesso a tudo - bypass automático
 		if contains(permissions, "master_admin") {
@@ -99,7 +113,22 @@ func IsMasterAdmin(c *gin.Context) bool {
 		return false
 	}
 
-	permissions := userPermissions.([]string)
+	// Handle both []string and pq.StringArray types
+	var permissions []string
+	switch v := userPermissions.(type) {
+	case []string:
+		permissions = v
+	default:
+		// Try to convert to []string for other array types
+		if arr, ok := v.([]interface{}); ok {
+			for _, item := range arr {
+				if str, ok := item.(string); ok {
+					permissions = append(permissions, str)
+				}
+			}
+		}
+	}
+
 	return contains(permissions, "master_admin")
 }
 
