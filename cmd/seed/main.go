@@ -27,6 +27,7 @@ var (
 )
 
 func main() {
+	os.Stderr.WriteString("DEBUG: Starting seed program\n")
 	var rootCmd = &cobra.Command{
 		Use:   "seed",
 		Short: "LEP Database Seeder",
@@ -353,12 +354,16 @@ func setupTestRouter() *gin.Engine {
 }
 
 func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
+	fmt.Println("📍 Starting seedDatabaseViaServer...")
+	fmt.Printf("📊 Data summary - Orgs: %d, Products: %d, Categories: %d\n", len(data.Organizations), len(data.Products), len(data.Categories))
+
 	// 1. Usar rota de bootstrap para criar organização + projeto + usuário master admin
 	fmt.Println("  🚀 Criando organização via bootstrap...")
 	orgId, projectId, adminEmail, err := createOrganizationBootstrap(router, data.Organizations[0].Name)
 	if err != nil {
 		return fmt.Errorf("failed to create organization bootstrap: %v", err)
 	}
+	fmt.Printf("✅ Organization created: %s, Project: %s\n", orgId, projectId)
 
 	// 2. Fazer login com o usuário master admin para obter token
 	fmt.Println("  🔐 Fazendo login do usuário master admin...")
@@ -449,12 +454,37 @@ func seedDatabaseViaServer(router *gin.Engine, data *utils.SeedData) error {
 		}
 	}
 
+	// 10.5 Criar subcategories
+	if len(data.Subcategories) > 0 {
+		fmt.Println("  📑 Criando subcategories...")
+		for _, subcategory := range data.Subcategories {
+			subcategory.OrganizationId = orgId
+			subcategory.ProjectId = projectId
+			if err := createSubcategory(router, subcategory, headers); err != nil {
+				return fmt.Errorf("failed to create subcategory %s: %v", subcategory.Name, err)
+			}
+		}
+	}
+
+	// 10.6 Criar subcategory-category relationships
+	if len(data.SubcategoryCategories) > 0 {
+		fmt.Println("  🔗 Criando subcategory-category relationships...")
+		for _, sc := range data.SubcategoryCategories {
+			if err := createSubcategoryCategory(router, sc, headers); err != nil {
+				return fmt.Errorf("failed to create subcategory-category relationship: %v", err)
+			}
+		}
+	}
+
 	// 11. Criar products
 	if len(data.Products) > 0 {
 		fmt.Println("  🍽️  Criando products...")
-		for _, product := range data.Products {
+		for i, product := range data.Products {
 			product.OrganizationId = orgId
 			product.ProjectId = projectId
+			if verbose {
+				fmt.Printf("    [%d/%d] Criando: %s\n", i+1, len(data.Products), product.Name)
+			}
 			if err := createProduct(router, product, headers); err != nil {
 				return fmt.Errorf("failed to create product %s: %v", product.Name, err)
 			}
@@ -839,9 +869,58 @@ func createTag(router *gin.Engine, tag models.Tag, headers map[string]string) er
 	return nil
 }
 
+// Criar subcategory
+func createSubcategory(router *gin.Engine, subcategory models.Subcategory, headers map[string]string) error {
+	body, _ := json.Marshal(subcategory)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/subcategory", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return fmt.Errorf("status %d - %s", w.Code, w.Body.String())
+	}
+
+	if verbose {
+		fmt.Printf("    ✓ %s\n", subcategory.Name)
+	}
+
+	return nil
+}
+
+// Criar subcategory-category relationship
+func createSubcategoryCategory(router *gin.Engine, sc models.SubcategoryCategory, headers map[string]string) error {
+	body, _ := json.Marshal(sc)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/subcategory-category", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	router.ServeHTTP(w, req)
+
+	if w.Code != 201 && w.Code != 409 {
+		return fmt.Errorf("status %d - %s", w.Code, w.Body.String())
+	}
+
+	if verbose {
+		fmt.Printf("    ✓ Relationship created\n")
+	}
+
+	return nil
+}
+
 // Criar product
 func createProduct(router *gin.Engine, product models.Product, headers map[string]string) error {
-	body, _ := json.Marshal(product)
+	body, err := json.Marshal(product)
+	if err != nil {
+		return fmt.Errorf("failed to marshal product: %v", err)
+	}
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/product", bytes.NewBuffer(body))
@@ -852,6 +931,10 @@ func createProduct(router *gin.Engine, product models.Product, headers map[strin
 	router.ServeHTTP(w, req)
 
 	if w.Code != 201 && w.Code != 409 {
+		if verbose {
+			fmt.Printf("    ✗ Error creating %s - Status: %d\n", product.Name, w.Code)
+			fmt.Printf("      Response: %s\n", w.Body.String())
+		}
 		return fmt.Errorf("status %d - %s", w.Code, w.Body.String())
 	}
 

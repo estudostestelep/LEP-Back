@@ -3,19 +3,20 @@ package utils
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"lep/repositories/models"
+
+	"github.com/google/uuid"
 )
 
 // Fattoria-specific IDs
 var (
-	FattoriaOrgID      = uuid.MustParse("223e4567-e89b-12d3-a456-426614174100")
-	FattoriaProjectID  = uuid.MustParse("223e4567-e89b-12d3-a456-426614174101")
-	FattoriaMenuID     = uuid.MustParse("223e4567-e89b-12d3-a456-426614174102")
+	FattoriaOrgID     = uuid.MustParse("223e4567-e89b-12d3-a456-426614174100")
+	FattoriaProjectID = uuid.MustParse("223e4567-e89b-12d3-a456-426614174101")
+	FattoriaMenuID    = uuid.MustParse("223e4567-e89b-12d3-a456-426614174102")
 
 	// Categories
-	FattoriaCategoryPizzasID      = uuid.MustParse("223e4567-e89b-12d3-a456-426614174110")
-	FattoriaCategoryBebidasID     = uuid.MustParse("223e4567-e89b-12d3-a456-426614174111")
+	FattoriaCategoryPizzasID  = uuid.MustParse("223e4567-e89b-12d3-a456-426614174110")
+	FattoriaCategoryBebidasID = uuid.MustParse("223e4567-e89b-12d3-a456-426614174111")
 
 	// Subcategories
 	FattoriaSubcategoryEntradasID = uuid.MustParse("223e4567-e89b-12d3-a456-426614174120")
@@ -30,15 +31,15 @@ var (
 	FattoriaTagVeganaID      = uuid.MustParse("223e4567-e89b-12d3-a456-426614174131")
 
 	// Products
-	FattoriaProductCrostiniID       = uuid.MustParse("223e4567-e89b-12d3-a456-426614174200")
-	FattoriaProductMargueritaID     = uuid.MustParse("223e4567-e89b-12d3-a456-426614174201")
-	FattoriaProductMarinaraID       = uuid.MustParse("223e4567-e89b-12d3-a456-426614174202")
-	FattoriaProductParmaID          = uuid.MustParse("223e4567-e89b-12d3-a456-426614174203")
-	FattoriaProductVeganaID         = uuid.MustParse("223e4567-e89b-12d3-a456-426614174204")
-	FattoriaProductSucoID           = uuid.MustParse("223e4567-e89b-12d3-a456-426614174205")
-	FattoriaProductBadenBadenID     = uuid.MustParse("223e4567-e89b-12d3-a456-426614174206")
-	FattoriaProductSoniaZeID        = uuid.MustParse("223e4567-e89b-12d3-a456-426614174207")
-	FattoriaProductHeinekeID        = uuid.MustParse("223e4567-e89b-12d3-a456-426614174208")
+	FattoriaProductCrostiniID   = uuid.MustParse("223e4567-e89b-12d3-a456-426614174200")
+	FattoriaProductMargueritaID = uuid.MustParse("223e4567-e89b-12d3-a456-426614174201")
+	FattoriaProductMarinaraID   = uuid.MustParse("223e4567-e89b-12d3-a456-426614174202")
+	FattoriaProductParmaID      = uuid.MustParse("223e4567-e89b-12d3-a456-426614174203")
+	FattoriaProductVeganaID     = uuid.MustParse("223e4567-e89b-12d3-a456-426614174204")
+	FattoriaProductSucoID       = uuid.MustParse("223e4567-e89b-12d3-a456-426614174205")
+	FattoriaProductBadenBadenID = uuid.MustParse("223e4567-e89b-12d3-a456-426614174206")
+	FattoriaProductSoniaZeID    = uuid.MustParse("223e4567-e89b-12d3-a456-426614174207")
+	FattoriaProductHeinekeID    = uuid.MustParse("223e4567-e89b-12d3-a456-426614174208")
 
 	// Environment
 	FattoriaEnvironmentID = uuid.MustParse("223e4567-e89b-12d3-a456-426614174300")
@@ -177,73 +178,6 @@ func GenerateFattoriaData() *SeedData {
 				CreatedAt:      now,
 				UpdatedAt:      now,
 			},
-			// Subcategories (stored as categories)
-			{
-				Id:             FattoriaSubcategoryEntradasID,
-				OrganizationId: FattoriaOrgID,
-				ProjectId:      FattoriaProjectID,
-				MenuId:         FattoriaMenuID,
-				Name:           "Entradas",
-				Order:          1,
-				Active:         true,
-				CreatedAt:      now,
-				UpdatedAt:      now,
-			},
-			{
-				Id:             FattoriaSubcategoryPizzasID,
-				OrganizationId: FattoriaOrgID,
-				ProjectId:      FattoriaProjectID,
-				MenuId:         FattoriaMenuID,
-				Name:           "Pizzas",
-				Order:          2,
-				Active:         true,
-				CreatedAt:      now,
-				UpdatedAt:      now,
-			},
-			{
-				Id:             FattoriaSubcategorySoftID,
-				OrganizationId: FattoriaOrgID,
-				ProjectId:      FattoriaProjectID,
-				MenuId:         FattoriaMenuID,
-				Name:           "Soft drinks",
-				Order:          3,
-				Active:         true,
-				CreatedAt:      now,
-				UpdatedAt:      now,
-			},
-			{
-				Id:             FattoriaSubcategoryCervejasID,
-				OrganizationId: FattoriaOrgID,
-				ProjectId:      FattoriaProjectID,
-				MenuId:         FattoriaMenuID,
-				Name:           "Cervejas",
-				Order:          4,
-				Active:         true,
-				CreatedAt:      now,
-				UpdatedAt:      now,
-			},
-			{
-				Id:             FattoriaSubcatCervArteID,
-				OrganizationId: FattoriaOrgID,
-				ProjectId:      FattoriaProjectID,
-				MenuId:         FattoriaMenuID,
-				Name:           "Cervejas artesanais",
-				Order:          5,
-				Active:         true,
-				CreatedAt:      now,
-				UpdatedAt:      now,
-			},
-			{
-				Id:             FattoriaSubcategoryCoqueisID,
-				OrganizationId: FattoriaOrgID,
-				ProjectId:      FattoriaProjectID,
-				MenuId:         FattoriaMenuID,
-				Name:           "Coquetéis",
-				Order:          6,
-				Active:         true,
-				CreatedAt:      now,
-				UpdatedAt:      now,
-			},
 		},
 
 		Tags: []models.Tag{
@@ -270,6 +204,102 @@ func GenerateFattoriaData() *SeedData {
 				Active:         true,
 				CreatedAt:      now,
 				UpdatedAt:      now,
+			},
+		},
+
+		Subcategories: []models.Subcategory{
+			{
+				Id:             FattoriaSubcategoryEntradasID,
+				OrganizationId: FattoriaOrgID,
+				ProjectId:      FattoriaProjectID,
+				Name:           "Entradas",
+				Order:          1,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             FattoriaSubcategoryPizzasID,
+				OrganizationId: FattoriaOrgID,
+				ProjectId:      FattoriaProjectID,
+				Name:           "Pizzas",
+				Order:          2,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             FattoriaSubcategorySoftID,
+				OrganizationId: FattoriaOrgID,
+				ProjectId:      FattoriaProjectID,
+				Name:           "Soft drinks",
+				Order:          3,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             FattoriaSubcategoryCervejasID,
+				OrganizationId: FattoriaOrgID,
+				ProjectId:      FattoriaProjectID,
+				Name:           "Cervejas",
+				Order:          4,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             FattoriaSubcatCervArteID,
+				OrganizationId: FattoriaOrgID,
+				ProjectId:      FattoriaProjectID,
+				Name:           "Cervejas artesanais",
+				Order:          5,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				Id:             FattoriaSubcategoryCoqueisID,
+				OrganizationId: FattoriaOrgID,
+				ProjectId:      FattoriaProjectID,
+				Name:           "Coquetéis",
+				Order:          6,
+				Active:         true,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+		},
+
+		SubcategoryCategories: []models.SubcategoryCategory{
+			{
+				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174150"),
+				SubcategoryId: FattoriaSubcategoryEntradasID,
+				CategoryId:    FattoriaCategoryPizzasID,
+			},
+			{
+				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174151"),
+				SubcategoryId: FattoriaSubcategoryPizzasID,
+				CategoryId:    FattoriaCategoryPizzasID,
+			},
+			{
+				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174152"),
+				SubcategoryId: FattoriaSubcategorySoftID,
+				CategoryId:    FattoriaCategoryBebidasID,
+			},
+			{
+				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174153"),
+				SubcategoryId: FattoriaSubcategoryCervejasID,
+				CategoryId:    FattoriaCategoryBebidasID,
+			},
+			{
+				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174154"),
+				SubcategoryId: FattoriaSubcatCervArteID,
+				CategoryId:    FattoriaCategoryBebidasID,
+			},
+			{
+				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174155"),
+				SubcategoryId: FattoriaSubcategoryCoqueisID,
+				CategoryId:    FattoriaCategoryBebidasID,
 			},
 		},
 
@@ -446,40 +476,40 @@ func GenerateFattoriaData() *SeedData {
 
 		Tables: []models.Table{
 			{
-				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174800"),
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174800"),
 				OrganizationId: FattoriaOrgID,
 				ProjectId:      FattoriaProjectID,
 				EnvironmentId:  &FattoriaEnvironmentID,
-				Number:        1,
-				Capacity:      4,
-				Status:        "livre",
-				Location:      "Salão Principal - Entrada",
-				CreatedAt:     now,
-				UpdatedAt:     now,
+				Number:         1,
+				Capacity:       4,
+				Status:         "livre",
+				Location:       "Salão Principal - Entrada",
+				CreatedAt:      now,
+				UpdatedAt:      now,
 			},
 			{
-				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174801"),
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174801"),
 				OrganizationId: FattoriaOrgID,
 				ProjectId:      FattoriaProjectID,
 				EnvironmentId:  &FattoriaEnvironmentID,
-				Number:        2,
-				Capacity:      2,
-				Status:        "livre",
-				Location:      "Salão Principal - Janela",
-				CreatedAt:     now,
-				UpdatedAt:     now,
+				Number:         2,
+				Capacity:       2,
+				Status:         "livre",
+				Location:       "Salão Principal - Janela",
+				CreatedAt:      now,
+				UpdatedAt:      now,
 			},
 			{
-				Id:            uuid.MustParse("223e4567-e89b-12d3-a456-426614174802"),
+				Id:             uuid.MustParse("223e4567-e89b-12d3-a456-426614174802"),
 				OrganizationId: FattoriaOrgID,
 				ProjectId:      FattoriaProjectID,
 				EnvironmentId:  &FattoriaEnvironmentID,
-				Number:        3,
-				Capacity:      6,
-				Status:        "livre",
-				Location:      "Salão Principal - Fundo",
-				CreatedAt:     now,
-				UpdatedAt:     now,
+				Number:         3,
+				Capacity:       6,
+				Status:         "livre",
+				Location:       "Salão Principal - Fundo",
+				CreatedAt:      now,
+				UpdatedAt:      now,
 			},
 		},
 

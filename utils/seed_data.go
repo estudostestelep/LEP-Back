@@ -12,24 +12,26 @@ import (
 
 // SeedData contains all sample data for database seeding
 type SeedData struct {
-	Organizations      []models.Organization
-	Projects           []models.Project
-	Users              []models.User
-	UserOrganizations  []models.UserOrganization
-	UserProjects       []models.UserProject
-	Customers          []models.Customer
-	Menus              []models.Menu
-	Categories         []models.Category
-	Tags               []models.Tag
-	Products           []models.Product
-	ProductTags        []models.ProductTag
-	Tables             []models.Table
-	Orders             []models.Order
-	Reservations       []models.Reservation
-	Waitlists          []models.Waitlist
-	Environments       []models.Environment
-	Settings           []models.Settings
-	Templates          []models.NotificationTemplate
+	Organizations          []models.Organization
+	Projects               []models.Project
+	Users                  []models.User
+	UserOrganizations      []models.UserOrganization
+	UserProjects           []models.UserProject
+	Customers              []models.Customer
+	Menus                  []models.Menu
+	Categories             []models.Category
+	Subcategories          []models.Subcategory
+	SubcategoryCategories  []models.SubcategoryCategory
+	Tags                   []models.Tag
+	Products               []models.Product
+	ProductTags            []models.ProductTag
+	Tables                 []models.Table
+	Orders                 []models.Order
+	Reservations           []models.Reservation
+	Waitlists              []models.Waitlist
+	Environments           []models.Environment
+	Settings               []models.Settings
+	Templates              []models.NotificationTemplate
 }
 
 // Base IDs for consistent relationships
@@ -648,6 +650,9 @@ func GenerateCompleteData() *SeedData {
 				UpdatedAt:      now,
 			},
 		},
+
+		Subcategories:        []models.Subcategory{},
+		SubcategoryCategories: []models.SubcategoryCategory{},
 
 		Settings: []models.Settings{
 			{

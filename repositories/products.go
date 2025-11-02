@@ -18,6 +18,7 @@ type IProductRepository interface {
 	GetProductsByIds(ids []uuid.UUID) ([]models.Product, error)
 	GetProductByPurchase(id string) ([]models.Product, error)
 	ListProducts(OrganizationId, projectId uuid.UUID) ([]models.Product, error)
+	ListProductsWithTags(organizationId, projectId uuid.UUID) ([]models.Product, error)
 	ListProductsWithFilters(organizationId, projectId uuid.UUID, filters interface{}) ([]models.Product, error)
 	CreateProduct(product *models.Product) error
 	UpdateProduct(product *models.Product) error
@@ -53,6 +54,18 @@ func (r *resourceProduct) GetProductById(id uuid.UUID) (*models.Product, error) 
 func (r *resourceProduct) ListProducts(OrganizationId, projectId uuid.UUID) ([]models.Product, error) {
 	var products []models.Product
 	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&products).Error
+	return products, err
+}
+
+// ListProductsWithTags retorna produtos com tags eager-loaded
+func (r *resourceProduct) ListProductsWithTags(organizationId, projectId uuid.UUID) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.
+		Preload("Tags", func(db *gorm.DB) *gorm.DB {
+			return db.Where("active = ?", true).Where("entity_type = ?", "product")
+		}).
+		Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", organizationId, projectId).
+		Find(&products).Error
 	return products, err
 }
 

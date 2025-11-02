@@ -54,4 +54,7 @@ type Product struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+
+	// Relacionamento muitos-para-muitos com Tags (para eager loading)
+	Tags []Tag `gorm:"many2many:product_tags;" json:"tags,omitempty"`
 }

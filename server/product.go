@@ -176,6 +176,9 @@ func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
+	// Verificar se deve incluir tags
+	includeTags := c.Query("includeTags") == "true"
+
 	// Verificar se há filtros nos query parameters
 	categoryIdStr := c.Query("category_id")
 	subcategoryIdStr := c.Query("subcategory_id")
@@ -238,7 +241,19 @@ func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
 		return
 	}
 
-	// Sem filtros, usar listagem normal
+	// Se includeTags=true, usar listagem com tags
+	if includeTags {
+		products, err := r.handler.HandlerProducts.ListProductsWithTags(organizationId, projectId)
+		if err != nil {
+			utils.SendInternalServerError(c, "Error listing products with tags", err)
+			return
+		}
+
+		c.JSON(http.StatusOK, products)
+		return
+	}
+
+	// Sem filtros e sem tags, usar listagem normal
 	products, err := r.handler.HandlerProducts.ListProducts(organizationId, projectId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error listing products", err)
