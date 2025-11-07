@@ -32,6 +32,7 @@ type SeedData struct {
 	Environments           []models.Environment
 	Settings               []models.Settings
 	DisplaySettings        []models.ProjectDisplaySettings
+	ThemeCustomizations    []models.ThemeCustomization
 	Templates              []models.NotificationTemplate
 }
 
@@ -727,6 +728,24 @@ func GenerateCompleteData() *SeedData {
 				ShowDescription: true,
 				CreatedAt:       now,
 				UpdatedAt:       now,
+			},
+		},
+
+		ThemeCustomizations: []models.ThemeCustomization{
+			{
+				ID:                  uuid.MustParse("e23e4567-e89b-12d3-a456-426614174001"),
+				ProjectID:           SampleProjectID,
+				OrganizationID:      SampleOrgID,
+				PrimaryColor:        "#FF6B35",      // Laranja/Vermelho quente - estimula apetite
+				SecondaryColor:      "#F4A261",      // Amarelo/Ouro - acolhimento
+				BackgroundColor:     "#09090b",      // Fundo escuro
+				CardBackgroundColor: "#18181b",      // Card fundo escuro
+				TextColor:           "#fafafa",      // Texto principal branco
+				TextSecondaryColor:  "#a1a1aa",      // Texto secundário cinza
+				AccentColor:         "#FF9F1C",      // Laranja vibrante - destaque
+				IsActive:            true,
+				CreatedAt:           now,
+				UpdatedAt:           now,
 			},
 		},
 

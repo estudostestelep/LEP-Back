@@ -13,8 +13,8 @@ type ThemeCustomization struct {
 	OrganizationID uuid.UUID `json:"organization_id" gorm:"not null"`
 
 	// Cores do tema - valores HEX (ex: #ffffff, #000000)
-	PrimaryColor        string `json:"primary_color" gorm:"default:'#3b82f6'"`           // Azul principal
-	SecondaryColor      string `json:"secondary_color" gorm:"default:'#8b5cf6'"`        // Roxo secundário
+	PrimaryColor        string `json:"primary_color" gorm:"default:'#0F172A'"`          // Cinza/Neutra principal
+	SecondaryColor      string `json:"secondary_color" gorm:"default:'#1E293B'"`        // Cinza secundário
 	BackgroundColor     string `json:"background_color" gorm:"default:'#09090b'"`       // Fundo escuro
 	CardBackgroundColor string `json:"card_background_color" gorm:"default:'#18181b'"` // Fundo do card
 	TextColor           string `json:"text_color" gorm:"default:'#fafafa'"`             // Texto principal
