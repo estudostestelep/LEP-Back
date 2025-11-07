@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"fmt"
 	"lep/repositories/models"
 	"time"
 
@@ -46,7 +47,10 @@ func (r *WaitlistRepository) ListWaitlists(OrganizationId, projectId uuid.UUID) 
 }
 
 func (r *WaitlistRepository) UpdateWaitlist(waitlist *models.Waitlist) error {
-	return r.db.Save(waitlist).Error
+	if waitlist.Id == uuid.Nil {
+		return fmt.Errorf("waitlist ID cannot be empty")
+	}
+	return r.db.Model(waitlist).Where("id = ?", waitlist.Id).Updates(waitlist).Error
 }
 
 func (r *WaitlistRepository) SoftDeleteWaitlist(id uuid.UUID) error {

@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"fmt"
 	"lep/repositories/models"
 	"time"
 
@@ -48,7 +49,10 @@ func (r *ReservationRepository) ListReservations(OrganizationId, projectId uuid.
 }
 
 func (r *ReservationRepository) UpdateReservation(reservation *models.Reservation) error {
-	return r.db.Save(reservation).Error
+	if reservation.Id == uuid.Nil {
+		return fmt.Errorf("reservation ID cannot be empty")
+	}
+	return r.db.Model(reservation).Where("id = ?", reservation.Id).Updates(reservation).Error
 }
 
 func (r *ReservationRepository) SoftDeleteReservation(id uuid.UUID) error {

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"reflect"
 
 	"github.com/gin-gonic/gin"
 )
@@ -115,15 +116,19 @@ func IsMasterAdmin(c *gin.Context) bool {
 
 	// Handle both []string and pq.StringArray types
 	var permissions []string
-	switch v := userPermissions.(type) {
-	case []string:
-		permissions = v
-	default:
-		// Try to convert to []string for other array types
-		if arr, ok := v.([]interface{}); ok {
-			for _, item := range arr {
-				if str, ok := item.(string); ok {
-					permissions = append(permissions, str)
+
+	// Try direct cast first
+	if strArr, ok := userPermissions.([]string); ok {
+		permissions = strArr
+	} else {
+		// Use reflection to iterate over pq.StringArray
+		// pq.StringArray is an array type, so we can use reflection to access elements
+		val := reflect.ValueOf(userPermissions)
+		if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
+			for i := 0; i < val.Len(); i++ {
+				elem := val.Index(i)
+				if elem.Kind() == reflect.String {
+					permissions = append(permissions, elem.String())
 				}
 			}
 		}

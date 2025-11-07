@@ -48,6 +48,8 @@ func SetupRoutes(r *gin.Engine) {
 	setupOrderRoutes(protected)
 	setupProjectRoutes(protected)
 	setupSettingsRoutes(protected)
+	setupDisplaySettingsRoutes(protected)
+	setupThemeCustomizationRoutes(protected)
 	setupEnvironmentRoutes(protected)
 	setupReportsRoutes(protected)
 	setupTagRoutes(protected)
@@ -216,6 +218,28 @@ func setupSettingsRoutes(r gin.IRouter) {
 	}
 }
 
+// setupDisplaySettingsRoutes configura rotas para configurações de exibição de produtos
+func setupDisplaySettingsRoutes(r gin.IRouter) {
+	displaySettingsRoutes := r.Group("/project/settings/display")
+	{
+		displaySettingsRoutes.GET("", resource.ServersControllers.SourceDisplaySettings.GetDisplaySettings)
+		displaySettingsRoutes.PUT("", resource.ServersControllers.SourceDisplaySettings.UpdateDisplaySettings)
+		displaySettingsRoutes.POST("/reset", resource.ServersControllers.SourceDisplaySettings.ResetDisplaySettings)
+	}
+}
+
+// setupThemeCustomizationRoutes configura rotas para customização de tema
+func setupThemeCustomizationRoutes(r gin.IRouter) {
+	themeRoutes := r.Group("/project/settings/theme")
+	{
+		themeRoutes.GET("", resource.ServersControllers.SourceThemeCustomization.GetTheme)
+		themeRoutes.POST("", resource.ServersControllers.SourceThemeCustomization.CreateOrUpdateTheme)
+		themeRoutes.PUT("", resource.ServersControllers.SourceThemeCustomization.CreateOrUpdateTheme)
+		themeRoutes.POST("/reset", resource.ServersControllers.SourceThemeCustomization.ResetTheme)
+		themeRoutes.DELETE("", resource.ServersControllers.SourceThemeCustomization.DeleteTheme)
+	}
+}
+
 // setupEnvironmentRoutes configura rotas para ambientes
 func setupEnvironmentRoutes(r gin.IRouter) {
 	environmentRoutes := r.Group("/environment")
@@ -348,14 +372,39 @@ func setupTagRoutes(r gin.IRouter) {
 func setupMenuRoutes(r gin.IRouter) {
 	menuRoutes := r.Group("/menu")
 	{
+		// ✨ Rotas de seleção inteligente (GET - sem proteção adicional)
+		menuRoutes.GET("/active-now", resource.ServersControllers.SourceMenu.ServiceGetActiveMenu)
+		menuRoutes.GET("/options", resource.ServersControllers.SourceMenu.ServiceGetMenuOptions)
+
+		// Rotas de seleção (PUT/DELETE) - Master Admin Only
+		menuRoutes.PUT("/:id/manual-override",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceMenu.ServiceSetMenuAsManualOverride)
+		menuRoutes.DELETE("/manual-override",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceMenu.ServiceRemoveManualOverride)
+
+		// Rotas padrão (mais genéricas - devem vir depois)
 		menuRoutes.GET("/:id", resource.ServersControllers.SourceMenu.ServiceGetMenu)
 		menuRoutes.GET("", resource.ServersControllers.SourceMenu.ServiceListMenus)
 		menuRoutes.GET("/active", resource.ServersControllers.SourceMenu.ServiceListActiveMenus)
-		menuRoutes.POST("", resource.ServersControllers.SourceMenu.ServiceCreateMenu)
-		menuRoutes.PUT("/:id", resource.ServersControllers.SourceMenu.ServiceUpdateMenu)
-		menuRoutes.PUT("/:id/order", resource.ServersControllers.SourceMenu.ServiceUpdateMenuOrder)
-		menuRoutes.PUT("/:id/status", resource.ServersControllers.SourceMenu.ServiceUpdateMenuStatus)
-		menuRoutes.DELETE("/:id", resource.ServersControllers.SourceMenu.ServiceDeleteMenu)
+
+		// Rotas de modificação - Master Admin Only
+		menuRoutes.POST("",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceMenu.ServiceCreateMenu)
+		menuRoutes.PUT("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceMenu.ServiceUpdateMenu)
+		menuRoutes.PUT("/:id/order",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceMenu.ServiceUpdateMenuOrder)
+		menuRoutes.PUT("/:id/status",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceMenu.ServiceUpdateMenuStatus)
+		menuRoutes.DELETE("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceMenu.ServiceDeleteMenu)
 	}
 }
 
@@ -363,15 +412,28 @@ func setupMenuRoutes(r gin.IRouter) {
 func setupCategoryRoutes(r gin.IRouter) {
 	categoryRoutes := r.Group("/category")
 	{
+		// GET routes (sem proteção adicional)
 		categoryRoutes.GET("/:id", resource.ServersControllers.SourceCategory.ServiceGetCategory)
 		categoryRoutes.GET("", resource.ServersControllers.SourceCategory.ServiceListCategories)
 		categoryRoutes.GET("/active", resource.ServersControllers.SourceCategory.ServiceListActiveCategories)
 		categoryRoutes.GET("/menu/:menuId", resource.ServersControllers.SourceCategory.ServiceGetCategoriesByMenu)
-		categoryRoutes.POST("", resource.ServersControllers.SourceCategory.ServiceCreateCategory)
-		categoryRoutes.PUT("/:id", resource.ServersControllers.SourceCategory.ServiceUpdateCategory)
-		categoryRoutes.PUT("/:id/order", resource.ServersControllers.SourceCategory.ServiceUpdateCategoryOrder)
-		categoryRoutes.PUT("/:id/status", resource.ServersControllers.SourceCategory.ServiceUpdateCategoryStatus)
-		categoryRoutes.DELETE("/:id", resource.ServersControllers.SourceCategory.ServiceDeleteCategory)
+
+		// POST, PUT, DELETE - Master Admin Only
+		categoryRoutes.POST("",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceCategory.ServiceCreateCategory)
+		categoryRoutes.PUT("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceCategory.ServiceUpdateCategory)
+		categoryRoutes.PUT("/:id/order",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceCategory.ServiceUpdateCategoryOrder)
+		categoryRoutes.PUT("/:id/status",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceCategory.ServiceUpdateCategoryStatus)
+		categoryRoutes.DELETE("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceCategory.ServiceDeleteCategory)
 	}
 }
 

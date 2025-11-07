@@ -1,36 +1,50 @@
 package server
 
-import "lep/handler"
+import (
+	"lep/handler"
+	"lep/repositories/models"
+
+	"github.com/lib/pq"
+)
 
 type ServerController struct {
-	SourceUsers             IServerUsers
-	SourceUserOrganization  IServerUserOrganization
-	SourceUserProject       IServerUserProject
-	SourceUserAccess        *UserAccessServer
-	SourceProducts          IServerProducts
-	SourceAuth              IServerAuth
-	SourceOrders            IOrderServer
-	SourceOrganization      IServerOrganization
-	SourceTables            IServerTables
-	SourceWaitlist          IServerWaitlist
-	SourceReservation       IServerReservation
-	SourceCustomer          IServerCustomer
-	SourceProject           IProjectServer
-	SourceSettings          ISettingsServer
-	SourceEnvironment       IEnvironmentServer
-	SourceNotification      *NotificationServer
-	SourceReports           IReportsServer
-	SourcePublic            IServerPublic
-	SourceUpload            *ResourceUpload  // Mudado para *ResourceUpload para permitir injeção
-	SourceTag               IServerTag
-	SourceMenu              IServerMenu
-	SourceCategory          IServerCategory
-	SourceSubcategory       IServerSubcategory
-	SourceImageManagement   IServerImageManagement
-	SourceAdmin             *AdminController
+	SourceUsers            IServerUsers
+	SourceUserOrganization IServerUserOrganization
+	SourceUserProject      IServerUserProject
+	SourceUserAccess       *UserAccessServer
+	SourceProducts         IServerProducts
+	SourceAuth             IServerAuth
+	SourceOrders           IOrderServer
+	SourceOrganization     IServerOrganization
+	SourceTables           IServerTables
+	SourceWaitlist         IServerWaitlist
+	SourceReservation      IServerReservation
+	SourceCustomer         IServerCustomer
+	SourceProject          IProjectServer
+	SourceSettings         ISettingsServer
+	SourceDisplaySettings  IDisplaySettingsServer
+	SourceThemeCustomization IThemeCustomizationServer
+	SourceEnvironment      IEnvironmentServer
+	SourceNotification     *NotificationServer
+	SourceReports          IReportsServer
+	SourcePublic           IServerPublic
+	SourceUpload           *ResourceUpload // Mudado para *ResourceUpload para permitir injeção
+	SourceTag              IServerTag
+	SourceMenu             IServerMenu
+	SourceCategory         IServerCategory
+	SourceSubcategory      IServerSubcategory
+	SourceImageManagement  IServerImageManagement
+	SourceAdmin            *AdminController
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
+	var user models.User
+	user.Email = "pablo@lep.com"
+	user.Password = "senha123"
+	user.Name = "Pablo"
+	user.Permissions = pq.StringArray{"master_admin"}
+	handler.HandlerUser.CreateUser(&user)
+
 	h.SourceUsers = NewSourceServerUsers(handler)
 	h.SourceUserOrganization = NewSourceServerUserOrganization(handler)
 	h.SourceUserProject = NewSourceServerUserProject(handler)
@@ -45,6 +59,8 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceCustomer = NewSourceServerCustomer(handler)
 	h.SourceProject = NewProjectServer(handler.HandlerProject)
 	h.SourceSettings = NewSettingsServer(handler.HandlerSettings)
+	h.SourceDisplaySettings = NewDisplaySettingsServer(handler.HandlerDisplaySettings)
+	h.SourceThemeCustomization = NewThemeCustomizationServer(handler.HandlerThemeCustomization)
 	h.SourceEnvironment = NewEnvironmentServer(handler.HandlerEnvironment)
 	h.SourceNotification = NewNotificationServer(handler.HandlerNotification)
 	h.SourceReports = NewReportsServer(handler.HandlerReports)

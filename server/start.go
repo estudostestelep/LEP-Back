@@ -40,6 +40,8 @@ func Start(db *gorm.DB) {
 		// SPRINT 1 models
 		&models.Project{},
 		&models.Settings{},
+		&models.ProjectDisplaySettings{}, // Product display visibility settings
+		&models.ThemeCustomization{},     // Theme customization colors
 		&models.Environment{},
 
 		// SPRINT 2 models (Notification System)

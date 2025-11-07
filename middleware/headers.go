@@ -5,6 +5,7 @@ import (
 	"lep/config"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -60,6 +61,20 @@ func HeaderValidationMiddleware() gin.HandlerFunc {
 		c.Set("organization_id", organizationId)
 		c.Set("project_id", projectId)
 
+		// For POST /menu and POST /category, only validate token presence
+		if (path == "/menu" || path == "/category") && method == "POST" {
+			tokenString := c.GetHeader("Authorization")
+			if tokenString == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "Authorization token is required",
+				})
+				c.Abort()
+				return
+			}
+			c.Next()
+			return
+		}
+
 		// Validar se o usuário logado tem acesso à org e projeto (exceto rotas públicas)
 		if err := validateUserAccess(c, organizationId, projectId); err != nil {
 			c.JSON(http.StatusForbidden, gin.H{
@@ -93,7 +108,12 @@ func validateUserAccess(c *gin.Context, orgId, projId string) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("token inválido")
+		return fmt.Errorf("token inválido: %v", err)
+	}
+
+	// Verificar se o token é válido
+	if !token.Valid {
+		return fmt.Errorf("token expirado ou inválido")
 	}
 
 	// Extrair claims
@@ -110,6 +130,13 @@ func validateUserAccess(c *gin.Context, orgId, projId string) error {
 	userId, ok := userIdInterface.(string)
 	if !ok {
 		return fmt.Errorf("user_id inválido no token")
+	}
+
+	// Verificar expiração do token
+	if exp, ok := claims["exp"].(float64); ok {
+		if time.Now().Unix() > int64(exp) {
+			return fmt.Errorf("token expirado")
+		}
 	}
 
 	// Armazenar user_id no contexto para uso posterior

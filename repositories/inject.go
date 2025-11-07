@@ -21,6 +21,8 @@ type DBconn struct {
 	KitchenQueue        IKitchenQueueRepository
 	Projects            IProjectRepository
 	Settings            ISettingsRepository
+	DisplaySettings     IDisplaySettingsRepository
+	ThemeCustomization  IThemeCustomizationRepository
 	Environments        IEnvironmentRepository
 	Notifications       INotificationRepository
 	Tags                ITagRepository
@@ -48,6 +50,8 @@ func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.KitchenQueue = NewKitchenQueueRepository(db)
 	r.Projects = NewProjectRepository(db)
 	r.Settings = NewSettingsRepository(db)
+	r.DisplaySettings = NewDisplaySettingsRepository(db)
+	r.ThemeCustomization = NewThemeCustomizationRepository(db)
 	r.Environments = NewEnvironmentRepository(db)
 	r.Notifications = NewNotificationRepository(db)
 	r.Tags = NewConnTag(db)

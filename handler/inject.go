@@ -22,6 +22,8 @@ type Handlers struct {
 	HandlerCustomer           IHandlerCustomer
 	HandlerProject            IProjectHandler
 	HandlerSettings           ISettingsHandler
+	HandlerDisplaySettings    IDisplaySettingsHandler
+	HandlerThemeCustomization IThemeCustomizationHandler
 	HandlerEnvironment        IEnvironmentHandler
 	HandlerNotification       *NotificationHandler
 	HandlerReports            IReportsHandler
@@ -48,6 +50,8 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerCustomer = NewSourceHandlerCustomer(repo)
 	h.HandlerProject = NewProjectHandler(repo.Projects, repo.Settings, repo.Notifications)
 	h.HandlerSettings = NewSettingsHandler(repo.Settings)
+	h.HandlerDisplaySettings = NewDisplaySettingsHandler(repo.DisplaySettings)
+	h.HandlerThemeCustomization = NewThemeCustomizationHandler(repo.ThemeCustomization)
 	h.HandlerEnvironment = NewEnvironmentHandler(repo.Environments)
 	h.HandlerNotification = NewNotificationHandler(repo.Notifications, repo.Projects)
 	h.HandlerReports = NewReportsHandler(repo)

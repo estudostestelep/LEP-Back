@@ -31,6 +31,7 @@ type SeedData struct {
 	Waitlists              []models.Waitlist
 	Environments           []models.Environment
 	Settings               []models.Settings
+	DisplaySettings        []models.ProjectDisplaySettings
 	Templates              []models.NotificationTemplate
 }
 
@@ -48,10 +49,12 @@ var (
 	AdminEduardoID = uuid.MustParse("123e4567-e89b-12d3-a456-426614174012")
 
 	// Menu & Category IDs
-	SampleMenuID      = uuid.MustParse("d23e4567-e89b-12d3-a456-426614174001")
-	CategoryPratosID  = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174001")
-	CategoryBebidasID = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174002")
-	CategoryVinhosID  = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174003")
+	SampleMenuID       = uuid.MustParse("d23e4567-e89b-12d3-a456-426614174001")
+	SampleMenuID2      = uuid.MustParse("d23e4567-e89b-12d3-a456-426614174002") // Lunch Menu
+	SampleMenuID3      = uuid.MustParse("d23e4567-e89b-12d3-a456-426614174003") // Dinner Menu
+	CategoryPratosID   = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174001")
+	CategoryBebidasID  = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174002")
+	CategoryVinhosID   = uuid.MustParse("c23e4567-e89b-12d3-a456-426614174003")
 
 	// Tag IDs
 	TagVegetarianoID = uuid.MustParse("123e4567-e89b-12d3-a456-426614174101")
@@ -69,6 +72,18 @@ func hashPassword(password string) string {
 		return password
 	}
 	return string(hashedPassword)
+}
+
+// timePtr creates a TIME from hour, minute, second
+func timePtr(hour, minute, second int) *time.Time {
+	now := time.Now()
+	t := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, second, 0, now.Location())
+	return &t
+}
+
+// stringPtr creates a pointer to a string
+func stringPtr(s string) *string {
+	return &s
 }
 
 // GenerateCompleteData creates a complete set of realistic sample data
@@ -327,14 +342,52 @@ func GenerateCompleteData() *SeedData {
 
 		Menus: []models.Menu{
 			{
-				Id:             SampleMenuID,
-				OrganizationId: SampleOrgID,
-				ProjectId:      SampleProjectID,
-				Name:           "Cardápio Principal",
-				Order:          1,
-				Active:         true,
-				CreatedAt:      now,
-				UpdatedAt:      now,
+				Id:               SampleMenuID,
+				OrganizationId:   SampleOrgID,
+				ProjectId:        SampleProjectID,
+				Name:             "Cardápio Principal (Padrão)",
+				Order:            3,
+				Active:           true,
+				Priority:         999, // Fallback padrão
+				IsManualOverride: false,
+				TimeRangeStart:   nil, // Sem restrição de horário
+				TimeRangeEnd:     nil,
+				ApplicableDays:   nil, // Disponível em todos os dias
+				ApplicableDates:  nil,
+				CreatedAt:        now,
+				UpdatedAt:        now,
+			},
+			{
+				Id:               SampleMenuID2,
+				OrganizationId:   SampleOrgID,
+				ProjectId:        SampleProjectID,
+				Name:             "Menu Almoço (11:00 - 15:00)",
+				Order:            1,
+				Active:           true,
+				Priority:         100, // Alta prioridade durante horário
+				IsManualOverride: false,
+				TimeRangeStart:   timePtr(11, 0, 0),   // 11:00 AM
+				TimeRangeEnd:     timePtr(15, 0, 0),   // 3:00 PM
+				ApplicableDays:   stringPtr("[1,2,3,4,5]"), // Segunda a Sexta
+				ApplicableDates:  nil,
+				CreatedAt:        now,
+				UpdatedAt:        now,
+			},
+			{
+				Id:               SampleMenuID3,
+				OrganizationId:   SampleOrgID,
+				ProjectId:        SampleProjectID,
+				Name:             "Menu Jantar (18:00 - 23:00)",
+				Order:            2,
+				Active:           true,
+				Priority:         50, // Maior prioridade que o almoço
+				IsManualOverride: false,
+				TimeRangeStart:   timePtr(18, 0, 0),   // 6:00 PM
+				TimeRangeEnd:     timePtr(23, 0, 0),   // 11:00 PM
+				ApplicableDays:   stringPtr("[0,1,2,3,4,5,6]"), // Todos os dias
+				ApplicableDates:  nil,
+				CreatedAt:        now,
+				UpdatedAt:        now,
 			},
 		},
 
@@ -661,6 +714,19 @@ func GenerateCompleteData() *SeedData {
 				ProjectId:      SampleProjectID,
 				CreatedAt:      now,
 				UpdatedAt:      now,
+			},
+		},
+
+		DisplaySettings: []models.ProjectDisplaySettings{
+			{
+				ID:              uuid.MustParse("c23e4567-e89b-12d3-a456-426614174010"),
+				ProjectID:       SampleProjectID,
+				OrganizationID:  SampleOrgID,
+				ShowPrepTime:    true,
+				ShowRating:      true,
+				ShowDescription: true,
+				CreatedAt:       now,
+				UpdatedAt:       now,
 			},
 		},
 

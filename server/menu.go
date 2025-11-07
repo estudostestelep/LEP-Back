@@ -24,6 +24,12 @@ type IServerMenu interface {
 	ServiceUpdateMenuOrder(c *gin.Context)
 	ServiceUpdateMenuStatus(c *gin.Context)
 	ServiceDeleteMenu(c *gin.Context)
+
+	// ✨ Novos endpoints para seleção inteligente de cardápio
+	ServiceGetMenuOptions(c *gin.Context)
+	ServiceGetActiveMenu(c *gin.Context)
+	ServiceSetMenuAsManualOverride(c *gin.Context)
+	ServiceRemoveManualOverride(c *gin.Context)
 }
 
 func (r *ResourceMenu) ServiceGetMenu(c *gin.Context) {
@@ -239,6 +245,75 @@ func (r *ResourceMenu) ServiceDeleteMenu(c *gin.Context) {
 	}
 
 	utils.SendOKSuccess(c, "Menu deleted successfully", nil)
+}
+
+// ✨ ServiceGetMenuOptions retorna lista de opções de cardápio
+func (r *ResourceMenu) ServiceGetMenuOptions(c *gin.Context) {
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	resp, err := r.handler.HandlerMenu.GetMenuOptions(organizationId, projectId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error listing menu options", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// ✨ ServiceGetActiveMenu retorna o cardápio ativo com lógica de seleção automática
+func (r *ResourceMenu) ServiceGetActiveMenu(c *gin.Context) {
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	resp, err := r.handler.HandlerMenu.GetActiveMenuByTimeRange(organizationId, projectId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting active menu", err)
+		return
+	}
+
+	if resp == nil {
+		utils.SendNotFoundError(c, "Active menu")
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// ✨ ServiceSetMenuAsManualOverride define um cardápio como override manual
+func (r *ResourceMenu) ServiceSetMenuAsManualOverride(c *gin.Context) {
+	idStr := c.Param("id")
+
+	_, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid menu ID format", err)
+		return
+	}
+
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	err = r.handler.HandlerMenu.SetMenuAsManualOverride(organizationId, projectId, idStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error setting menu as manual override", err)
+		return
+	}
+
+	utils.SendOKSuccess(c, "Menu set as manual override successfully", nil)
+}
+
+// ✨ ServiceRemoveManualOverride remove o override manual
+func (r *ResourceMenu) ServiceRemoveManualOverride(c *gin.Context) {
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	err := r.handler.HandlerMenu.RemoveManualOverride(organizationId, projectId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error removing manual override", err)
+		return
+	}
+
+	utils.SendOKSuccess(c, "Manual override removed successfully", nil)
 }
 
 func NewSourceServerMenu(handler *handler.Handlers) IServerMenu {

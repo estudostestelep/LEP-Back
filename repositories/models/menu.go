@@ -10,16 +10,24 @@ import (
 
 // Menu (Cardápio principal)
 type Menu struct {
-	Id             uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
-	OrganizationId uuid.UUID  `json:"organization_id" gorm:"not null"`
-	ProjectId      uuid.UUID  `json:"project_id" gorm:"not null"`
-	Name           string     `json:"name" gorm:"not null"`
-	Styling        *string    `json:"styling,omitempty" gorm:"type:json"` // JSON com configs visuais
-	Order          int        `json:"order" gorm:"default:0"`
-	Active         bool       `json:"active" gorm:"default:true"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+	Id                uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
+	OrganizationId    uuid.UUID  `json:"organization_id" gorm:"not null"`
+	ProjectId         uuid.UUID  `json:"project_id" gorm:"not null"`
+	Name              string     `json:"name" gorm:"not null"`
+	Styling           *string    `json:"styling,omitempty" gorm:"type:json"` // JSON com configs visuais
+	Order             int        `json:"order" gorm:"default:0"`
+	Active            bool       `json:"active" gorm:"default:true"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	DeletedAt         *time.Time `json:"deleted_at,omitempty"`
+
+	// ✨ Novos campos para seleção automática de cardápio
+	TimeRangeStart    *time.Time `json:"time_range_start,omitempty" gorm:"column:time_range_start"`           // Horário de início (ex: 11:00)
+	TimeRangeEnd      *time.Time `json:"time_range_end,omitempty" gorm:"column:time_range_end"`             // Horário de fim (ex: 15:00)
+	Priority          int        `json:"priority" gorm:"default:999"`                                         // Prioridade (0 = maior)
+	IsManualOverride  bool       `json:"is_manual_override" gorm:"default:false"`                             // Se está como override manual
+	ApplicableDays    *string    `json:"applicable_days,omitempty" gorm:"type:json"`                          // Array JSON: [0,1,2,3,4] = dias da semana
+	ApplicableDates   *string    `json:"applicable_dates,omitempty" gorm:"type:json"`                         // Array JSON: ["2025-12-25", "2025-01-01"]
 }
 
 // Category (Categoria do cardápio)
