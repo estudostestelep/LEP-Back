@@ -36,6 +36,13 @@ func SetupRoutes(r *gin.Engine) {
 	protected.POST("/checkToken", resource.ServersControllers.SourceAuth.ServiceValidateToken)
 
 	// Protected routes (require authentication and organization/project headers)
+	// IMPORTANT: Specific routes MUST be registered before generic routes with path parameters
+	// Register all specific settings routes first to avoid conflicts with /project/:id
+	setupSettingsRoutes(protected)
+	setupDisplaySettingsRoutes(protected)
+	setupThemeCustomizationRoutes(protected)
+
+	// Then register generic project routes
 	setupOrganizationRoutes(protected)
 	setupUserRoutes(protected)
 	setupUserOrganizationRoutes(protected)
@@ -47,9 +54,6 @@ func SetupRoutes(r *gin.Engine) {
 	setupCustomerRoutes(protected)
 	setupOrderRoutes(protected)
 	setupProjectRoutes(protected)
-	setupSettingsRoutes(protected)
-	setupDisplaySettingsRoutes(protected)
-	setupThemeCustomizationRoutes(protected)
 	setupEnvironmentRoutes(protected)
 	setupReportsRoutes(protected)
 	setupTagRoutes(protected)
@@ -372,8 +376,10 @@ func setupTagRoutes(r gin.IRouter) {
 func setupMenuRoutes(r gin.IRouter) {
 	menuRoutes := r.Group("/menu")
 	{
-		// ✨ Rotas de seleção inteligente (GET - sem proteção adicional)
+		// ✨ IMPORTANT: Specific routes FIRST to avoid conflicts with /:id pattern
+		// Rotas de seleção inteligente (GET - sem proteção adicional)
 		menuRoutes.GET("/active-now", resource.ServersControllers.SourceMenu.ServiceGetActiveMenu)
+		menuRoutes.GET("/active", resource.ServersControllers.SourceMenu.ServiceListActiveMenus)
 		menuRoutes.GET("/options", resource.ServersControllers.SourceMenu.ServiceGetMenuOptions)
 
 		// Rotas de seleção (PUT/DELETE) - Master Admin Only
@@ -384,10 +390,9 @@ func setupMenuRoutes(r gin.IRouter) {
 			middleware.MasterAdminOnlyMiddleware(),
 			resource.ServersControllers.SourceMenu.ServiceRemoveManualOverride)
 
-		// Rotas padrão (mais genéricas - devem vir depois)
+		// Rotas padrão (mais genéricas - devem vir por último)
 		menuRoutes.GET("/:id", resource.ServersControllers.SourceMenu.ServiceGetMenu)
 		menuRoutes.GET("", resource.ServersControllers.SourceMenu.ServiceListMenus)
-		menuRoutes.GET("/active", resource.ServersControllers.SourceMenu.ServiceListActiveMenus)
 
 		// Rotas de modificação - Master Admin Only
 		menuRoutes.POST("",
