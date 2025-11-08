@@ -69,6 +69,7 @@ func (s *ThemeCustomizationServer) CreateOrUpdateTheme(c *gin.Context) {
 
 	// Converter DTO para model
 	themeData := &models.ThemeCustomization{
+		// ==================== CORES PRINCIPAIS (7 campos) ====================
 		PrimaryColor:        themeRequest.PrimaryColor,
 		SecondaryColor:      themeRequest.SecondaryColor,
 		BackgroundColor:     themeRequest.BackgroundColor,
@@ -76,7 +77,20 @@ func (s *ThemeCustomizationServer) CreateOrUpdateTheme(c *gin.Context) {
 		TextColor:           themeRequest.TextColor,
 		TextSecondaryColor:  themeRequest.TextSecondaryColor,
 		AccentColor:         themeRequest.AccentColor,
-		IsActive:            themeRequest.IsActive,
+
+		// ==================== CORES SEMÂNTICAS (4 novos campos) ====================
+		DestructiveColor: themeRequest.DestructiveColor,
+		SuccessColor:     themeRequest.SuccessColor,
+		WarningColor:     themeRequest.WarningColor,
+		BorderColor:      themeRequest.BorderColor,
+
+		// ==================== CONFIGURAÇÕES DO SISTEMA (4 novos campos) ====================
+		DisabledOpacity:      themeRequest.DisabledOpacity,
+		FocusRingColor:       themeRequest.FocusRingColor,
+		InputBackgroundColor: themeRequest.InputBackgroundColor,
+		ShadowIntensity:      themeRequest.ShadowIntensity,
+
+		IsActive: themeRequest.IsActive,
 	}
 
 	theme, err := s.handler.CreateOrUpdateTheme(projectId, organizationId, themeData)

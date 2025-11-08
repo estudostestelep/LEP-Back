@@ -51,7 +51,12 @@
       "Bash(docker push:*)",
       "Bash(find:*)",
       "Bash(gcloud run logs read:*)",
-      "Bash(timeout 10 ./lep-system:*)"
+      "Bash(timeout 10 ./lep-system:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 5 go run:*)",
+      "Bash(npm run build:*)",
+      "Bash(dir /s /b *.md *.sh *.bat *.exe *.log 2)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []

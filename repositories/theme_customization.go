@@ -63,6 +63,16 @@ func (r *ThemeCustomizationRepository) ResetToDefaults(projectId uuid.UUID) (*mo
 
 	// Se não existe, cria com padrões
 	if err == gorm.ErrRecordNotFound {
+		// Criar values para os campos pointer
+		destructive := "#EF4444"
+		success := "#10B981"
+		warning := "#F59E0B"
+		border := "#E5E7EB"
+		disabledOpacity := 0.50
+		focusRing := "#3B82F6"
+		inputBg := "#FFFFFF"
+		shadowIntensity := 1.00
+
 		newTheme := &models.ThemeCustomization{
 			ID:                  uuid.New(),
 			ProjectID:           projectId,
@@ -73,9 +83,22 @@ func (r *ThemeCustomizationRepository) ResetToDefaults(projectId uuid.UUID) (*mo
 			TextColor:           "#fafafa",
 			TextSecondaryColor:  "#a1a1aa",
 			AccentColor:         "#ec4899",
-			IsActive:            false,
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+
+			// Cores semânticas
+			DestructiveColor: &destructive,
+			SuccessColor:     &success,
+			WarningColor:     &warning,
+			BorderColor:      &border,
+
+			// Configurações do sistema
+			DisabledOpacity:      &disabledOpacity,
+			FocusRingColor:       &focusRing,
+			InputBackgroundColor: &inputBg,
+			ShadowIntensity:      &shadowIntensity,
+
+			IsActive:  false,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
 		err = r.CreateTheme(newTheme)
 		if err != nil {
@@ -92,6 +115,27 @@ func (r *ThemeCustomizationRepository) ResetToDefaults(projectId uuid.UUID) (*mo
 	theme.TextColor = "#fafafa"
 	theme.TextSecondaryColor = "#a1a1aa"
 	theme.AccentColor = "#ec4899"
+
+	// Resetar cores semânticas
+	destructive := "#EF4444"
+	success := "#10B981"
+	warning := "#F59E0B"
+	border := "#E5E7EB"
+	theme.DestructiveColor = &destructive
+	theme.SuccessColor = &success
+	theme.WarningColor = &warning
+	theme.BorderColor = &border
+
+	// Resetar configurações do sistema
+	disabledOpacity := 0.50
+	focusRing := "#3B82F6"
+	inputBg := "#FFFFFF"
+	shadowIntensity := 1.00
+	theme.DisabledOpacity = &disabledOpacity
+	theme.FocusRingColor = &focusRing
+	theme.InputBackgroundColor = &inputBg
+	theme.ShadowIntensity = &shadowIntensity
+
 	theme.IsActive = false
 	theme.UpdatedAt = time.Now()
 
