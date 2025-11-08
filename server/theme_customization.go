@@ -69,26 +69,49 @@ func (s *ThemeCustomizationServer) CreateOrUpdateTheme(c *gin.Context) {
 
 	// Converter DTO para model
 	themeData := &models.ThemeCustomization{
-		// ==================== CORES PRINCIPAIS (7 campos) ====================
-		PrimaryColor:        themeRequest.PrimaryColor,
-		SecondaryColor:      themeRequest.SecondaryColor,
-		BackgroundColor:     themeRequest.BackgroundColor,
-		CardBackgroundColor: themeRequest.CardBackgroundColor,
-		TextColor:           themeRequest.TextColor,
-		TextSecondaryColor:  themeRequest.TextSecondaryColor,
-		AccentColor:         themeRequest.AccentColor,
+		// ==================== CORES PRINCIPAIS - LIGHT MODE (7 campos) ====================
+		PrimaryColorLight:        themeRequest.PrimaryColorLight,
+		SecondaryColorLight:      themeRequest.SecondaryColorLight,
+		BackgroundColorLight:     themeRequest.BackgroundColorLight,
+		CardBackgroundColorLight: themeRequest.CardBackgroundColorLight,
+		TextColorLight:           themeRequest.TextColorLight,
+		TextSecondaryColorLight:  themeRequest.TextSecondaryColorLight,
+		AccentColorLight:         themeRequest.AccentColorLight,
 
-		// ==================== CORES SEMÂNTICAS (4 novos campos) ====================
-		DestructiveColor: themeRequest.DestructiveColor,
-		SuccessColor:     themeRequest.SuccessColor,
-		WarningColor:     themeRequest.WarningColor,
-		BorderColor:      themeRequest.BorderColor,
+		// ==================== CORES PRINCIPAIS - DARK MODE (7 campos) ====================
+		PrimaryColorDark:        themeRequest.PrimaryColorDark,
+		SecondaryColorDark:      themeRequest.SecondaryColorDark,
+		BackgroundColorDark:     themeRequest.BackgroundColorDark,
+		CardBackgroundColorDark: themeRequest.CardBackgroundColorDark,
+		TextColorDark:           themeRequest.TextColorDark,
+		TextSecondaryColorDark:  themeRequest.TextSecondaryColorDark,
+		AccentColorDark:         themeRequest.AccentColorDark,
 
-		// ==================== CONFIGURAÇÕES DO SISTEMA (4 novos campos) ====================
-		DisabledOpacity:      themeRequest.DisabledOpacity,
-		FocusRingColor:       themeRequest.FocusRingColor,
-		InputBackgroundColor: themeRequest.InputBackgroundColor,
-		ShadowIntensity:      themeRequest.ShadowIntensity,
+		// ==================== CORES SEMÂNTICAS - LIGHT MODE (5 campos) ====================
+		DestructiveColorLight: themeRequest.DestructiveColorLight,
+		SuccessColorLight:     themeRequest.SuccessColorLight,
+		WarningColorLight:     themeRequest.WarningColorLight,
+		BorderColorLight:      themeRequest.BorderColorLight,
+		PriceColorLight:       themeRequest.PriceColorLight,
+
+		// ==================== CORES SEMÂNTICAS - DARK MODE (5 campos) ====================
+		DestructiveColorDark: themeRequest.DestructiveColorDark,
+		SuccessColorDark:     themeRequest.SuccessColorDark,
+		WarningColorDark:     themeRequest.WarningColorDark,
+		BorderColorDark:      themeRequest.BorderColorDark,
+		PriceColorDark:       themeRequest.PriceColorDark,
+
+		// ==================== SISTEMA - LIGHT MODE (2 campos) ====================
+		FocusRingColorLight:      themeRequest.FocusRingColorLight,
+		InputBackgroundColorLight: themeRequest.InputBackgroundColorLight,
+
+		// ==================== SISTEMA - DARK MODE (2 campos) ====================
+		FocusRingColorDark:       themeRequest.FocusRingColorDark,
+		InputBackgroundColorDark: themeRequest.InputBackgroundColorDark,
+
+		// ==================== CONFIGURAÇÕES NUMÉRICAS (2 campos) ====================
+		DisabledOpacity: themeRequest.DisabledOpacity,
+		ShadowIntensity: themeRequest.ShadowIntensity,
 
 		IsActive: themeRequest.IsActive,
 	}
