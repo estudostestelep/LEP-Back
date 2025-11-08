@@ -56,7 +56,18 @@
       "Bash(timeout 5 go run:*)",
       "Bash(npm run build:*)",
       "Bash(dir /s /b *.md *.sh *.bat *.exe *.log 2)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(go vet:*)",
+      "Bash(go fmt:*)",
+      "Bash(go list:*)",
+      "Bash(while read file)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)",
+      "Bash(go install:*)",
+      "Bash(goimports:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

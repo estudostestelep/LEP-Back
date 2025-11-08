@@ -33,7 +33,6 @@ var (
 	ENABLE_CRON_JOBS = getEnableCronJobs()
 	GIN_MODE         = getGinMode()
 	LOG_LEVEL        = getLogLevel()
-	DISABLE_AUTO_SEED = getDisableAutoSeed()
 
 	// Storage configuration
 	STORAGE_TYPE        = getStorageType()
@@ -190,23 +189,3 @@ func IsGCSStorage() bool {
 	return STORAGE_TYPE == "gcs" || STORAGE_TYPE == "stage" || STORAGE_TYPE == "prod"
 }
 
-// getDisableAutoSeed returns whether auto-seeding should be disabled
-func getDisableAutoSeed() bool {
-	autoSeed := os.Getenv("DISABLE_AUTO_SEED")
-	if autoSeed == "" {
-		// Default: allow auto-seed in all environments
-		return false
-	}
-
-	disabled, err := strconv.ParseBool(autoSeed)
-	if err != nil {
-		log.Printf("Warning: Invalid DISABLE_AUTO_SEED value '%s', defaulting to false", autoSeed)
-		return false
-	}
-	return disabled
-}
-
-// IsAutoSeedEnabled returns true if auto-seeding is enabled
-func IsAutoSeedEnabled() bool {
-	return !DISABLE_AUTO_SEED
-}
