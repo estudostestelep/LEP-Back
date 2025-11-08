@@ -114,6 +114,11 @@ func (r *ResourceMenu) ServiceCreateMenu(c *gin.Context) {
 
 	err = r.handler.HandlerMenu.CreateMenu(&newMenu)
 	if err != nil {
+		// Check if error is about duplicate menu name
+		if err.Error() == handler.ErrMenuNameAlreadyExists(newMenu.Name).Error() {
+			utils.SendConflictError(c, "Menu name already exists", err)
+			return
+		}
 		utils.SendInternalServerError(c, "Error creating menu", err)
 		return
 	}
@@ -163,6 +168,11 @@ func (r *ResourceMenu) ServiceUpdateMenu(c *gin.Context) {
 
 	err = r.handler.HandlerMenu.UpdateMenu(&updatedMenu)
 	if err != nil {
+		// Check if error is about duplicate menu name
+		if err.Error() == handler.ErrMenuNameAlreadyExists(updatedMenu.Name).Error() {
+			utils.SendConflictError(c, "Menu name already exists in another menu", err)
+			return
+		}
 		utils.SendInternalServerError(c, "Error updating menu", err)
 		return
 	}

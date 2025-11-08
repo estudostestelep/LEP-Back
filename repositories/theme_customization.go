@@ -66,8 +66,8 @@ func (r *ThemeCustomizationRepository) ResetToDefaults(projectId uuid.UUID) (*mo
 		newTheme := &models.ThemeCustomization{
 			ID:                  uuid.New(),
 			ProjectID:           projectId,
-			PrimaryColor:        "#3b82f6",
-			SecondaryColor:      "#8b5cf6",
+			PrimaryColor:        "#0F172A",
+			SecondaryColor:      "#1E293B",
 			BackgroundColor:     "#09090b",
 			CardBackgroundColor: "#18181b",
 			TextColor:           "#fafafa",
@@ -85,8 +85,8 @@ func (r *ThemeCustomizationRepository) ResetToDefaults(projectId uuid.UUID) (*mo
 	}
 
 	// Se existe, reseta para padrões
-	theme.PrimaryColor = "#3b82f6"
-	theme.SecondaryColor = "#8b5cf6"
+	theme.PrimaryColor = "#0F172A"
+	theme.SecondaryColor = "#1E293B"
 	theme.BackgroundColor = "#09090b"
 	theme.CardBackgroundColor = "#18181b"
 	theme.TextColor = "#fafafa"

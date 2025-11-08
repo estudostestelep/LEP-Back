@@ -34,12 +34,12 @@ func (h *ThemeCustomizationHandler) GetThemeByProject(projectId string) (*models
 
 	theme, err := h.themeRepo.GetThemeByProject(projectUUID)
 	if err != nil {
-		// Se não encontra, retorna com padrões
+		// Se não encontra, retorna com padrões (alinhado com modelo GORM)
 		defaultTheme := &models.ThemeCustomization{
 			ID:                  uuid.New(),
 			ProjectID:           projectUUID,
-			PrimaryColor:        "#3b82f6",
-			SecondaryColor:      "#8b5cf6",
+			PrimaryColor:        "#0F172A",
+			SecondaryColor:      "#1E293B",
 			BackgroundColor:     "#09090b",
 			CardBackgroundColor: "#18181b",
 			TextColor:           "#fafafa",
@@ -66,40 +66,70 @@ func (h *ThemeCustomizationHandler) CreateOrUpdateTheme(projectId string, organi
 		return nil, err
 	}
 
-	// Validar cores HEX
-	if err := validateHexColor(theme.PrimaryColor); err != nil {
-		return nil, fmt.Errorf("invalid primary_color: %w", err)
+	// Validar cores HEX apenas se fornecidas (suporta atualizações parciais)
+	// Se a cor está vazia, será preservada da versão existente
+	if theme.PrimaryColor != "" {
+		if err := validateHexColor(theme.PrimaryColor); err != nil {
+			return nil, fmt.Errorf("invalid primary_color: %w", err)
+		}
 	}
-	if err := validateHexColor(theme.SecondaryColor); err != nil {
-		return nil, fmt.Errorf("invalid secondary_color: %w", err)
+	if theme.SecondaryColor != "" {
+		if err := validateHexColor(theme.SecondaryColor); err != nil {
+			return nil, fmt.Errorf("invalid secondary_color: %w", err)
+		}
 	}
-	if err := validateHexColor(theme.BackgroundColor); err != nil {
-		return nil, fmt.Errorf("invalid background_color: %w", err)
+	if theme.BackgroundColor != "" {
+		if err := validateHexColor(theme.BackgroundColor); err != nil {
+			return nil, fmt.Errorf("invalid background_color: %w", err)
+		}
 	}
-	if err := validateHexColor(theme.CardBackgroundColor); err != nil {
-		return nil, fmt.Errorf("invalid card_background_color: %w", err)
+	if theme.CardBackgroundColor != "" {
+		if err := validateHexColor(theme.CardBackgroundColor); err != nil {
+			return nil, fmt.Errorf("invalid card_background_color: %w", err)
+		}
 	}
-	if err := validateHexColor(theme.TextColor); err != nil {
-		return nil, fmt.Errorf("invalid text_color: %w", err)
+	if theme.TextColor != "" {
+		if err := validateHexColor(theme.TextColor); err != nil {
+			return nil, fmt.Errorf("invalid text_color: %w", err)
+		}
 	}
-	if err := validateHexColor(theme.TextSecondaryColor); err != nil {
-		return nil, fmt.Errorf("invalid text_secondary_color: %w", err)
+	if theme.TextSecondaryColor != "" {
+		if err := validateHexColor(theme.TextSecondaryColor); err != nil {
+			return nil, fmt.Errorf("invalid text_secondary_color: %w", err)
+		}
 	}
-	if err := validateHexColor(theme.AccentColor); err != nil {
-		return nil, fmt.Errorf("invalid accent_color: %w", err)
+	if theme.AccentColor != "" {
+		if err := validateHexColor(theme.AccentColor); err != nil {
+			return nil, fmt.Errorf("invalid accent_color: %w", err)
+		}
 	}
 
 	// Buscar se já existe
 	existingTheme, err := h.themeRepo.GetThemeByProject(projectUUID)
 	if err == nil && existingTheme != nil {
-		// Atualizar existente
-		existingTheme.PrimaryColor = theme.PrimaryColor
-		existingTheme.SecondaryColor = theme.SecondaryColor
-		existingTheme.BackgroundColor = theme.BackgroundColor
-		existingTheme.CardBackgroundColor = theme.CardBackgroundColor
-		existingTheme.TextColor = theme.TextColor
-		existingTheme.TextSecondaryColor = theme.TextSecondaryColor
-		existingTheme.AccentColor = theme.AccentColor
+		// Atualizar existente com suporte a atualizações parciais
+		// Só atualizar campos que foram fornecidos (não vazios)
+		if theme.PrimaryColor != "" {
+			existingTheme.PrimaryColor = theme.PrimaryColor
+		}
+		if theme.SecondaryColor != "" {
+			existingTheme.SecondaryColor = theme.SecondaryColor
+		}
+		if theme.BackgroundColor != "" {
+			existingTheme.BackgroundColor = theme.BackgroundColor
+		}
+		if theme.CardBackgroundColor != "" {
+			existingTheme.CardBackgroundColor = theme.CardBackgroundColor
+		}
+		if theme.TextColor != "" {
+			existingTheme.TextColor = theme.TextColor
+		}
+		if theme.TextSecondaryColor != "" {
+			existingTheme.TextSecondaryColor = theme.TextSecondaryColor
+		}
+		if theme.AccentColor != "" {
+			existingTheme.AccentColor = theme.AccentColor
+		}
 		existingTheme.IsActive = theme.IsActive
 		existingTheme.UpdatedAt = time.Now()
 
@@ -110,18 +140,18 @@ func (h *ThemeCustomizationHandler) CreateOrUpdateTheme(projectId string, organi
 		return existingTheme, nil
 	}
 
-	// Criar novo
+	// Criar novo com suporte a cores parciais (usar padrões para campos vazios)
 	newTheme := &models.ThemeCustomization{
 		ID:                  uuid.New(),
 		ProjectID:           projectUUID,
 		OrganizationID:      orgUUID,
-		PrimaryColor:        theme.PrimaryColor,
-		SecondaryColor:      theme.SecondaryColor,
-		BackgroundColor:     theme.BackgroundColor,
-		CardBackgroundColor: theme.CardBackgroundColor,
-		TextColor:           theme.TextColor,
-		TextSecondaryColor:  theme.TextSecondaryColor,
-		AccentColor:         theme.AccentColor,
+		PrimaryColor:        stringOrDefault(theme.PrimaryColor, "#0F172A"),
+		SecondaryColor:      stringOrDefault(theme.SecondaryColor, "#1E293B"),
+		BackgroundColor:     stringOrDefault(theme.BackgroundColor, "#09090b"),
+		CardBackgroundColor: stringOrDefault(theme.CardBackgroundColor, "#18181b"),
+		TextColor:           stringOrDefault(theme.TextColor, "#fafafa"),
+		TextSecondaryColor:  stringOrDefault(theme.TextSecondaryColor, "#a1a1aa"),
+		AccentColor:         stringOrDefault(theme.AccentColor, "#ec4899"),
 		IsActive:            theme.IsActive,
 		CreatedAt:           time.Now(),
 		UpdatedAt:           time.Now(),
@@ -162,4 +192,12 @@ func validateHexColor(color string) error {
 		return fmt.Errorf("color must be in hex format (#RRGGBB or #RRGGBBAA)")
 	}
 	return nil
+}
+
+// stringOrDefault retorna o valor se não vazio, caso contrário retorna o padrão
+func stringOrDefault(value, defaultValue string) string {
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }

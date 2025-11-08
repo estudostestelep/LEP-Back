@@ -29,6 +29,9 @@ type IMenuRepository interface {
 	GetActiveMenuByTimeRange(organizationId, projectId uuid.UUID, currentTime time.Time) (*models.Menu, error)
 	GetMenuWithHighestPriority(organizationId, projectId uuid.UUID) (*models.Menu, error)
 	UpdateManualOverride(organizationId, projectId, menuId uuid.UUID) error
+
+	// 🔍 Validação de menu
+	CheckMenuNameExists(organizationId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error)
 }
 
 func NewConnMenu(db *gorm.DB) IMenuRepository {
@@ -175,4 +178,24 @@ func (r *MenuRepository) UpdateManualOverride(organizationId, projectId, menuId 
 		Model(&models.Menu{}).
 		Where("id = ? AND deleted_at IS NULL", menuId).
 		Update("is_manual_override", true).Error
+}
+
+// 🔍 CheckMenuNameExists verifica se já existe um menu com o mesmo nome no projeto
+// excludeId é opcional: se fornecido, exclui esse ID da busca (útil para UPDATE)
+func (r *MenuRepository) CheckMenuNameExists(organizationId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Where("organization_id = ? AND project_id = ? AND LOWER(name) = LOWER(?) AND deleted_at IS NULL",
+		organizationId, projectId, name)
+
+	// Se excludeId foi fornecido, excluir esse ID da busca (para UPDATE)
+	if excludeId != nil {
+		query = query.Where("id != ?", excludeId)
+	}
+
+	err := query.Model(&models.Menu{}).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }
