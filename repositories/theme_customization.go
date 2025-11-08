@@ -63,38 +63,98 @@ func (r *ThemeCustomizationRepository) ResetToDefaults(projectId uuid.UUID) (*mo
 
 	// Se não existe, cria com padrões
 	if err == gorm.ErrRecordNotFound {
-		// Criar values para os campos pointer
-		destructive := "#EF4444"
-		success := "#10B981"
-		warning := "#F59E0B"
-		border := "#E5E7EB"
+		// Light Mode defaults
+		primaryLight := "#1E293B"
+		secondaryLight := "#8B5CF6"
+		backgroundLight := "#FFFFFF"
+		cardBackgroundLight := "#FFFFFF"
+		textLight := "#0F172A"
+		textSecondaryLight := "#64748B"
+		accentLight := "#EC4899"
+
+		// Dark Mode defaults
+		primaryDark := "#F8FAFC"
+		secondaryDark := "#A78BFA"
+		backgroundDark := "#0F172A"
+		cardBackgroundDark := "#1E293B"
+		textDark := "#F8FAFC"
+		textSecondaryDark := "#94A3B8"
+		accentDark := "#F472B6"
+
+		// Light Mode semantic colors
+		destructiveLight := "#EF4444"
+		successLight := "#10B981"
+		warningLight := "#F59E0B"
+		borderLight := "#E5E7EB"
+		priceLight := "#10B981"
+
+		// Dark Mode semantic colors
+		destructiveDark := "#DC2626"
+		successDark := "#34D399"
+		warningDark := "#FBBF24"
+		borderDark := "#475569"
+		priceDark := "#34D399"
+
+		// Light Mode system
+		focusRingLight := "#3B82F6"
+		inputBgLight := "#F3F4F6"
+
+		// Dark Mode system
+		focusRingDark := "#93C5FD"
+		inputBgDark := "#1F2937"
+
+		// Numeric configs
 		disabledOpacity := 0.50
-		focusRing := "#3B82F6"
-		inputBg := "#FFFFFF"
 		shadowIntensity := 1.00
 
 		newTheme := &models.ThemeCustomization{
-			ID:                  uuid.New(),
-			ProjectID:           projectId,
-			PrimaryColor:        "#0F172A",
-			SecondaryColor:      "#1E293B",
-			BackgroundColor:     "#09090b",
-			CardBackgroundColor: "#18181b",
-			TextColor:           "#fafafa",
-			TextSecondaryColor:  "#a1a1aa",
-			AccentColor:         "#ec4899",
+			ID:             uuid.New(),
+			ProjectID:      projectId,
+			OrganizationID: uuid.Nil, // Será preenchido pelo handler
 
-			// Cores semânticas
-			DestructiveColor: &destructive,
-			SuccessColor:     &success,
-			WarningColor:     &warning,
-			BorderColor:      &border,
+			// Light Mode cores principais
+			PrimaryColorLight:        &primaryLight,
+			SecondaryColorLight:      &secondaryLight,
+			BackgroundColorLight:     &backgroundLight,
+			CardBackgroundColorLight: &cardBackgroundLight,
+			TextColorLight:           &textLight,
+			TextSecondaryColorLight:  &textSecondaryLight,
+			AccentColorLight:         &accentLight,
 
-			// Configurações do sistema
-			DisabledOpacity:      &disabledOpacity,
-			FocusRingColor:       &focusRing,
-			InputBackgroundColor: &inputBg,
-			ShadowIntensity:      &shadowIntensity,
+			// Dark Mode cores principais
+			PrimaryColorDark:        &primaryDark,
+			SecondaryColorDark:      &secondaryDark,
+			BackgroundColorDark:     &backgroundDark,
+			CardBackgroundColorDark: &cardBackgroundDark,
+			TextColorDark:           &textDark,
+			TextSecondaryColorDark:  &textSecondaryDark,
+			AccentColorDark:         &accentDark,
+
+			// Light Mode semantic colors
+			DestructiveColorLight: &destructiveLight,
+			SuccessColorLight:     &successLight,
+			WarningColorLight:     &warningLight,
+			BorderColorLight:      &borderLight,
+			PriceColorLight:       &priceLight,
+
+			// Dark Mode semantic colors
+			DestructiveColorDark: &destructiveDark,
+			SuccessColorDark:     &successDark,
+			WarningColorDark:     &warningDark,
+			BorderColorDark:      &borderDark,
+			PriceColorDark:       &priceDark,
+
+			// Light Mode system
+			FocusRingColorLight:      &focusRingLight,
+			InputBackgroundColorLight: &inputBgLight,
+
+			// Dark Mode system
+			FocusRingColorDark:       &focusRingDark,
+			InputBackgroundColorDark: &inputBgDark,
+
+			// Numeric configurations
+			DisabledOpacity: &disabledOpacity,
+			ShadowIntensity: &shadowIntensity,
 
 			IsActive:  false,
 			CreatedAt: time.Now(),
@@ -108,32 +168,84 @@ func (r *ThemeCustomizationRepository) ResetToDefaults(projectId uuid.UUID) (*mo
 	}
 
 	// Se existe, reseta para padrões
-	theme.PrimaryColor = "#0F172A"
-	theme.SecondaryColor = "#1E293B"
-	theme.BackgroundColor = "#09090b"
-	theme.CardBackgroundColor = "#18181b"
-	theme.TextColor = "#fafafa"
-	theme.TextSecondaryColor = "#a1a1aa"
-	theme.AccentColor = "#ec4899"
+	// Light Mode cores principais
+	primaryLight := "#1E293B"
+	secondaryLight := "#8B5CF6"
+	backgroundLight := "#FFFFFF"
+	cardBackgroundLight := "#FFFFFF"
+	textLight := "#0F172A"
+	textSecondaryLight := "#64748B"
+	accentLight := "#EC4899"
 
-	// Resetar cores semânticas
-	destructive := "#EF4444"
-	success := "#10B981"
-	warning := "#F59E0B"
-	border := "#E5E7EB"
-	theme.DestructiveColor = &destructive
-	theme.SuccessColor = &success
-	theme.WarningColor = &warning
-	theme.BorderColor = &border
+	theme.PrimaryColorLight = &primaryLight
+	theme.SecondaryColorLight = &secondaryLight
+	theme.BackgroundColorLight = &backgroundLight
+	theme.CardBackgroundColorLight = &cardBackgroundLight
+	theme.TextColorLight = &textLight
+	theme.TextSecondaryColorLight = &textSecondaryLight
+	theme.AccentColorLight = &accentLight
 
-	// Resetar configurações do sistema
+	// Dark Mode cores principais
+	primaryDark := "#F8FAFC"
+	secondaryDark := "#A78BFA"
+	backgroundDark := "#0F172A"
+	cardBackgroundDark := "#1E293B"
+	textDark := "#F8FAFC"
+	textSecondaryDark := "#94A3B8"
+	accentDark := "#F472B6"
+
+	theme.PrimaryColorDark = &primaryDark
+	theme.SecondaryColorDark = &secondaryDark
+	theme.BackgroundColorDark = &backgroundDark
+	theme.CardBackgroundColorDark = &cardBackgroundDark
+	theme.TextColorDark = &textDark
+	theme.TextSecondaryColorDark = &textSecondaryDark
+	theme.AccentColorDark = &accentDark
+
+	// Resetar Light Mode semantic colors
+	destructiveLight := "#EF4444"
+	successLight := "#10B981"
+	warningLight := "#F59E0B"
+	borderLight := "#E5E7EB"
+	priceLight := "#10B981"
+
+	theme.DestructiveColorLight = &destructiveLight
+	theme.SuccessColorLight = &successLight
+	theme.WarningColorLight = &warningLight
+	theme.BorderColorLight = &borderLight
+	theme.PriceColorLight = &priceLight
+
+	// Resetar Dark Mode semantic colors
+	destructiveDark := "#DC2626"
+	successDark := "#34D399"
+	warningDark := "#FBBF24"
+	borderDark := "#475569"
+	priceDark := "#34D399"
+
+	theme.DestructiveColorDark = &destructiveDark
+	theme.SuccessColorDark = &successDark
+	theme.WarningColorDark = &warningDark
+	theme.BorderColorDark = &borderDark
+	theme.PriceColorDark = &priceDark
+
+	// Resetar Light Mode system
+	focusRingLight := "#3B82F6"
+	inputBgLight := "#F3F4F6"
+
+	theme.FocusRingColorLight = &focusRingLight
+	theme.InputBackgroundColorLight = &inputBgLight
+
+	// Resetar Dark Mode system
+	focusRingDark := "#93C5FD"
+	inputBgDark := "#1F2937"
+
+	theme.FocusRingColorDark = &focusRingDark
+	theme.InputBackgroundColorDark = &inputBgDark
+
+	// Resetar configurações numéricas
 	disabledOpacity := 0.50
-	focusRing := "#3B82F6"
-	inputBg := "#FFFFFF"
 	shadowIntensity := 1.00
 	theme.DisabledOpacity = &disabledOpacity
-	theme.FocusRingColor = &focusRing
-	theme.InputBackgroundColor = &inputBg
 	theme.ShadowIntensity = &shadowIntensity
 
 	theme.IsActive = false
