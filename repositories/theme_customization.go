@@ -53,207 +53,105 @@ func (r *ThemeCustomizationRepository) DeleteTheme(projectId uuid.UUID) error {
 	return r.db.Where("project_id = ?", projectId).Delete(&models.ThemeCustomization{}).Error
 }
 
-// ResetToDefaults reseta tema para valores padrão
+// ResetToDefaults apaga todas as cores customizadas (seta para nil)
+// deixando o frontend lidar com a cor padrão
 func (r *ThemeCustomizationRepository) ResetToDefaults(projectId uuid.UUID) (*models.ThemeCustomization, error) {
-	// Busca tema existente
 	theme, err := r.GetThemeByProject(projectId)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
-	// Se não existe, cria com padrões
+	// Se não existe, cria com todos os campos nil (padrão do frontend)
 	if err == gorm.ErrRecordNotFound {
-		// Light Mode defaults
-		primaryLight := "#1E293B"
-		secondaryLight := "#8B5CF6"
-		backgroundLight := "#FFFFFF"
-		cardBackgroundLight := "#FFFFFF"
-		textLight := "#0F172A"
-		textSecondaryLight := "#64748B"
-		accentLight := "#EC4899"
-
-		// Dark Mode defaults
-		primaryDark := "#F8FAFC"
-		secondaryDark := "#A78BFA"
-		backgroundDark := "#0F172A"
-		cardBackgroundDark := "#1E293B"
-		textDark := "#F8FAFC"
-		textSecondaryDark := "#94A3B8"
-		accentDark := "#F472B6"
-
-		// Light Mode semantic colors
-		destructiveLight := "#EF4444"
-		successLight := "#10B981"
-		warningLight := "#F59E0B"
-		borderLight := "#E5E7EB"
-		priceLight := "#10B981"
-
-		// Dark Mode semantic colors
-		destructiveDark := "#DC2626"
-		successDark := "#34D399"
-		warningDark := "#FBBF24"
-		borderDark := "#475569"
-		priceDark := "#34D399"
-
-		// Light Mode system
-		focusRingLight := "#3B82F6"
-		inputBgLight := "#F3F4F6"
-
-		// Dark Mode system
-		focusRingDark := "#93C5FD"
-		inputBgDark := "#1F2937"
-
-		// Numeric configs
-		disabledOpacity := 0.50
-		shadowIntensity := 1.00
-
 		newTheme := &models.ThemeCustomization{
 			ID:             uuid.New(),
 			ProjectID:      projectId,
-			OrganizationID: uuid.Nil, // Será preenchido pelo handler
-
-			// Light Mode cores principais
-			PrimaryColorLight:        &primaryLight,
-			SecondaryColorLight:      &secondaryLight,
-			BackgroundColorLight:     &backgroundLight,
-			CardBackgroundColorLight: &cardBackgroundLight,
-			TextColorLight:           &textLight,
-			TextSecondaryColorLight:  &textSecondaryLight,
-			AccentColorLight:         &accentLight,
-
-			// Dark Mode cores principais
-			PrimaryColorDark:        &primaryDark,
-			SecondaryColorDark:      &secondaryDark,
-			BackgroundColorDark:     &backgroundDark,
-			CardBackgroundColorDark: &cardBackgroundDark,
-			TextColorDark:           &textDark,
-			TextSecondaryColorDark:  &textSecondaryDark,
-			AccentColorDark:         &accentDark,
-
-			// Light Mode semantic colors
-			DestructiveColorLight: &destructiveLight,
-			SuccessColorLight:     &successLight,
-			WarningColorLight:     &warningLight,
-			BorderColorLight:      &borderLight,
-			PriceColorLight:       &priceLight,
-
-			// Dark Mode semantic colors
-			DestructiveColorDark: &destructiveDark,
-			SuccessColorDark:     &successDark,
-			WarningColorDark:     &warningDark,
-			BorderColorDark:      &borderDark,
-			PriceColorDark:       &priceDark,
-
-			// Light Mode system
-			FocusRingColorLight:      &focusRingLight,
-			InputBackgroundColorLight: &inputBgLight,
-
-			// Dark Mode system
-			FocusRingColorDark:       &focusRingDark,
-			InputBackgroundColorDark: &inputBgDark,
-
-			// Numeric configurations
-			DisabledOpacity: &disabledOpacity,
-			ShadowIntensity: &shadowIntensity,
-
-			IsActive:  false,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			OrganizationID: uuid.Nil,
+			// Todos os campos de cor setados para nil
+			PrimaryColorLight:         nil,
+			SecondaryColorLight:       nil,
+			BackgroundColorLight:      nil,
+			CardBackgroundColorLight:  nil,
+			TextColorLight:            nil,
+			TextSecondaryColorLight:   nil,
+			AccentColorLight:          nil,
+			DestructiveColorLight:     nil,
+			SuccessColorLight:         nil,
+			WarningColorLight:         nil,
+			BorderColorLight:          nil,
+			PriceColorLight:           nil,
+			FocusRingColorLight:       nil,
+			InputBackgroundColorLight: nil,
+			// Dark mode
+			PrimaryColorDark:         nil,
+			SecondaryColorDark:       nil,
+			BackgroundColorDark:      nil,
+			CardBackgroundColorDark:  nil,
+			TextColorDark:            nil,
+			TextSecondaryColorDark:   nil,
+			AccentColorDark:          nil,
+			DestructiveColorDark:     nil,
+			SuccessColorDark:         nil,
+			WarningColorDark:         nil,
+			BorderColorDark:          nil,
+			PriceColorDark:           nil,
+			FocusRingColorDark:       nil,
+			InputBackgroundColorDark: nil,
+			// Configs também zerados
+			DisabledOpacity: nil,
+			ShadowIntensity: nil,
+			IsActive:        false,
+			CreatedAt:       time.Now(),
+			UpdatedAt:       time.Now(),
 		}
-		err = r.CreateTheme(newTheme)
-		if err != nil {
+		if err := r.CreateTheme(newTheme); err != nil {
 			return nil, err
 		}
 		return newTheme, nil
 	}
 
-	// Se existe, reseta para padrões
-	// Light Mode cores principais
-	primaryLight := "#1E293B"
-	secondaryLight := "#8B5CF6"
-	backgroundLight := "#FFFFFF"
-	cardBackgroundLight := "#FFFFFF"
-	textLight := "#0F172A"
-	textSecondaryLight := "#64748B"
-	accentLight := "#EC4899"
+	// Se já existe, zera todas as cores customizadas
+	theme.PrimaryColorLight = nil
+	theme.SecondaryColorLight = nil
+	theme.BackgroundColorLight = nil
+	theme.CardBackgroundColorLight = nil
+	theme.TextColorLight = nil
+	theme.TextSecondaryColorLight = nil
+	theme.AccentColorLight = nil
 
-	theme.PrimaryColorLight = &primaryLight
-	theme.SecondaryColorLight = &secondaryLight
-	theme.BackgroundColorLight = &backgroundLight
-	theme.CardBackgroundColorLight = &cardBackgroundLight
-	theme.TextColorLight = &textLight
-	theme.TextSecondaryColorLight = &textSecondaryLight
-	theme.AccentColorLight = &accentLight
+	theme.PrimaryColorDark = nil
+	theme.SecondaryColorDark = nil
+	theme.BackgroundColorDark = nil
+	theme.CardBackgroundColorDark = nil
+	theme.TextColorDark = nil
+	theme.TextSecondaryColorDark = nil
+	theme.AccentColorDark = nil
 
-	// Dark Mode cores principais
-	primaryDark := "#F8FAFC"
-	secondaryDark := "#A78BFA"
-	backgroundDark := "#0F172A"
-	cardBackgroundDark := "#1E293B"
-	textDark := "#F8FAFC"
-	textSecondaryDark := "#94A3B8"
-	accentDark := "#F472B6"
+	theme.DestructiveColorLight = nil
+	theme.SuccessColorLight = nil
+	theme.WarningColorLight = nil
+	theme.BorderColorLight = nil
+	theme.PriceColorLight = nil
 
-	theme.PrimaryColorDark = &primaryDark
-	theme.SecondaryColorDark = &secondaryDark
-	theme.BackgroundColorDark = &backgroundDark
-	theme.CardBackgroundColorDark = &cardBackgroundDark
-	theme.TextColorDark = &textDark
-	theme.TextSecondaryColorDark = &textSecondaryDark
-	theme.AccentColorDark = &accentDark
+	theme.DestructiveColorDark = nil
+	theme.SuccessColorDark = nil
+	theme.WarningColorDark = nil
+	theme.BorderColorDark = nil
+	theme.PriceColorDark = nil
 
-	// Resetar Light Mode semantic colors
-	destructiveLight := "#EF4444"
-	successLight := "#10B981"
-	warningLight := "#F59E0B"
-	borderLight := "#E5E7EB"
-	priceLight := "#10B981"
-
-	theme.DestructiveColorLight = &destructiveLight
-	theme.SuccessColorLight = &successLight
-	theme.WarningColorLight = &warningLight
-	theme.BorderColorLight = &borderLight
-	theme.PriceColorLight = &priceLight
-
-	// Resetar Dark Mode semantic colors
-	destructiveDark := "#DC2626"
-	successDark := "#34D399"
-	warningDark := "#FBBF24"
-	borderDark := "#475569"
-	priceDark := "#34D399"
-
-	theme.DestructiveColorDark = &destructiveDark
-	theme.SuccessColorDark = &successDark
-	theme.WarningColorDark = &warningDark
-	theme.BorderColorDark = &borderDark
-	theme.PriceColorDark = &priceDark
-
-	// Resetar Light Mode system
-	focusRingLight := "#3B82F6"
-	inputBgLight := "#F3F4F6"
-
-	theme.FocusRingColorLight = &focusRingLight
-	theme.InputBackgroundColorLight = &inputBgLight
-
-	// Resetar Dark Mode system
-	focusRingDark := "#93C5FD"
-	inputBgDark := "#1F2937"
-
-	theme.FocusRingColorDark = &focusRingDark
-	theme.InputBackgroundColorDark = &inputBgDark
-
-	// Resetar configurações numéricas
-	disabledOpacity := 0.50
-	shadowIntensity := 1.00
-	theme.DisabledOpacity = &disabledOpacity
-	theme.ShadowIntensity = &shadowIntensity
+	theme.FocusRingColorLight = nil
+	theme.InputBackgroundColorLight = nil
+	theme.FocusRingColorDark = nil
+	theme.InputBackgroundColorDark = nil
+	theme.DisabledOpacity = nil
+	theme.ShadowIntensity = nil
 
 	theme.IsActive = false
 	theme.UpdatedAt = time.Now()
 
-	err = r.UpdateTheme(theme)
-	if err != nil {
+	if err := r.UpdateTheme(theme); err != nil {
 		return nil, err
 	}
+
 	return theme, nil
 }

@@ -143,26 +143,18 @@ func (h *ThemeCustomizationHandler) CreateOrUpdateTheme(projectId string, organi
 	return newTheme, nil
 }
 
-// ResetToDefaults reseta tema para valores padrão light/dark profissionais
+// ResetToDefaults apaga todas as cores customizadas (seta para nil)
+// deixando o frontend lidar com a cor padrão
 func (h *ThemeCustomizationHandler) ResetToDefaults(projectId string) (*models.ThemeCustomization, error) {
 	projectUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return nil, err
 	}
 
+	// Delega para o repositório que vai zerar todas as cores
 	theme, err := h.themeRepo.ResetToDefaults(projectUUID)
 	if err != nil {
 		return nil, err
-	}
-
-	// Se reset não retornar tema, criar novo com defaults
-	if theme == nil {
-		org := uuid.New()
-		theme = h.buildDefaultTheme(projectUUID, org)
-		err = h.themeRepo.CreateTheme(theme)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return theme, nil
