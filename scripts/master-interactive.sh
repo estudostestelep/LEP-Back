@@ -805,8 +805,8 @@ DB_NAME=lep_database
 DB_SSL_MODE=disable
 
 # JWT
-JWT_SECRET_PRIVATE_KEY=dev-simple-private-key-for-testing-only
-JWT_SECRET_PUBLIC_KEY=dev-simple-public-key-for-testing-only
+JWT_SECRET_PRIVATE_KEY=staging-jwt-private-key-for-testing-only
+JWT_SECRET_PUBLIC_KEY=staging-jwt-public-key-for-testing-only
 
 # Storage (Local)
 STORAGE_TYPE=local
@@ -839,8 +839,8 @@ DB_NAME=lep_database
 INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-stage
 
 # JWT
-JWT_SECRET_PRIVATE_KEY=dev-simple-private-key-for-testing-only
-JWT_SECRET_PUBLIC_KEY=dev-simple-public-key-for-testing-only
+JWT_SECRET_PRIVATE_KEY=staging-jwt-private-key-for-testing-only
+JWT_SECRET_PUBLIC_KEY=staging-jwt-public-key-for-testing-only
 
 # Storage (GCS)
 STORAGE_TYPE=gcs

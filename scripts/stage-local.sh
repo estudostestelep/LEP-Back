@@ -53,8 +53,8 @@ export DB_NAME=lep_database
 export INSTANCE_UNIX_SOCKET=/cloudsql/leps-472702:us-central1:leps-postgres-stage
 
 # JWT - chaves padronizadas
-export JWT_SECRET_PRIVATE_KEY=dev-simple-private-key-for-testing-only
-export JWT_SECRET_PUBLIC_KEY=dev-simple-public-key-for-testing-only
+export JWT_SECRET_PRIVATE_KEY=staging-jwt-private-key-for-testing-only
+export JWT_SECRET_PUBLIC_KEY=staging-jwt-public-key-for-testing-only
 
 # Storage - Google Cloud Storage
 export STORAGE_TYPE=gcs
