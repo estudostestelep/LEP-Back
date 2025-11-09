@@ -102,7 +102,7 @@ func (r *ResourceAuth) ServiceValidateToken(c *gin.Context) {
 	tokenString := c.GetHeader("Authorization")
 	fmt.Println("ServiceValidateToken", tokenString)
 	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(config.JWT_SECRET_PUBLIC_KEY), nil
+		return []byte(config.JWT_SECRET_PRIVATE_KEY), nil
 	})
 
 	if err != nil {
@@ -132,7 +132,7 @@ func (r *ResourceAuth) ServiceValidateTokenIn(c *gin.Context) bool {
 	fmt.Println("tokenString2", tokenString)
 
 	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(config.JWT_SECRET_PUBLIC_KEY), nil
+		return []byte(config.JWT_SECRET_PRIVATE_KEY), nil
 	})
 	fmt.Println("jwt.Parse", err)
 
