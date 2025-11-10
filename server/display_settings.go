@@ -5,8 +5,10 @@ import (
 	"lep/repositories/models"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type DisplaySettingsServer struct {
@@ -66,6 +68,19 @@ func (s *DisplaySettingsServer) UpdateDisplaySettings(c *gin.Context) {
 		return
 	}
 
+	// Parse IDs from headers
+	projectUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID format"})
+		return
+	}
+
+	orgUUID, err := uuid.Parse(organizationId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization ID format"})
+		return
+	}
+
 	// Buscar configurações existentes primeiro
 	existingSettings, err := s.handler.GetSettingsByProject(projectId)
 	if err != nil {
@@ -73,11 +88,17 @@ func (s *DisplaySettingsServer) UpdateDisplaySettings(c *gin.Context) {
 		return
 	}
 
-	// Manter dados imutáveis
-	updateData.ID = existingSettings.ID
-	updateData.ProjectID = existingSettings.ProjectID
-	updateData.OrganizationID = existingSettings.OrganizationID
-	updateData.CreatedAt = existingSettings.CreatedAt
+	// Manter dados imutáveis e garantir IDs corretos do header
+	// Se ID for uuid.Nil (novo registro), gera um novo
+	if existingSettings.ID == uuid.Nil {
+		updateData.ID = uuid.New()
+		updateData.CreatedAt = time.Now()
+	} else {
+		updateData.ID = existingSettings.ID
+		updateData.CreatedAt = existingSettings.CreatedAt
+	}
+	updateData.ProjectID = projectUUID
+	updateData.OrganizationID = orgUUID
 
 	err = s.handler.UpdateSettings(&updateData)
 	if err != nil {

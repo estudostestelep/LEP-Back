@@ -57,6 +57,7 @@ func (r *DisplaySettingsRepository) ResetToDefaults(projectId uuid.UUID) (*model
 		newSettings := &models.ProjectDisplaySettings{
 			ID:              uuid.New(),
 			ProjectID:       projectId,
+			OrganizationID:  uuid.Nil, // Será preenchido pelo caller se necessário
 			ShowPrepTime:    false,
 			ShowRating:      false,
 			ShowDescription: true,

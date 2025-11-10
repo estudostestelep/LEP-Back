@@ -31,15 +31,16 @@ func (h *DisplaySettingsHandler) GetSettingsByProject(projectId string) (*models
 
 	settings, err := h.displaySettingsRepo.GetSettingsByProject(projectUUID)
 	if err != nil {
-		// Se não encontra, retorna com padrões
+		// Se não encontra, retorna com padrões (ID e OrganizationID serão preenchidos pelo caller)
 		defaultSettings := &models.ProjectDisplaySettings{
-			ID:              uuid.New(),
+			ID:              uuid.Nil, // Será gerado no servidor
 			ProjectID:       projectUUID,
+			OrganizationID:  uuid.Nil, // Será preenchido do header no servidor
 			ShowPrepTime:    true,
 			ShowRating:      true,
 			ShowDescription: true,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
+			CreatedAt:       time.Time{}, // Será preenchido no servidor
+			UpdatedAt:       time.Time{}, // Será preenchido no servidor
 		}
 		return defaultSettings, nil
 	}
