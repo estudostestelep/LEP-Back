@@ -48,7 +48,7 @@ type Product struct {
 
 	// Campos existentes
 	Stock           *int      `json:"stock,omitempty"`
-	PrepTimeMinutes int       `json:"prep_time_minutes,omitempty"`
+	PrepTimeMinutes *int      `json:"prep_time_minutes,omitempty"`
 
 	// Timestamps
 	CreatedAt time.Time  `json:"created_at"`
