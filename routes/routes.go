@@ -76,8 +76,12 @@ func setupUserRoutes(r gin.IRouter) {
 		userRoutes.DELETE("/:id", resource.ServersControllers.SourceUsers.ServiceDeleteUser)
 
 		// User Access Management (Master Admin only)
-		userRoutes.GET("/:id/organizations-projects", resource.ServersControllers.SourceUserAccess.ServiceGetUserOrganizationsAndProjects)
-		userRoutes.POST("/:id/organizations-projects", resource.ServersControllers.SourceUserAccess.ServiceUpdateUserOrganizationsAndProjects)
+		userRoutes.GET("/:id/organizations-projects",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceUserAccess.ServiceGetUserOrganizationsAndProjects)
+		userRoutes.POST("/:id/organizations-projects",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceUserAccess.ServiceUpdateUserOrganizationsAndProjects)
 	}
 }
 

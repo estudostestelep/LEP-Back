@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"lep/config"
+	"lep/resource"
 	"net/http"
 	"strings"
 	"time"
@@ -61,12 +62,20 @@ func HeaderValidationMiddleware() gin.HandlerFunc {
 		c.Set("organization_id", organizationId)
 		c.Set("project_id", projectId)
 
-		// For POST /menu and POST /category, only validate token presence
+		// For POST /menu and POST /category, validate token AND user access to org/project
 		if (path == "/menu" || path == "/category") && method == "POST" {
 			tokenString := c.GetHeader("Authorization")
 			if tokenString == "" {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"error": "Authorization token is required",
+				})
+				c.Abort()
+				return
+			}
+			// Validate user has access to organization and project
+			if err := validateUserAccess(c, organizationId, projectId); err != nil {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error": fmt.Sprintf("Access denied: %v", err),
 				})
 				c.Abort()
 				return
@@ -142,9 +151,28 @@ func validateUserAccess(c *gin.Context, orgId, projId string) error {
 	// Armazenar user_id no contexto para uso posterior
 	c.Set("user_id", userId)
 
-	// TODO: Validar no banco se o usuário tem acesso à org e projeto
-	// Por enquanto, apenas validamos a presença do user_id no token
-	// A validação completa será feita quando tivermos acesso ao repository no middleware
+	// Validar no banco se o usuário tem acesso à org e projeto
+	// Usar o Repository global que foi inicializado em resource.Inject()
+
+	// Validar que o usuário tem acesso à organização
+	hasOrgAccess, err := resource.Repository.UserOrganizations.UserBelongsToOrganization(userId, orgId)
+	if err != nil {
+		return fmt.Errorf("erro ao validar acesso à organização: %v", err)
+	}
+	if !hasOrgAccess {
+		return fmt.Errorf("usuário não tem acesso à organização: %s", orgId)
+	}
+
+	// Validar que o usuário tem acesso ao projeto (se projId foi fornecido)
+	if projId != "" {
+		hasProjectAccess, err := resource.Repository.UserProjects.UserBelongsToProject(userId, projId)
+		if err != nil {
+			return fmt.Errorf("erro ao validar acesso ao projeto: %v", err)
+		}
+		if !hasProjectAccess {
+			return fmt.Errorf("usuário não tem acesso ao projeto: %s", projId)
+		}
+	}
 
 	return nil
 }
@@ -159,6 +187,20 @@ func isFullyExemptRoute(path, method string) bool {
 		{"/ping", "GET"},
 		{"/health", "GET"},
 		{"/webhook/*", "*"}, // All webhook routes
+
+		// Public menu routes (no auth required)
+		{"/public/menu/*", "*"},
+		{"/public/categories/*", "*"},
+		{"/public/menus/*", "*"},
+		{"/public/project/*", "*"},
+		{"/public/times/*", "*"},
+		{"/public/reservation/*", "*"},
+
+		// Public upload/static routes (no auth required)
+		{"/uploads/*", "GET"},
+		{"/static/*", "GET"},
+
+		// User organizational access (has its own validation)
 		{"/user/*/organizations-projects", "GET"},  // Get user access - does its own validation
 		{"/user/*/organizations-projects", "POST"}, // Update user access - does its own validation
 	}

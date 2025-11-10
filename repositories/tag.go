@@ -18,6 +18,7 @@ type ITagRepository interface {
 	GetTagList(organizationId, projectId uuid.UUID) ([]models.Tag, error)
 	GetActiveTagList(organizationId, projectId uuid.UUID) ([]models.Tag, error)
 	GetTagsByEntityType(organizationId, projectId uuid.UUID, entityType string) ([]models.Tag, error)
+	GetTagByNameAndType(organizationId, projectId uuid.UUID, name, entityType string) (*models.Tag, error)
 	CreateTag(tag *models.Tag) error
 	UpdateTag(tag *models.Tag) error
 	SoftDelete(id uuid.UUID) error
@@ -61,6 +62,25 @@ func (r *TagRepository) GetTagsByEntityType(organizationId, projectId uuid.UUID,
 	var tags []models.Tag
 	err := r.db.Where("organization_id = ? AND project_id = ? AND entity_type = ? AND deleted_at IS NULL", organizationId, projectId, entityType).Find(&tags).Error
 	return tags, err
+}
+
+// GetTagByNameAndType busca tag por nome e tipo dentro do mesmo projeto
+// Retorna erro se não encontrar ou nil se encontrar
+func (r *TagRepository) GetTagByNameAndType(organizationId, projectId uuid.UUID, name, entityType string) (*models.Tag, error) {
+	var tag models.Tag
+	err := r.db.Where(
+		"organization_id = ? AND project_id = ? AND name = ? AND entity_type = ? AND deleted_at IS NULL",
+		organizationId, projectId, name, entityType,
+	).First(&tag).Error
+
+	if err != nil {
+		// Se não encontrou, retorna nil (sem erro)
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &tag, nil
 }
 
 func (r *TagRepository) UpdateTag(tag *models.Tag) error {

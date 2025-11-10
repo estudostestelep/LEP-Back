@@ -57,8 +57,8 @@ func (r *DisplaySettingsRepository) ResetToDefaults(projectId uuid.UUID) (*model
 		newSettings := &models.ProjectDisplaySettings{
 			ID:              uuid.New(),
 			ProjectID:       projectId,
-			ShowPrepTime:    true,
-			ShowRating:      true,
+			ShowPrepTime:    false,
+			ShowRating:      false,
 			ShowDescription: true,
 			CreatedAt:       time.Now(),
 			UpdatedAt:       time.Now(),
@@ -71,8 +71,8 @@ func (r *DisplaySettingsRepository) ResetToDefaults(projectId uuid.UUID) (*model
 	}
 
 	// Se existe, reseta para padrões
-	settings.ShowPrepTime = true
-	settings.ShowRating = true
+	settings.ShowPrepTime = false
+	settings.ShowRating = false
 	settings.ShowDescription = true
 	settings.UpdatedAt = time.Now()
 

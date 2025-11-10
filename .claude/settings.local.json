@@ -83,7 +83,22 @@
       "Bash(do if docker-compose exec postgres pg_isready -U lep_user -d lep_database)",
       "Bash(then echo '✅ PostgreSQL está pronto!' break fi echo 'Tentativa $i/30...' sleep 2 done)",
       "Bash(docker-compose logs:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(timeout 60 docker-compose exec:*)",
+      "Bash(python3:*)",
+      "Bash(docker logs:*)",
+      "Bash(pkill:*)",
+      "Bash(wmic process where name=\"go.exe\" delete:*)",
+      "Bash(./teste:*)",
+      "Bash(./lep-teste-back.exe:*)",
+      "Bash(test_execution.log)",
+      "Bash(./test.exe)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InBhYmxvQGxlcC5jb20iLCJleHAiOjE3NjI4MTU5MzgsInVzZXJfaWQiOiJmYzkyNmZmYi1jZWFiLTRmYzAtYTUwMy00MmU4ODI5OTEwM2IifQ.Mw6Cv3tMxVVkBeeqkk5X2-6_SY3Uq3gEVB_tg4tEfcQ\")",
+      "Bash(ORG_ID=\"aff9bf25-58bc-421d-955e-4eebbfed241f\")",
+      "Bash(PROJ_ID=\"e229c573-2618-48bc-899f-b288f814f4e6\":*)",
+      "Bash(kill:*)",
+      "Bash(timeout 2 ./test-build.exe:*)",
+      "Bash(wmic process where \"commandline like ''%lep-system%''\" delete)"
     ],
     "deny": [],
     "ask": []
