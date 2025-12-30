@@ -87,6 +87,8 @@ func setupCORS(r *gin.Engine) {
 				"https://lep-front-git-main-leps-projects-a55eafc4.vercel.app/",
 				"https://lep-front-nw6k.vercel.app",
 				"https://lep-front-nw6k.vercel.app/",
+				"https://lep-front-stage.vercel.app",
+				"https://lep-front-stage.vercel.app/",
 			},
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"},
