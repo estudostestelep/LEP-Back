@@ -80,7 +80,11 @@ func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 		return
 	}
 
-	err = r.handler.CreateUser(&newUser)
+	// Pegar organization_id e project_id dos headers para vincular o usuario
+	organizationId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	err = r.handler.CreateUser(&newUser, organizationId, projectId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error creating user", err)
 		return

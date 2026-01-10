@@ -61,9 +61,18 @@ func SetupRoutes(r *gin.Engine) {
 	setupCategoryRoutes(protected)
 	setupSubcategoryRoutes(protected)
 	setupImageManagementRoutes(protected)
+	setupOnboardingRoutes(protected)
 
 	// Notification routes (mixed public/protected)
 	setupNotificationRoutes(r)
+}
+
+// setupOnboardingRoutes configura rotas para status de onboarding
+func setupOnboardingRoutes(r gin.IRouter) {
+	onboardingRoutes := r.Group("/onboarding")
+	{
+		onboardingRoutes.GET("/status", resource.ServersControllers.SourceOnboarding.GetOnboardingStatus)
+	}
 }
 
 func setupUserRoutes(r gin.IRouter) {
@@ -210,6 +219,7 @@ func setupProjectRoutes(r gin.IRouter) {
 	{
 		projectRoutes.GET("/:id", resource.ServersControllers.SourceProject.GetProjectById)
 		projectRoutes.GET("", resource.ServersControllers.SourceProject.GetProjectsByOrganization)
+		projectRoutes.GET("/organization/:orgId", resource.ServersControllers.SourceProject.GetProjectsByOrganizationId)
 		projectRoutes.GET("/active", resource.ServersControllers.SourceProject.GetActiveProjects)
 		// POST removed - registered as public route for seeding
 		projectRoutes.PUT("/:id", resource.ServersControllers.SourceProject.UpdateProject)

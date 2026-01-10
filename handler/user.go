@@ -21,7 +21,7 @@ type IHandlerUser interface {
 	GetUser(id string) (*models.User, error)
 	GetUserByGroup(id string) ([]models.User, error)
 	ListUsers(orgId, projectId string) ([]models.User, error)
-	CreateUser(user *models.User) error
+	CreateUser(user *models.User, orgId, projectId string) error
 	UpdateUser(updatedUser *models.User) error
 	DeleteUser(id string) error
 	GetUserByEmail(email string) (*models.User, error)
@@ -52,7 +52,7 @@ func (r *resourceUser) ListUsers(orgId, projectId string) ([]models.User, error)
 	return resp, nil
 }
 
-func (r *resourceUser) CreateUser(user *models.User) error {
+func (r *resourceUser) CreateUser(user *models.User, orgId, projectId string) error {
 	existingUser, _ := r.repo.User.GetUserByEmail(user.Email)
 
 	if existingUser != nil {
@@ -82,6 +82,11 @@ func (r *resourceUser) CreateUser(user *models.User) error {
 		if err := r.addMasterAdminToAllOrganizations(user.Id); err != nil {
 			// Log error but don't fail user creation
 			fmt.Printf("Aviso: erro ao adicionar master admin a organizações: %v\n", err)
+		}
+	} else {
+		// Vincular usuário à organização e projeto especificados
+		if err := r.linkUserToOrgAndProject(user.Id, orgId, projectId); err != nil {
+			fmt.Printf("Aviso: erro ao vincular usuário a org/projeto: %v\n", err)
 		}
 	}
 
@@ -132,6 +137,57 @@ func (r *resourceUser) GetUserWithRelations(id string) (*models.UserWithRelation
 		return nil, err
 	}
 	return resp, nil
+}
+
+// linkUserToOrgAndProject vincula um usuário a uma organização e projeto específicos
+func (r *resourceUser) linkUserToOrgAndProject(userId uuid.UUID, orgId, projectId string) error {
+	now := time.Now()
+
+	// Vincular à organização se fornecido
+	if orgId != "" {
+		orgUUID, err := uuid.Parse(orgId)
+		if err != nil {
+			return fmt.Errorf("ID de organização inválido: %v", err)
+		}
+
+		userOrg := &models.UserOrganization{
+			Id:             uuid.New(),
+			UserId:         userId,
+			OrganizationId: orgUUID,
+			Role:           "member",
+			Active:         true,
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}
+
+		if err := r.repo.UserOrganizations.Create(userOrg); err != nil {
+			return fmt.Errorf("erro ao vincular usuário à organização: %v", err)
+		}
+	}
+
+	// Vincular ao projeto se fornecido
+	if projectId != "" {
+		projUUID, err := uuid.Parse(projectId)
+		if err != nil {
+			return fmt.Errorf("ID de projeto inválido: %v", err)
+		}
+
+		userProj := &models.UserProject{
+			Id:        uuid.New(),
+			UserId:    userId,
+			ProjectId: projUUID,
+			Role:      "member",
+			Active:    true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		if err := r.repo.UserProjects.Create(userProj); err != nil {
+			return fmt.Errorf("erro ao vincular usuário ao projeto: %v", err)
+		}
+	}
+
+	return nil
 }
 
 // addMasterAdminToAllOrganizations adiciona um novo master admin a todas as organizações existentes

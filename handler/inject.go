@@ -32,6 +32,7 @@ type Handlers struct {
 	HandlerCategory           IHandlerCategory
 	HandlerSubcategory        IHandlerSubcategory
 	HandlerImageManagement    IHandlerImageManagement
+	HandlerOnboarding         IOnboardingHandler
 	ImageManagementService    service.IImageManagementService // Service direto para o Upload server
 }
 
@@ -59,6 +60,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerMenu = NewSourceHandlerMenu(repo)
 	h.HandlerCategory = NewSourceHandlerCategory(repo)
 	h.HandlerSubcategory = NewSourceHandlerSubcategory(repo)
+	h.HandlerOnboarding = NewOnboardingHandler(repo)
 
 	// Image Management Service e Handler
 	// Nota: db é *gorm.DB, necessário para os novos repositories

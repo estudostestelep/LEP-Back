@@ -36,6 +36,7 @@ type ServerController struct {
 	SourceCategory           IServerCategory
 	SourceSubcategory        IServerSubcategory
 	SourceImageManagement    IServerImageManagement
+	SourceOnboarding         IOnboardingServer
 	SourceAdmin              *AdminController
 }
 
@@ -48,7 +49,8 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	user.Password = "senha123"
 	user.Name = "Pablo"
 	user.Permissions = pq.StringArray{"master_admin"}
-	err := handler.HandlerUser.CreateUser(&user)
+	// Para master_admin, não precisa passar orgId/projectId pois a função adiciona automaticamente a todas as orgs
+	err := handler.HandlerUser.CreateUser(&user, "", "")
 	if err != nil {
 		log.Printf("❌ Error creating master_admin user: %v", err)
 	} else {
@@ -144,5 +146,6 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceMenu = NewSourceServerMenu(handler)
 	h.SourceCategory = NewSourceServerCategory(handler)
 	h.SourceSubcategory = NewSourceServerSubcategory(handler)
+	h.SourceOnboarding = NewOnboardingServer(handler.HandlerOnboarding)
 	// AdminController is initialized separately with DB in resource/inject.go
 }

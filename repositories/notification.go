@@ -32,6 +32,7 @@ type INotificationRepository interface {
 	// NotificationConfig
 	GetNotificationConfigByEvent(orgId, projectId uuid.UUID, eventType string) (*models.NotificationConfig, error)
 	CreateOrUpdateNotificationConfig(config *models.NotificationConfig) error
+	GetNotificationConfigs(orgId, projectId uuid.UUID) ([]models.NotificationConfig, error)
 
 	// NotificationTemplate
 	GetNotificationTemplateByChannel(orgId, projectId uuid.UUID, channel string) (*models.NotificationTemplate, error)
@@ -165,6 +166,13 @@ func (r *NotificationRepository) CreateOrUpdateNotificationConfig(config *models
 		config.UpdatedAt = time.Now()
 		return r.db.Save(config).Error
 	}
+}
+
+func (r *NotificationRepository) GetNotificationConfigs(orgId, projectId uuid.UUID) ([]models.NotificationConfig, error) {
+	var configs []models.NotificationConfig
+	err := r.db.Where("organization_id = ? AND project_id = ?", orgId, projectId).
+		Find(&configs).Error
+	return configs, err
 }
 
 // === NotificationTemplate ===

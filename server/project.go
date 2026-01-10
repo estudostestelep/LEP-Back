@@ -17,6 +17,7 @@ type ProjectServer struct {
 type IProjectServer interface {
 	GetProjectById(c *gin.Context)
 	GetProjectsByOrganization(c *gin.Context)
+	GetProjectsByOrganizationId(c *gin.Context) // Nova rota com orgId na URL
 	CreateProject(c *gin.Context)
 	UpdateProject(c *gin.Context)
 	SoftDeleteProject(c *gin.Context)
@@ -58,7 +59,7 @@ func (s *ProjectServer) GetProjectById(c *gin.Context) {
 	c.JSON(http.StatusOK, project)
 }
 
-// GetProjectsByOrganization busca projetos por organização
+// GetProjectsByOrganization busca projetos por organização (usa header)
 func (s *ProjectServer) GetProjectsByOrganization(c *gin.Context) {
 	organizationId := c.GetHeader("X-Lpe-Organization-Id")
 	if strings.TrimSpace(organizationId) == "" {
@@ -69,6 +70,24 @@ func (s *ProjectServer) GetProjectsByOrganization(c *gin.Context) {
 	}
 
 	projects, err := s.handler.GetProjectsByOrganization(organizationId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching projects"})
+		return
+	}
+
+	c.JSON(http.StatusOK, projects)
+}
+
+// GetProjectsByOrganizationId busca projetos por organização (usa param na URL)
+// Rota: GET /project/organization/:orgId
+func (s *ProjectServer) GetProjectsByOrganizationId(c *gin.Context) {
+	orgId := c.Param("orgId")
+	if strings.TrimSpace(orgId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Organization ID is required"})
+		return
+	}
+
+	projects, err := s.handler.GetProjectsByOrganization(orgId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching projects"})
 		return
