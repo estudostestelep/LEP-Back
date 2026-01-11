@@ -64,17 +64,22 @@ func (r *resourceUser) GetUsersByRole(role string) ([]models.User, error) {
 func (r *resourceUser) ListUsersByOrganizationAndProject(orgId, projectId string) ([]models.User, error) {
 	var users []models.User
 
-	// Buscar usuários que têm vínculo com a organização E o projeto
-	err := r.db.
+	// Construir query base
+	query := r.db.
 		Distinct("users.*").
 		Table("users").
 		Joins("INNER JOIN user_organizations ON users.id = user_organizations.user_id").
-		Joins("INNER JOIN user_projects ON users.id = user_projects.user_id").
 		Where("user_organizations.organization_id = ? AND user_organizations.active = true AND user_organizations.deleted_at IS NULL", orgId).
-		Where("user_projects.project_id = ? AND user_projects.active = true AND user_projects.deleted_at IS NULL", projectId).
-		Where("users.deleted_at IS NULL").
-		Find(&users).Error
+		Where("users.deleted_at IS NULL")
 
+	// Se projectId foi fornecido, filtrar também por projeto
+	if projectId != "" {
+		query = query.
+			Joins("INNER JOIN user_projects ON users.id = user_projects.user_id").
+			Where("user_projects.project_id = ? AND user_projects.active = true AND user_projects.deleted_at IS NULL", projectId)
+	}
+
+	err := query.Find(&users).Error
 	return users, err
 }
 

@@ -143,10 +143,13 @@ func (r *resourceUser) GetUserWithRelations(id string) (*models.UserWithRelation
 func (r *resourceUser) linkUserToOrgAndProject(userId uuid.UUID, orgId, projectId string) error {
 	now := time.Now()
 
+	fmt.Printf("🔗 linkUserToOrgAndProject: userId=%s, orgId=%s, projectId=%s\n", userId, orgId, projectId)
+
 	// Vincular à organização se fornecido
 	if orgId != "" {
 		orgUUID, err := uuid.Parse(orgId)
 		if err != nil {
+			fmt.Printf("❌ Erro ao parsear orgId: %v\n", err)
 			return fmt.Errorf("ID de organização inválido: %v", err)
 		}
 
@@ -160,15 +163,22 @@ func (r *resourceUser) linkUserToOrgAndProject(userId uuid.UUID, orgId, projectI
 			UpdatedAt:      now,
 		}
 
+		fmt.Printf("📝 Criando UserOrganization: %+v\n", userOrg)
+
 		if err := r.repo.UserOrganizations.Create(userOrg); err != nil {
+			fmt.Printf("❌ Erro ao criar UserOrganization: %v\n", err)
 			return fmt.Errorf("erro ao vincular usuário à organização: %v", err)
 		}
+		fmt.Printf("✅ UserOrganization criado com sucesso\n")
+	} else {
+		fmt.Printf("⚠️ orgId vazio, pulando criação de UserOrganization\n")
 	}
 
 	// Vincular ao projeto se fornecido
 	if projectId != "" {
 		projUUID, err := uuid.Parse(projectId)
 		if err != nil {
+			fmt.Printf("❌ Erro ao parsear projectId: %v\n", err)
 			return fmt.Errorf("ID de projeto inválido: %v", err)
 		}
 
@@ -182,9 +192,15 @@ func (r *resourceUser) linkUserToOrgAndProject(userId uuid.UUID, orgId, projectI
 			UpdatedAt: now,
 		}
 
+		fmt.Printf("📝 Criando UserProject: %+v\n", userProj)
+
 		if err := r.repo.UserProjects.Create(userProj); err != nil {
+			fmt.Printf("❌ Erro ao criar UserProject: %v\n", err)
 			return fmt.Errorf("erro ao vincular usuário ao projeto: %v", err)
 		}
+		fmt.Printf("✅ UserProject criado com sucesso\n")
+	} else {
+		fmt.Printf("⚠️ projectId vazio, pulando criação de UserProject\n")
 	}
 
 	return nil

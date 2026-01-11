@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"lep/handler"
 	"lep/repositories/models"
 	"lep/resource/validation"
@@ -81,8 +82,10 @@ func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 	}
 
 	// Pegar organization_id e project_id dos headers para vincular o usuario
-	organizationId := c.GetString("organization_id")
-	projectId := c.GetString("project_id")
+	organizationId := c.Request.Header.Get("X-Lpe-Organization-Id")
+	projectId := c.Request.Header.Get("X-Lpe-Project-Id")
+
+	fmt.Printf("📦 ServiceCreateUser - Contexto recebido: orgId='%s', projectId='%s', userId='%s'\n", organizationId, projectId, newUser.Id)
 
 	err = r.handler.CreateUser(&newUser, organizationId, projectId)
 	if err != nil {

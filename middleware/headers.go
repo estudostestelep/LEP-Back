@@ -18,8 +18,23 @@ func HeaderValidationMiddleware() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		method := c.Request.Method
 
+		fmt.Printf("🔍 HeaderValidationMiddleware: path=%s, method=%s\n", path, method)
+
 		// Skip validation for specific routes
 		if isFullyExemptRoute(path, method) {
+			fmt.Printf("⏭️ Rota exempta: %s %s\n", method, path)
+			c.Next()
+			return
+		}
+
+		// POST /user: Capturar headers mas não validar acesso (usuário está sendo criado)
+		if path == "/user" && method == "POST" {
+			organizationId := c.GetHeader("X-Lpe-Organization-Id")
+			projectId := c.GetHeader("X-Lpe-Project-Id")
+			fmt.Printf("🔐 POST /user - Headers capturados: orgId=%s, projectId=%s\n", organizationId, projectId)
+			// Setar no contexto para o handler usar (podem estar vazios)
+			c.Set("organization_id", organizationId)
+			c.Set("project_id", projectId)
 			c.Next()
 			return
 		}
@@ -182,7 +197,7 @@ func isFullyExemptRoute(path, method string) bool {
 	// Routes that don't require any organization/project headers
 	exemptRoutes := []RoutePattern{
 		{"/login", "POST"},
-		{"/user", "POST"},         // Public user creation
+		// {"/user", "POST"} - Removido: agora é tratado no middleware para capturar headers
 		{"/organization", "POST"}, // Organization creation (bootstrap)
 		{"/ping", "GET"},
 		{"/health", "GET"},
