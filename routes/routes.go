@@ -62,6 +62,10 @@ func SetupRoutes(r *gin.Engine) {
 	setupSubcategoryRoutes(protected)
 	setupImageManagementRoutes(protected)
 	setupOnboardingRoutes(protected)
+	setupRoleRoutes(protected)
+	setupModuleRoutes(protected)
+	setupPermissionRoutes(protected)
+	setupPackageRoutes(protected)
 
 	// Notification routes (mixed public/protected)
 	setupNotificationRoutes(r)
@@ -486,5 +490,62 @@ func setupImageManagementRoutes(r gin.IRouter) {
 
 		// Obter estatísticas de imagens
 		adminRoutes.GET("/stats", resource.ServersControllers.SourceImageManagement.ServiceGetImageStats)
+	}
+}
+
+// setupRoleRoutes configura rotas para gerenciamento de cargos
+func setupRoleRoutes(r gin.IRouter) {
+	roleRoutes := r.Group("/role")
+	{
+		// Rotas específicas primeiro (antes de /:id para evitar conflitos)
+		roleRoutes.GET("/system", resource.ServersControllers.SourceRole.ListSystemRoles)
+		roleRoutes.GET("/check", resource.ServersControllers.SourceRole.CheckPermission)
+		roleRoutes.GET("/my-permissions", resource.ServersControllers.SourceRole.GetMyPermissions)
+
+		// Atribuição de cargos a usuários
+		roleRoutes.POST("/assign", resource.ServersControllers.SourceRole.AssignRoleToUser)
+		roleRoutes.POST("/remove", resource.ServersControllers.SourceRole.RemoveRoleFromUser)
+		roleRoutes.GET("/user/:userId", resource.ServersControllers.SourceRole.GetUserRoles)
+		roleRoutes.GET("/user/:userId/details", resource.ServersControllers.SourceRole.GetUserRolesWithDetails)
+
+		// Níveis de permissão por cargo
+		roleRoutes.POST("/permission-level", resource.ServersControllers.SourceRole.SetPermissionLevel)
+
+		// CRUD de cargos (rotas com :id por último)
+		roleRoutes.GET("", resource.ServersControllers.SourceRole.ListRoles)
+		roleRoutes.POST("", resource.ServersControllers.SourceRole.CreateRole)
+		roleRoutes.GET("/:id", resource.ServersControllers.SourceRole.GetRole)
+		roleRoutes.PUT("/:id", resource.ServersControllers.SourceRole.UpdateRole)
+		roleRoutes.DELETE("/:id", resource.ServersControllers.SourceRole.DeleteRole)
+		roleRoutes.GET("/:id/permissions", resource.ServersControllers.SourceRole.GetRolePermissions)
+	}
+}
+
+// setupModuleRoutes configura rotas para gerenciamento de módulos
+func setupModuleRoutes(r gin.IRouter) {
+	moduleRoutes := r.Group("/module")
+	{
+		moduleRoutes.GET("", resource.ServersControllers.SourceRole.ListModules)
+		moduleRoutes.GET("/with-permissions", resource.ServersControllers.SourceRole.ListModulesWithPermissions)
+		moduleRoutes.GET("/available", resource.ServersControllers.SourceRole.GetOrganizationModules)
+	}
+}
+
+// setupPermissionRoutes configura rotas para gerenciamento de permissões
+func setupPermissionRoutes(r gin.IRouter) {
+	permissionRoutes := r.Group("/permission")
+	{
+		permissionRoutes.GET("", resource.ServersControllers.SourceRole.ListPermissions)
+	}
+}
+
+// setupPackageRoutes configura rotas para gerenciamento de pacotes/planos
+func setupPackageRoutes(r gin.IRouter) {
+	packageRoutes := r.Group("/package")
+	{
+		packageRoutes.GET("", resource.ServersControllers.SourceRole.ListPackages)
+		packageRoutes.GET("/:id", resource.ServersControllers.SourceRole.GetPackageWithModules)
+		packageRoutes.GET("/subscription", resource.ServersControllers.SourceRole.GetOrganizationSubscription)
+		packageRoutes.POST("/subscribe", resource.ServersControllers.SourceRole.SubscribeOrganization)
 	}
 }

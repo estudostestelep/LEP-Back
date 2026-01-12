@@ -37,6 +37,7 @@ type ServerController struct {
 	SourceSubcategory        IServerSubcategory
 	SourceImageManagement    IServerImageManagement
 	SourceOnboarding         IOnboardingServer
+	SourceRole               *RoleServer
 	SourceAdmin              *AdminController
 }
 
@@ -147,5 +148,6 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceCategory = NewSourceServerCategory(handler)
 	h.SourceSubcategory = NewSourceServerSubcategory(handler)
 	h.SourceOnboarding = NewOnboardingServer(handler.HandlerOnboarding)
+	h.SourceRole = NewRoleServer(handler.HandlerRole)
 	// AdminController is initialized separately with DB in resource/inject.go
 }

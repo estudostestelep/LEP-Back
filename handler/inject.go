@@ -33,6 +33,7 @@ type Handlers struct {
 	HandlerSubcategory        IHandlerSubcategory
 	HandlerImageManagement    IHandlerImageManagement
 	HandlerOnboarding         IOnboardingHandler
+	HandlerRole               *RoleHandler
 	ImageManagementService    service.IImageManagementService // Service direto para o Upload server
 }
 
@@ -70,4 +71,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	imageManagementSvc := service.NewImageManagementService(fileRefRepo, entityFileRefRepo, "./uploads")
 	h.HandlerImageManagement = NewHandlerImageManagement(imageManagementSvc)
 	h.ImageManagementService = imageManagementSvc // Armazenar o service direto para o Upload server
+
+	// Role & Permission Handler
+	h.HandlerRole = NewRoleHandler(repo.Roles, repo.Permissions, repo.Modules, repo.Packages)
 }

@@ -31,6 +31,11 @@ type DBconn struct {
 	Subcategories       ISubcategoryRepository
 	EntityFileReference IEntityFileReferenceRepository
 	FileReference       IFileReferenceRepository
+	// Role & Permission system
+	Roles       IRoleRepository
+	Permissions IPermissionRepository
+	Modules     IModuleRepository
+	Packages    IPackageRepository
 }
 
 func (r *DBconn) InjectPostgres(db *gorm.DB) {
@@ -60,5 +65,9 @@ func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.Subcategories = NewConnSubcategory(db)
 	r.EntityFileReference = NewEntityFileReferenceRepository(db)
 	r.FileReference = NewFileReferenceRepository(db)
-
+	// Role & Permission system
+	r.Roles = NewRoleRepository(db)
+	r.Permissions = NewPermissionRepository(db)
+	r.Modules = NewModuleRepository(db)
+	r.Packages = NewPackageRepository(db)
 }

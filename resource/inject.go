@@ -23,4 +23,9 @@ func Inject() {
 	ServersControllers.Inject(&Handlers)
 	// Initialize AdminController with DB
 	ServersControllers.SourceAdmin = &server.AdminController{DB: db}
+
+	// Seed de roles e permissões
+	if err := handler.SeedRolesAndPermissions(db); err != nil {
+		fmt.Printf("⚠️ Erro no seed de roles: %v\n", err)
+	}
 }

@@ -65,6 +65,18 @@ func Start(db *gorm.DB) {
 		// Image Management models (Deduplication & References)
 		&models.FileReference{},
 		&models.EntityFileReference{},
+
+		// Role & Permission System models
+		&models.Module{},
+		&models.Permission{},
+		&models.Role{},
+		&models.UserRole{},
+		&models.RolePermissionLevel{},
+		&models.Package{},
+		&models.PackageModule{},
+		&models.PackageLimit{},
+		&models.PackageBundle{},
+		&models.OrganizationPackage{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product

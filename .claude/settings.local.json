@@ -117,7 +117,8 @@
       "Bash(gcloud sql users create:*)",
       "Bash(gcloud run deploy:*)",
       "Bash(gcloud run services logs read:*)",
-      "Bash(gcloud run services describe:*)"
+      "Bash(gcloud run services describe:*)",
+      "Bash(gcloud run revisions list:*)"
     ],
     "deny": [],
     "ask": []
