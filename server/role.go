@@ -329,11 +329,11 @@ func (s *RoleServer) SetPermissionLevel(c *gin.Context) {
 // @Summary Lista níveis de permissão de um cargo
 // @Tags Roles
 // @Produce json
-// @Param roleId path string true "ID do cargo"
+// @Param id path string true "ID do cargo"
 // @Success 200 {array} models.RolePermissionLevel
-// @Router /role/{roleId}/permissions [get]
+// @Router /role/{id}/permissions [get]
 func (s *RoleServer) GetRolePermissions(c *gin.Context) {
-	roleId := c.Param("roleId")
+	roleId := c.Param("id")
 
 	levels, err := s.handler.GetRolePermissionLevels(roleId)
 	if err != nil {

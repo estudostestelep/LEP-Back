@@ -266,106 +266,63 @@ func createPermissions(moduleRepo repositories.IModuleRepository) []models.Permi
 		return uuid.Nil
 	}
 
-	// Permissões Admin - Organizações
-	adminOrgModuleId := getModuleId("admin_organizations")
-	if adminOrgModuleId != uuid.Nil {
+	// Helper para criar permissões CRUD padrão para um módulo
+	addCRUDPermissions := func(moduleCode, displayName string) {
+		moduleId := getModuleId(moduleCode)
+		if moduleId == uuid.Nil {
+			return
+		}
 		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "admin_organizations_view", DisplayName: "Visualizar Organizações", Description: "Pode visualizar lista de organizações", ModuleId: adminOrgModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "admin_organizations_manage", DisplayName: "Gerenciar Organizações", Description: "Pode criar, editar e excluir organizações", ModuleId: adminOrgModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: moduleCode + "_view", DisplayName: "Visualizar " + displayName, Description: "Pode visualizar " + displayName, ModuleId: moduleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: moduleCode + "_create", DisplayName: "Criar " + displayName, Description: "Pode criar " + displayName, ModuleId: moduleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: moduleCode + "_edit", DisplayName: "Editar " + displayName, Description: "Pode editar " + displayName, ModuleId: moduleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: moduleCode + "_delete", DisplayName: "Excluir " + displayName, Description: "Pode excluir " + displayName, ModuleId: moduleId, Active: true},
 		)
 	}
 
-	// Permissões Admin - Usuários
-	adminUsersModuleId := getModuleId("admin_users")
-	if adminUsersModuleId != uuid.Nil {
+	// Permissões Admin - Organizações (CRUD)
+	addCRUDPermissions("admin_organizations", "Organizações")
+
+	// Permissões Admin - Usuários (CRUD)
+	addCRUDPermissions("admin_users", "Usuários Admin")
+
+	// Permissões Admin - Pacotes (CRUD)
+	addCRUDPermissions("admin_packages", "Pacotes")
+
+	// Permissões Admin - Relatórios (apenas view e export)
+	adminReportsModuleId := getModuleId("admin_reports")
+	if adminReportsModuleId != uuid.Nil {
 		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "admin_users_view", DisplayName: "Visualizar Usuários Admin", Description: "Pode visualizar usuários administradores", ModuleId: adminUsersModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "admin_users_manage", DisplayName: "Gerenciar Usuários Admin", Description: "Pode gerenciar usuários administradores", ModuleId: adminUsersModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: "admin_reports_view", DisplayName: "Visualizar Relatórios Globais", Description: "Pode visualizar relatórios globais", ModuleId: adminReportsModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: "admin_reports_export", DisplayName: "Exportar Relatórios Globais", Description: "Pode exportar relatórios globais", ModuleId: adminReportsModuleId, Active: true},
 		)
 	}
 
-	// Permissões Admin - Pacotes
-	adminPkgModuleId := getModuleId("admin_packages")
-	if adminPkgModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "admin_packages_view", DisplayName: "Visualizar Pacotes", Description: "Pode visualizar pacotes e planos", ModuleId: adminPkgModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "admin_packages_manage", DisplayName: "Gerenciar Pacotes", Description: "Pode criar e editar pacotes", ModuleId: adminPkgModuleId, Active: true},
-		)
-	}
+	// Permissões Cliente - Usuários (CRUD)
+	addCRUDPermissions("client_users", "Usuários")
 
-	// Permissões Cliente - Usuários
-	clientUsersModuleId := getModuleId("client_users")
-	if clientUsersModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "client_users_view", DisplayName: "Visualizar Usuários", Description: "Pode visualizar lista de usuários", ModuleId: clientUsersModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_users_manage", DisplayName: "Gerenciar Usuários", Description: "Pode criar, editar e excluir usuários", ModuleId: clientUsersModuleId, Active: true},
-		)
-	}
+	// Permissões Cliente - Mesas (CRUD)
+	addCRUDPermissions("client_tables", "Mesas")
 
-	// Permissões Cliente - Mesas
-	clientTablesModuleId := getModuleId("client_tables")
-	if clientTablesModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "client_tables_view", DisplayName: "Visualizar Mesas", Description: "Pode visualizar mesas", ModuleId: clientTablesModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_tables_manage", DisplayName: "Gerenciar Mesas", Description: "Pode criar, editar e excluir mesas", ModuleId: clientTablesModuleId, Active: true},
-		)
-	}
+	// Permissões Cliente - Clientes (CRUD)
+	addCRUDPermissions("client_customers", "Clientes")
 
-	// Permissões Cliente - Clientes
-	clientCustomersModuleId := getModuleId("client_customers")
-	if clientCustomersModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "client_customers_view", DisplayName: "Visualizar Clientes", Description: "Pode visualizar clientes", ModuleId: clientCustomersModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_customers_manage", DisplayName: "Gerenciar Clientes", Description: "Pode criar, editar e excluir clientes", ModuleId: clientCustomersModuleId, Active: true},
-		)
-	}
+	// Permissões Cliente - Cardápio (CRUD)
+	addCRUDPermissions("client_menu", "Cardápio")
 
-	// Permissões Cliente - Cardápio
-	clientMenuModuleId := getModuleId("client_menu")
-	if clientMenuModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "client_menu_view", DisplayName: "Visualizar Cardápio", Description: "Pode visualizar o cardápio", ModuleId: clientMenuModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_menu_manage", DisplayName: "Gerenciar Cardápio", Description: "Pode editar menus, categorias e produtos", ModuleId: clientMenuModuleId, Active: true},
-		)
-	}
+	// Permissões Cliente - Produtos (CRUD)
+	addCRUDPermissions("client_products", "Produtos")
 
-	// Permissões Cliente - Produtos
-	clientProductsModuleId := getModuleId("client_products")
-	if clientProductsModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "client_products_view", DisplayName: "Visualizar Produtos", Description: "Pode visualizar produtos", ModuleId: clientProductsModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_products_manage", DisplayName: "Gerenciar Produtos", Description: "Pode criar, editar e excluir produtos", ModuleId: clientProductsModuleId, Active: true},
-		)
-	}
+	// Permissões Cliente - Pedidos (CRUD)
+	addCRUDPermissions("client_orders", "Pedidos")
 
-	// Permissões Cliente - Pedidos
-	clientOrdersModuleId := getModuleId("client_orders")
-	if clientOrdersModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "client_orders_view", DisplayName: "Visualizar Pedidos", Description: "Pode visualizar pedidos", ModuleId: clientOrdersModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_orders_manage", DisplayName: "Gerenciar Pedidos", Description: "Pode criar, editar e atualizar status de pedidos", ModuleId: clientOrdersModuleId, Active: true},
-		)
-	}
+	// Permissões Cliente - Reservas (CRUD)
+	addCRUDPermissions("client_reservations", "Reservas")
 
-	// Permissões Cliente - Reservas
-	clientReservationsModuleId := getModuleId("client_reservations")
-	if clientReservationsModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "client_reservations_view", DisplayName: "Visualizar Reservas", Description: "Pode visualizar reservas", ModuleId: clientReservationsModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_reservations_manage", DisplayName: "Gerenciar Reservas", Description: "Pode criar, editar e cancelar reservas", ModuleId: clientReservationsModuleId, Active: true},
-		)
-	}
+	// Permissões Cliente - Fila de Espera (CRUD)
+	addCRUDPermissions("client_waitlist", "Fila de Espera")
 
-	// Permissões Cliente - Fila de Espera
-	clientWaitlistModuleId := getModuleId("client_waitlist")
-	if clientWaitlistModuleId != uuid.Nil {
-		permissions = append(permissions,
-			models.Permission{Id: uuid.New(), CodeName: "client_waitlist_view", DisplayName: "Visualizar Fila de Espera", Description: "Pode visualizar fila de espera", ModuleId: clientWaitlistModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_waitlist_manage", DisplayName: "Gerenciar Fila de Espera", Description: "Pode adicionar e remover da fila", ModuleId: clientWaitlistModuleId, Active: true},
-		)
-	}
-
-	// Permissões Cliente - Relatórios
+	// Permissões Cliente - Relatórios (apenas view e export)
 	clientReportsModuleId := getModuleId("client_reports")
 	if clientReportsModuleId != uuid.Nil {
 		permissions = append(permissions,
@@ -374,21 +331,24 @@ func createPermissions(moduleRepo repositories.IModuleRepository) []models.Permi
 		)
 	}
 
-	// Permissões Cliente - Configurações
+	// Permissões Cliente - Configurações (view e edit, sem create/delete)
 	clientSettingsModuleId := getModuleId("client_settings")
 	if clientSettingsModuleId != uuid.Nil {
 		permissions = append(permissions,
 			models.Permission{Id: uuid.New(), CodeName: "client_settings_view", DisplayName: "Visualizar Configurações", Description: "Pode visualizar configurações", ModuleId: clientSettingsModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_settings_manage", DisplayName: "Gerenciar Configurações", Description: "Pode alterar configurações do projeto", ModuleId: clientSettingsModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: "client_settings_edit", DisplayName: "Editar Configurações", Description: "Pode alterar configurações do projeto", ModuleId: clientSettingsModuleId, Active: true},
 		)
 	}
 
-	// Permissões Cliente - Notificações
+	// Permissões Cliente - Notificações (CRUD para templates + enviar)
 	clientNotificationsModuleId := getModuleId("client_notifications")
 	if clientNotificationsModuleId != uuid.Nil {
 		permissions = append(permissions,
 			models.Permission{Id: uuid.New(), CodeName: "client_notifications_view", DisplayName: "Visualizar Notificações", Description: "Pode visualizar logs de notificações", ModuleId: clientNotificationsModuleId, Active: true},
-			models.Permission{Id: uuid.New(), CodeName: "client_notifications_manage", DisplayName: "Gerenciar Notificações", Description: "Pode configurar templates e enviar notificações", ModuleId: clientNotificationsModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: "client_notifications_create", DisplayName: "Criar Templates", Description: "Pode criar templates de notificação", ModuleId: clientNotificationsModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: "client_notifications_edit", DisplayName: "Editar Templates", Description: "Pode editar templates de notificação", ModuleId: clientNotificationsModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: "client_notifications_delete", DisplayName: "Excluir Templates", Description: "Pode excluir templates de notificação", ModuleId: clientNotificationsModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: "client_notifications_send", DisplayName: "Enviar Notificações", Description: "Pode enviar notificações manualmente", ModuleId: clientNotificationsModuleId, Active: true},
 		)
 	}
 
@@ -564,64 +524,71 @@ func configureDefaultPermissions(roleRepo repositories.IRoleRepository, permissi
 		permByCode[p.CodeName] = p
 	}
 
-	// Configurar permissões para cada cargo
+	// Configurar permissões para cada cargo (1 = habilitado, 0 = desabilitado)
+	// Agora cada permissão é granular: _view, _create, _edit, _delete
 	roleConfigs := map[string]map[string]int{
 		"owner": {
-			// Nível 2 = CRUD completo para tudo
-			"client_users_view": 2, "client_users_manage": 2,
-			"client_tables_view": 2, "client_tables_manage": 2,
-			"client_customers_view": 2, "client_customers_manage": 2,
-			"client_menu_view": 2, "client_menu_manage": 2,
-			"client_products_view": 2, "client_products_manage": 2,
-			"client_orders_view": 2, "client_orders_manage": 2,
-			"client_reservations_view": 2, "client_reservations_manage": 2,
-			"client_waitlist_view": 2, "client_waitlist_manage": 2,
-			"client_reports_view": 2, "client_reports_export": 2,
-			"client_settings_view": 2, "client_settings_manage": 2,
-			"client_notifications_view": 2, "client_notifications_manage": 2,
+			// CRUD completo para tudo
+			"client_users_view": 1, "client_users_create": 1, "client_users_edit": 1, "client_users_delete": 1,
+			"client_tables_view": 1, "client_tables_create": 1, "client_tables_edit": 1, "client_tables_delete": 1,
+			"client_customers_view": 1, "client_customers_create": 1, "client_customers_edit": 1, "client_customers_delete": 1,
+			"client_menu_view": 1, "client_menu_create": 1, "client_menu_edit": 1, "client_menu_delete": 1,
+			"client_products_view": 1, "client_products_create": 1, "client_products_edit": 1, "client_products_delete": 1,
+			"client_orders_view": 1, "client_orders_create": 1, "client_orders_edit": 1, "client_orders_delete": 1,
+			"client_reservations_view": 1, "client_reservations_create": 1, "client_reservations_edit": 1, "client_reservations_delete": 1,
+			"client_waitlist_view": 1, "client_waitlist_create": 1, "client_waitlist_edit": 1, "client_waitlist_delete": 1,
+			"client_reports_view": 1, "client_reports_export": 1,
+			"client_settings_view": 1, "client_settings_edit": 1,
+			"client_notifications_view": 1, "client_notifications_create": 1, "client_notifications_edit": 1, "client_notifications_delete": 1, "client_notifications_send": 1,
 		},
 		"manager": {
-			"client_users_view": 2, "client_users_manage": 2,
-			"client_tables_view": 2, "client_tables_manage": 2,
-			"client_customers_view": 2, "client_customers_manage": 2,
-			"client_menu_view": 2, "client_menu_manage": 2,
-			"client_products_view": 2, "client_products_manage": 2,
-			"client_orders_view": 2, "client_orders_manage": 2,
-			"client_reservations_view": 2, "client_reservations_manage": 2,
-			"client_waitlist_view": 2, "client_waitlist_manage": 2,
-			"client_reports_view": 2, "client_reports_export": 1,
-			"client_settings_view": 1, "client_settings_manage": 0,
-			"client_notifications_view": 1, "client_notifications_manage": 0,
+			// CRUD completo para a maioria, mas sem algumas configurações
+			"client_users_view": 1, "client_users_create": 1, "client_users_edit": 1, "client_users_delete": 1,
+			"client_tables_view": 1, "client_tables_create": 1, "client_tables_edit": 1, "client_tables_delete": 1,
+			"client_customers_view": 1, "client_customers_create": 1, "client_customers_edit": 1, "client_customers_delete": 1,
+			"client_menu_view": 1, "client_menu_create": 1, "client_menu_edit": 1, "client_menu_delete": 1,
+			"client_products_view": 1, "client_products_create": 1, "client_products_edit": 1, "client_products_delete": 1,
+			"client_orders_view": 1, "client_orders_create": 1, "client_orders_edit": 1, "client_orders_delete": 1,
+			"client_reservations_view": 1, "client_reservations_create": 1, "client_reservations_edit": 1, "client_reservations_delete": 1,
+			"client_waitlist_view": 1, "client_waitlist_create": 1, "client_waitlist_edit": 1, "client_waitlist_delete": 1,
+			"client_reports_view": 1, "client_reports_export": 1,
+			"client_settings_view": 1,
+			"client_notifications_view": 1,
 		},
 		"supervisor": {
-			"client_users_view": 1, "client_users_manage": 0,
-			"client_tables_view": 2, "client_tables_manage": 1,
-			"client_customers_view": 2, "client_customers_manage": 1,
-			"client_menu_view": 1, "client_menu_manage": 0,
-			"client_products_view": 1, "client_products_manage": 0,
-			"client_orders_view": 2, "client_orders_manage": 2,
-			"client_reservations_view": 2, "client_reservations_manage": 2,
-			"client_waitlist_view": 2, "client_waitlist_manage": 2,
-			"client_reports_view": 1, "client_reports_export": 0,
+			// View e algumas edições, sem delete na maioria
+			"client_users_view": 1,
+			"client_tables_view": 1, "client_tables_create": 1, "client_tables_edit": 1,
+			"client_customers_view": 1, "client_customers_create": 1, "client_customers_edit": 1,
+			"client_menu_view": 1,
+			"client_products_view": 1,
+			"client_orders_view": 1, "client_orders_create": 1, "client_orders_edit": 1, "client_orders_delete": 1,
+			"client_reservations_view": 1, "client_reservations_create": 1, "client_reservations_edit": 1, "client_reservations_delete": 1,
+			"client_waitlist_view": 1, "client_waitlist_create": 1, "client_waitlist_edit": 1, "client_waitlist_delete": 1,
+			"client_reports_view": 1,
 		},
 		"attendant": {
-			"client_tables_view": 1, "client_tables_manage": 0,
-			"client_customers_view": 2, "client_customers_manage": 1,
-			"client_orders_view": 2, "client_orders_manage": 2,
-			"client_reservations_view": 2, "client_reservations_manage": 2,
-			"client_waitlist_view": 2, "client_waitlist_manage": 2,
+			// Operacional: pedidos, reservas, fila
+			"client_tables_view": 1,
+			"client_customers_view": 1, "client_customers_create": 1, "client_customers_edit": 1,
+			"client_orders_view": 1, "client_orders_create": 1, "client_orders_edit": 1,
+			"client_reservations_view": 1, "client_reservations_create": 1, "client_reservations_edit": 1,
+			"client_waitlist_view": 1, "client_waitlist_create": 1, "client_waitlist_edit": 1, "client_waitlist_delete": 1,
 		},
 		"waiter": {
+			// Garçom: visualiza mesas, menu, produtos e gerencia pedidos
 			"client_tables_view": 1,
 			"client_menu_view": 1,
 			"client_products_view": 1,
-			"client_orders_view": 2, "client_orders_manage": 2,
+			"client_orders_view": 1, "client_orders_create": 1, "client_orders_edit": 1,
 		},
 		"kitchen": {
-			"client_orders_view": 1, "client_orders_manage": 1,
+			// Cozinha: apenas pedidos e produtos (visualização)
+			"client_orders_view": 1, "client_orders_edit": 1,
 			"client_products_view": 1,
 		},
 		"viewer": {
+			// Apenas visualização
 			"client_tables_view": 1,
 			"client_customers_view": 1,
 			"client_menu_view": 1,
