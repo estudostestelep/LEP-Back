@@ -77,6 +77,9 @@ func Start(db *gorm.DB) {
 		&models.PackageLimit{},
 		&models.PackageBundle{},
 		&models.OrganizationPackage{},
+
+		// Plan Change Request System
+		&models.PlanChangeRequest{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product

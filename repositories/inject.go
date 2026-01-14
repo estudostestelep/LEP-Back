@@ -36,6 +36,8 @@ type DBconn struct {
 	Permissions IPermissionRepository
 	Modules     IModuleRepository
 	Packages    IPackageRepository
+	// Plan Change Request
+	PlanChangeRequests IPlanChangeRequestRepository
 }
 
 func (r *DBconn) InjectPostgres(db *gorm.DB) {
@@ -70,4 +72,6 @@ func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.Permissions = NewPermissionRepository(db)
 	r.Modules = NewModuleRepository(db)
 	r.Packages = NewPackageRepository(db)
+	// Plan Change Request
+	r.PlanChangeRequests = NewPlanChangeRequestRepository(db)
 }

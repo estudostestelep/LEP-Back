@@ -615,3 +615,464 @@ type SubscribeRequest struct {
 	BillingCycle string   `json:"billing_cycle" binding:"required,oneof=monthly yearly"`
 	CustomPrice  *float64 `json:"custom_price,omitempty"`
 }
+
+type UpdateSubscriptionRequest struct {
+	PackageId    string   `json:"package_id,omitempty"`
+	BillingCycle string   `json:"billing_cycle,omitempty"`
+	CustomPrice  *float64 `json:"custom_price,omitempty"`
+	Active       *bool    `json:"active,omitempty"`
+}
+
+type SetPackageLimitRequest struct {
+	LimitType  string `json:"limit_type" binding:"required"`
+	LimitValue int    `json:"limit_value" binding:"required"`
+}
+
+// ==================== Package CRUD (Master Admin) ====================
+
+// CreatePackage godoc
+// @Summary Cria um novo pacote (Master Admin)
+// @Tags Packages
+// @Accept json
+// @Produce json
+// @Param package body models.Package true "Dados do pacote"
+// @Success 201 {object} models.Package
+// @Router /package [post]
+func (s *RoleServer) CreatePackage(c *gin.Context) {
+	var pkg models.Package
+	if err := c.ShouldBindJSON(&pkg); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	if pkg.Id == uuid.Nil {
+		pkg.Id = uuid.New()
+	}
+
+	if err := s.handler.CreatePackage(&pkg); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao criar pacote", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": pkg})
+}
+
+// UpdatePackage godoc
+// @Summary Atualiza um pacote (Master Admin)
+// @Tags Packages
+// @Accept json
+// @Produce json
+// @Param id path string true "ID do pacote"
+// @Param package body models.Package true "Dados atualizados"
+// @Success 200 {object} models.Package
+// @Router /package/{id} [put]
+func (s *RoleServer) UpdatePackage(c *gin.Context) {
+	id := c.Param("id")
+
+	var pkg models.Package
+	if err := c.ShouldBindJSON(&pkg); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	pkgUUID, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "ID inválido"})
+		return
+	}
+	pkg.Id = pkgUUID
+
+	if err := s.handler.UpdatePackage(&pkg); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao atualizar pacote", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": pkg})
+}
+
+// DeletePackage godoc
+// @Summary Remove um pacote (Master Admin)
+// @Tags Packages
+// @Produce json
+// @Param id path string true "ID do pacote"
+// @Success 200 {object} map[string]string
+// @Router /package/{id} [delete]
+func (s *RoleServer) DeletePackage(c *gin.Context) {
+	id := c.Param("id")
+
+	if err := s.handler.DeletePackage(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao remover pacote", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Pacote removido com sucesso"})
+}
+
+// AddModuleToPackage godoc
+// @Summary Adiciona um módulo a um pacote (Master Admin)
+// @Tags Packages
+// @Produce json
+// @Param id path string true "ID do pacote"
+// @Param moduleId path string true "ID do módulo"
+// @Success 200 {object} map[string]string
+// @Router /package/{id}/modules/{moduleId} [post]
+func (s *RoleServer) AddModuleToPackage(c *gin.Context) {
+	packageId := c.Param("id")
+	moduleId := c.Param("moduleId")
+
+	if err := s.handler.AddModuleToPackage(packageId, moduleId); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao adicionar módulo", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Módulo adicionado ao pacote com sucesso"})
+}
+
+// RemoveModuleFromPackage godoc
+// @Summary Remove um módulo de um pacote (Master Admin)
+// @Tags Packages
+// @Produce json
+// @Param id path string true "ID do pacote"
+// @Param moduleId path string true "ID do módulo"
+// @Success 200 {object} map[string]string
+// @Router /package/{id}/modules/{moduleId} [delete]
+func (s *RoleServer) RemoveModuleFromPackage(c *gin.Context) {
+	packageId := c.Param("id")
+	moduleId := c.Param("moduleId")
+
+	if err := s.handler.RemoveModuleFromPackage(packageId, moduleId); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao remover módulo", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Módulo removido do pacote com sucesso"})
+}
+
+// SetPackageLimit godoc
+// @Summary Define um limite para o pacote (Master Admin)
+// @Tags Packages
+// @Accept json
+// @Produce json
+// @Param id path string true "ID do pacote"
+// @Param data body SetPackageLimitRequest true "Dados do limite"
+// @Success 200 {object} map[string]string
+// @Router /package/{id}/limits [post]
+func (s *RoleServer) SetPackageLimit(c *gin.Context) {
+	packageId := c.Param("id")
+
+	var req SetPackageLimitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	if err := s.handler.SetPackageLimit(packageId, req.LimitType, req.LimitValue); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao definir limite", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Limite definido com sucesso"})
+}
+
+// GetPackageLimits godoc
+// @Summary Lista limites de um pacote
+// @Tags Packages
+// @Produce json
+// @Param id path string true "ID do pacote"
+// @Success 200 {array} models.PackageLimit
+// @Router /package/{id}/limits [get]
+func (s *RoleServer) GetPackageLimits(c *gin.Context) {
+	packageId := c.Param("id")
+
+	limits, err := s.handler.GetPackageLimits(packageId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar limites"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": limits})
+}
+
+// CreateOrganizationSubscription godoc
+// @Summary Cria uma assinatura para uma organização (Master Admin)
+// @Tags Packages
+// @Accept json
+// @Produce json
+// @Param orgId path string true "ID da organização"
+// @Param data body SubscribeRequest true "Dados da assinatura"
+// @Success 200 {object} map[string]string
+// @Router /package/subscription/{orgId} [post]
+func (s *RoleServer) CreateOrganizationSubscription(c *gin.Context) {
+	orgId := c.Param("orgId")
+
+	var req SubscribeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	if err := s.handler.SubscribeOrganization(orgId, req.PackageId, req.BillingCycle, req.CustomPrice); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Assinatura criada com sucesso"})
+}
+
+// UpdateOrganizationSubscription godoc
+// @Summary Atualiza a assinatura de uma organização (Master Admin)
+// @Tags Packages
+// @Accept json
+// @Produce json
+// @Param orgId path string true "ID da organização"
+// @Param data body UpdateSubscriptionRequest true "Dados atualizados"
+// @Success 200 {object} map[string]string
+// @Router /package/subscription/{orgId} [put]
+func (s *RoleServer) UpdateOrganizationSubscription(c *gin.Context) {
+	orgId := c.Param("orgId")
+
+	var req UpdateSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	if err := s.handler.UpdateOrganizationSubscription(orgId, req.PackageId, req.BillingCycle, req.CustomPrice, req.Active); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao atualizar assinatura", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Assinatura atualizada com sucesso"})
+}
+
+// CancelOrganizationSubscription godoc
+// @Summary Cancela a assinatura de uma organização (Master Admin)
+// @Tags Packages
+// @Produce json
+// @Param orgId path string true "ID da organização"
+// @Success 200 {object} map[string]string
+// @Router /package/subscription/{orgId} [delete]
+func (s *RoleServer) CancelOrganizationSubscription(c *gin.Context) {
+	orgId := c.Param("orgId")
+
+	if err := s.handler.CancelOrganizationSubscription(orgId); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao cancelar assinatura", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Assinatura cancelada com sucesso"})
+}
+
+// ListAllSubscriptions godoc
+// @Summary Lista todas as assinaturas (Master Admin)
+// @Tags Packages
+// @Produce json
+// @Success 200 {array} models.OrganizationPackage
+// @Router /package/subscriptions [get]
+func (s *RoleServer) ListAllSubscriptions(c *gin.Context) {
+	subscriptions, err := s.handler.ListAllSubscriptions()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao listar assinaturas"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": subscriptions})
+}
+
+// ==================== Module CRUD (Master Admin) ====================
+
+// CreateModule godoc
+// @Summary Cria um novo módulo (Master Admin)
+// @Tags Modules
+// @Accept json
+// @Produce json
+// @Param module body models.Module true "Dados do módulo"
+// @Success 201 {object} models.Module
+// @Router /module [post]
+func (s *RoleServer) CreateModule(c *gin.Context) {
+	var module models.Module
+	if err := c.ShouldBindJSON(&module); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	if module.Id == uuid.Nil {
+		module.Id = uuid.New()
+	}
+
+	if err := s.handler.CreateModule(&module); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao criar módulo", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": module})
+}
+
+// UpdateModule godoc
+// @Summary Atualiza um módulo (Master Admin)
+// @Tags Modules
+// @Accept json
+// @Produce json
+// @Param id path string true "ID do módulo"
+// @Param module body models.Module true "Dados atualizados"
+// @Success 200 {object} models.Module
+// @Router /module/{id} [put]
+func (s *RoleServer) UpdateModule(c *gin.Context) {
+	id := c.Param("id")
+
+	var module models.Module
+	if err := c.ShouldBindJSON(&module); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	moduleUUID, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "ID inválido"})
+		return
+	}
+	module.Id = moduleUUID
+
+	if err := s.handler.UpdateModule(&module); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao atualizar módulo", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": module})
+}
+
+// DeleteModule godoc
+// @Summary Remove um módulo (Master Admin)
+// @Tags Modules
+// @Produce json
+// @Param id path string true "ID do módulo"
+// @Success 200 {object} map[string]string
+// @Router /module/{id} [delete]
+func (s *RoleServer) DeleteModule(c *gin.Context) {
+	id := c.Param("id")
+
+	if err := s.handler.DeleteModule(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao remover módulo", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Módulo removido com sucesso"})
+}
+
+// GetModule godoc
+// @Summary Busca um módulo por ID
+// @Tags Modules
+// @Produce json
+// @Param id path string true "ID do módulo"
+// @Success 200 {object} models.Module
+// @Router /module/{id} [get]
+func (s *RoleServer) GetModule(c *gin.Context) {
+	id := c.Param("id")
+
+	module, err := s.handler.GetModule(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Módulo não encontrado"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": module})
+}
+
+// ==================== Permission CRUD (Master Admin) ====================
+
+// CreatePermission godoc
+// @Summary Cria uma nova permissão (Master Admin)
+// @Tags Permissions
+// @Accept json
+// @Produce json
+// @Param permission body models.Permission true "Dados da permissão"
+// @Success 201 {object} models.Permission
+// @Router /permission [post]
+func (s *RoleServer) CreatePermission(c *gin.Context) {
+	var permission models.Permission
+	if err := c.ShouldBindJSON(&permission); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	if permission.Id == uuid.Nil {
+		permission.Id = uuid.New()
+	}
+
+	if err := s.handler.CreatePermission(&permission); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao criar permissão", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": permission})
+}
+
+// UpdatePermission godoc
+// @Summary Atualiza uma permissão (Master Admin)
+// @Tags Permissions
+// @Accept json
+// @Produce json
+// @Param id path string true "ID da permissão"
+// @Param permission body models.Permission true "Dados atualizados"
+// @Success 200 {object} models.Permission
+// @Router /permission/{id} [put]
+func (s *RoleServer) UpdatePermission(c *gin.Context) {
+	id := c.Param("id")
+
+	var permission models.Permission
+	if err := c.ShouldBindJSON(&permission); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
+		return
+	}
+
+	permUUID, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "ID inválido"})
+		return
+	}
+	permission.Id = permUUID
+
+	if err := s.handler.UpdatePermission(&permission); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao atualizar permissão", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": permission})
+}
+
+// DeletePermission godoc
+// @Summary Remove uma permissão (Master Admin)
+// @Tags Permissions
+// @Produce json
+// @Param id path string true "ID da permissão"
+// @Success 200 {object} map[string]string
+// @Router /permission/{id} [delete]
+func (s *RoleServer) DeletePermission(c *gin.Context) {
+	id := c.Param("id")
+
+	if err := s.handler.DeletePermission(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao remover permissão", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Permissão removida com sucesso"})
+}
+
+// GetPermission godoc
+// @Summary Busca uma permissão por ID
+// @Tags Permissions
+// @Produce json
+// @Param id path string true "ID da permissão"
+// @Success 200 {object} models.Permission
+// @Router /permission/{id} [get]
+func (s *RoleServer) GetPermission(c *gin.Context) {
+	id := c.Param("id")
+
+	permission, err := s.handler.GetPermission(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Permissão não encontrada"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": permission})
+}

@@ -398,3 +398,126 @@ func (h *RoleHandler) SubscribeOrganization(orgId, packageId string, billingCycl
 func (h *RoleHandler) GetOrganizationSubscription(orgId string) (*models.OrganizationPackage, error) {
 	return h.packageRepo.GetOrganizationPackage(orgId)
 }
+
+// ==================== Package CRUD (Master Admin) ====================
+
+// CreatePackage cria um novo pacote
+func (h *RoleHandler) CreatePackage(pkg *models.Package) error {
+	return h.packageRepo.Create(pkg)
+}
+
+// UpdatePackage atualiza um pacote
+func (h *RoleHandler) UpdatePackage(pkg *models.Package) error {
+	return h.packageRepo.Update(pkg)
+}
+
+// DeletePackage remove um pacote
+func (h *RoleHandler) DeletePackage(id string) error {
+	return h.packageRepo.Delete(id)
+}
+
+// AddModuleToPackage adiciona um módulo a um pacote
+func (h *RoleHandler) AddModuleToPackage(packageId, moduleId string) error {
+	return h.packageRepo.AddModuleToPackage(packageId, moduleId)
+}
+
+// RemoveModuleFromPackage remove um módulo de um pacote
+func (h *RoleHandler) RemoveModuleFromPackage(packageId, moduleId string) error {
+	return h.packageRepo.RemoveModuleFromPackage(packageId, moduleId)
+}
+
+// SetPackageLimit define um limite para o pacote
+func (h *RoleHandler) SetPackageLimit(packageId, limitType string, limitValue int) error {
+	return h.packageRepo.SetPackageLimit(packageId, limitType, limitValue)
+}
+
+// GetPackageLimits retorna os limites de um pacote
+func (h *RoleHandler) GetPackageLimits(packageId string) ([]models.PackageLimit, error) {
+	return h.packageRepo.GetPackageLimits(packageId)
+}
+
+// UpdateOrganizationSubscription atualiza a assinatura de uma organização
+func (h *RoleHandler) UpdateOrganizationSubscription(orgId, packageId, billingCycle string, customPrice *float64, active *bool) error {
+	// Buscar assinatura existente
+	existingSubscription, err := h.packageRepo.GetOrganizationPackage(orgId)
+	if err != nil {
+		return fmt.Errorf("assinatura não encontrada: %w", err)
+	}
+
+	// Atualizar campos se fornecidos
+	if packageId != "" {
+		pkgUUID, err := uuid.Parse(packageId)
+		if err != nil {
+			return fmt.Errorf("ID do pacote inválido: %w", err)
+		}
+		existingSubscription.PackageId = pkgUUID
+	}
+
+	if billingCycle != "" {
+		existingSubscription.BillingCycle = billingCycle
+	}
+
+	if customPrice != nil {
+		existingSubscription.CustomPrice = customPrice
+	}
+
+	if active != nil {
+		existingSubscription.Active = *active
+	}
+
+	return h.packageRepo.UpdateOrganizationPackage(existingSubscription)
+}
+
+// CancelOrganizationSubscription cancela a assinatura de uma organização
+func (h *RoleHandler) CancelOrganizationSubscription(orgId string) error {
+	return h.packageRepo.CancelOrganizationPackage(orgId)
+}
+
+// ListAllSubscriptions lista todas as assinaturas ativas
+func (h *RoleHandler) ListAllSubscriptions() ([]models.OrganizationPackage, error) {
+	return h.packageRepo.ListAllSubscriptions()
+}
+
+// ==================== Module CRUD (Master Admin) ====================
+
+// CreateModule cria um novo módulo
+func (h *RoleHandler) CreateModule(module *models.Module) error {
+	return h.moduleRepo.Create(module)
+}
+
+// UpdateModule atualiza um módulo
+func (h *RoleHandler) UpdateModule(module *models.Module) error {
+	return h.moduleRepo.Update(module)
+}
+
+// DeleteModule remove um módulo
+func (h *RoleHandler) DeleteModule(id string) error {
+	return h.moduleRepo.Delete(id)
+}
+
+// GetModule busca um módulo por ID
+func (h *RoleHandler) GetModule(id string) (*models.Module, error) {
+	return h.moduleRepo.GetById(id)
+}
+
+// ==================== Permission CRUD (Master Admin) ====================
+
+// CreatePermission cria uma nova permissão
+func (h *RoleHandler) CreatePermission(permission *models.Permission) error {
+	return h.permissionRepo.Create(permission)
+}
+
+// UpdatePermission atualiza uma permissão
+func (h *RoleHandler) UpdatePermission(permission *models.Permission) error {
+	return h.permissionRepo.Update(permission)
+}
+
+// DeletePermission remove uma permissão
+func (h *RoleHandler) DeletePermission(id string) error {
+	return h.permissionRepo.Delete(id)
+}
+
+// GetPermission busca uma permissão por ID
+func (h *RoleHandler) GetPermission(id string) (*models.Permission, error) {
+	return h.permissionRepo.GetById(id)
+}

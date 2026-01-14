@@ -66,6 +66,7 @@ func SetupRoutes(r *gin.Engine) {
 	setupModuleRoutes(protected)
 	setupPermissionRoutes(protected)
 	setupPackageRoutes(protected)
+	setupPlanChangeRequestRoutes(protected)
 
 	// Notification routes (mixed public/protected)
 	setupNotificationRoutes(r)
@@ -525,9 +526,22 @@ func setupRoleRoutes(r gin.IRouter) {
 func setupModuleRoutes(r gin.IRouter) {
 	moduleRoutes := r.Group("/module")
 	{
+		// Rotas de leitura (usuários autenticados)
 		moduleRoutes.GET("", resource.ServersControllers.SourceRole.ListModules)
 		moduleRoutes.GET("/with-permissions", resource.ServersControllers.SourceRole.ListModulesWithPermissions)
 		moduleRoutes.GET("/available", resource.ServersControllers.SourceRole.GetOrganizationModules)
+
+		// CRUD de módulos (Master Admin only)
+		moduleRoutes.POST("",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.CreateModule)
+		moduleRoutes.GET("/:id", resource.ServersControllers.SourceRole.GetModule)
+		moduleRoutes.PUT("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.UpdateModule)
+		moduleRoutes.DELETE("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.DeleteModule)
 	}
 }
 
@@ -535,7 +549,20 @@ func setupModuleRoutes(r gin.IRouter) {
 func setupPermissionRoutes(r gin.IRouter) {
 	permissionRoutes := r.Group("/permission")
 	{
+		// Rotas de leitura (usuários autenticados)
 		permissionRoutes.GET("", resource.ServersControllers.SourceRole.ListPermissions)
+
+		// CRUD de permissões (Master Admin only)
+		permissionRoutes.POST("",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.CreatePermission)
+		permissionRoutes.GET("/:id", resource.ServersControllers.SourceRole.GetPermission)
+		permissionRoutes.PUT("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.UpdatePermission)
+		permissionRoutes.DELETE("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.DeletePermission)
 	}
 }
 
@@ -543,9 +570,76 @@ func setupPermissionRoutes(r gin.IRouter) {
 func setupPackageRoutes(r gin.IRouter) {
 	packageRoutes := r.Group("/package")
 	{
-		packageRoutes.GET("", resource.ServersControllers.SourceRole.ListPackages)
-		packageRoutes.GET("/:id", resource.ServersControllers.SourceRole.GetPackageWithModules)
+		// Rotas específicas primeiro (antes de /:id para evitar conflitos)
 		packageRoutes.GET("/subscription", resource.ServersControllers.SourceRole.GetOrganizationSubscription)
 		packageRoutes.POST("/subscribe", resource.ServersControllers.SourceRole.SubscribeOrganization)
+
+		// Lista de todas as assinaturas (Master Admin only)
+		packageRoutes.GET("/subscriptions",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.ListAllSubscriptions)
+
+		// Gerenciar assinatura de organização específica (Master Admin only)
+		packageRoutes.POST("/subscription/:orgId",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.CreateOrganizationSubscription)
+		packageRoutes.PUT("/subscription/:orgId",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.UpdateOrganizationSubscription)
+		packageRoutes.DELETE("/subscription/:orgId",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.CancelOrganizationSubscription)
+
+		// Rotas de leitura (usuários autenticados)
+		packageRoutes.GET("", resource.ServersControllers.SourceRole.ListPackages)
+
+		// CRUD de pacotes (Master Admin only)
+		packageRoutes.POST("",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.CreatePackage)
+		packageRoutes.GET("/:id", resource.ServersControllers.SourceRole.GetPackageWithModules)
+		packageRoutes.PUT("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.UpdatePackage)
+		packageRoutes.DELETE("/:id",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.DeletePackage)
+
+		// Gerenciar módulos em pacotes (Master Admin only)
+		packageRoutes.POST("/:id/modules/:moduleId",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.AddModuleToPackage)
+		packageRoutes.DELETE("/:id/modules/:moduleId",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.RemoveModuleFromPackage)
+
+		// Gerenciar limites de pacotes (Master Admin only)
+		packageRoutes.GET("/:id/limits", resource.ServersControllers.SourceRole.GetPackageLimits)
+		packageRoutes.POST("/:id/limits",
+			middleware.MasterAdminOnlyMiddleware(),
+			resource.ServersControllers.SourceRole.SetPackageLimit)
+	}
+}
+
+// setupPlanChangeRequestRoutes configura rotas para solicitações de mudança de plano
+func setupPlanChangeRequestRoutes(r gin.IRouter) {
+	// Client routes - usuários podem solicitar mudanças de plano
+	clientRoutes := r.Group("/plan-change-request")
+	{
+		clientRoutes.POST("", resource.ServersControllers.SourcePlanChangeRequest.CreateRequest)
+		clientRoutes.GET("/my-requests", resource.ServersControllers.SourcePlanChangeRequest.GetMyRequests)
+		clientRoutes.GET("/:id", resource.ServersControllers.SourcePlanChangeRequest.GetRequestById)
+		clientRoutes.POST("/:id/cancel", resource.ServersControllers.SourcePlanChangeRequest.CancelRequest)
+	}
+
+	// Admin routes - apenas admins podem gerenciar solicitações
+	adminRoutes := r.Group("/admin/plan-change-request")
+	adminRoutes.Use(middleware.MasterAdminOnlyMiddleware())
+	{
+		adminRoutes.GET("", resource.ServersControllers.SourcePlanChangeRequest.GetAllRequests)
+		adminRoutes.GET("/pending", resource.ServersControllers.SourcePlanChangeRequest.GetPendingRequests)
+		adminRoutes.GET("/organization/:orgId", resource.ServersControllers.SourcePlanChangeRequest.GetRequestsByOrganization)
+		adminRoutes.POST("/:id/approve", resource.ServersControllers.SourcePlanChangeRequest.ApproveRequest)
+		adminRoutes.POST("/:id/reject", resource.ServersControllers.SourcePlanChangeRequest.RejectRequest)
 	}
 }

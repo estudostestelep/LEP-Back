@@ -34,6 +34,7 @@ type Handlers struct {
 	HandlerImageManagement    IHandlerImageManagement
 	HandlerOnboarding         IOnboardingHandler
 	HandlerRole               *RoleHandler
+	HandlerPlanChangeRequest  IPlanChangeRequestHandler
 	ImageManagementService    service.IImageManagementService // Service direto para o Upload server
 }
 
@@ -74,4 +75,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 
 	// Role & Permission Handler
 	h.HandlerRole = NewRoleHandler(repo.Roles, repo.Permissions, repo.Modules, repo.Packages)
+
+	// Plan Change Request Handler
+	h.HandlerPlanChangeRequest = NewPlanChangeRequestHandler(repo.PlanChangeRequests, h.HandlerRole)
 }

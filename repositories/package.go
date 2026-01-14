@@ -36,6 +36,7 @@ type IPackageRepository interface {
 	GetOrganizationPackage(orgId string) (*models.OrganizationPackage, error)
 	UpdateOrganizationPackage(orgPackage *models.OrganizationPackage) error
 	CancelOrganizationPackage(orgId string) error
+	ListAllSubscriptions() ([]models.OrganizationPackage, error)
 
 	// Bundles
 	CreateBundle(bundle *models.PackageBundle) error
@@ -238,6 +239,17 @@ func (r *resourcePackage) CancelOrganizationPackage(orgId string) error {
 	return r.db.Model(&models.OrganizationPackage{}).
 		Where("organization_id = ? AND active = true AND deleted_at IS NULL", orgId).
 		Update("active", false).Error
+}
+
+// ListAllSubscriptions lista todas as assinaturas ativas
+func (r *resourcePackage) ListAllSubscriptions() ([]models.OrganizationPackage, error) {
+	var subscriptions []models.OrganizationPackage
+	err := r.db.Where("deleted_at IS NULL").
+		Preload("Package").
+		Preload("Organization").
+		Order("created_at DESC").
+		Find(&subscriptions).Error
+	return subscriptions, err
 }
 
 // CreateBundle cria um novo bundle
