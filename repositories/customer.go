@@ -21,6 +21,7 @@ type ICustomersRepository interface {
 	UpdateCustomer(updatedCustomer *models.Customer) error
 	SoftDelete(id uuid.UUID) error
 	SoftDeleteCustomer(id uuid.UUID) error
+	GetCustomerByPhone(orgId, projectId uuid.UUID, phone string) (*models.Customer, error)
 }
 
 func NewConnCustomer(db *gorm.DB) ICustomersRepository {
@@ -64,4 +65,29 @@ func (r *CustomerRepository) SoftDelete(id uuid.UUID) error {
 
 func (r *CustomerRepository) SoftDeleteCustomer(id uuid.UUID) error {
 	return r.SoftDelete(id)
+}
+
+// GetCustomerByPhone busca cliente pelo número de telefone
+// Suporta variações: com/sem código do país, com/sem formatação
+func (r *CustomerRepository) GetCustomerByPhone(orgId, projectId uuid.UUID, phone string) (*models.Customer, error) {
+	var customer models.Customer
+
+	// Tenta match exato primeiro, depois match parcial (últimos 9 dígitos)
+	err := r.db.Where(
+		"organization_id = ? AND project_id = ? AND deleted_at IS NULL AND (phone = ? OR phone LIKE ?)",
+		orgId, projectId, phone, "%"+getLastDigits(phone, 9),
+	).First(&customer).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &customer, nil
+}
+
+// getLastDigits retorna os últimos n dígitos de uma string
+func getLastDigits(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[len(s)-n:]
 }

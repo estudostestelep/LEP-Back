@@ -14,12 +14,36 @@ import (
 type NotificationHandler struct {
 	notificationRepo repositories.INotificationRepository
 	projectRepo      repositories.IProjectRepository
+	reservationRepo  repositories.IReservationRepository
+	customerRepo     repositories.ICustomersRepository
+	tableRepo        repositories.ITableRepository
+	settingsRepo     repositories.ISettingsRepository
+	inboundProcessor *utils.InboundProcessorService
 }
 
-func NewNotificationHandler(notificationRepo repositories.INotificationRepository, projectRepo repositories.IProjectRepository) *NotificationHandler {
+func NewNotificationHandler(
+	notificationRepo repositories.INotificationRepository,
+	projectRepo repositories.IProjectRepository,
+	reservationRepo repositories.IReservationRepository,
+	customerRepo repositories.ICustomersRepository,
+	tableRepo repositories.ITableRepository,
+	settingsRepo repositories.ISettingsRepository,
+) *NotificationHandler {
+	inboundProcessor := utils.NewInboundProcessorService(
+		notificationRepo,
+		reservationRepo,
+		customerRepo,
+		tableRepo,
+		settingsRepo,
+	)
 	return &NotificationHandler{
 		notificationRepo: notificationRepo,
 		projectRepo:      projectRepo,
+		reservationRepo:  reservationRepo,
+		customerRepo:     customerRepo,
+		tableRepo:        tableRepo,
+		settingsRepo:     settingsRepo,
+		inboundProcessor: inboundProcessor,
 	}
 }
 
@@ -185,4 +209,26 @@ func (h *NotificationHandler) UpdateNotificationTemplate(template *models.Notifi
 
 func (h *NotificationHandler) CreateOrUpdateNotificationConfig(config *models.NotificationConfig) error {
 	return h.notificationRepo.CreateOrUpdateNotificationConfig(config)
+}
+
+// === Review Queue Methods ===
+
+// GetPendingReviewItems retorna itens pendentes na fila de revisão
+func (h *NotificationHandler) GetPendingReviewItems(orgId, projectId uuid.UUID) ([]models.ResponseReviewQueue, error) {
+	return h.notificationRepo.GetPendingReviewItems(orgId, projectId)
+}
+
+// ApproveReviewItem aprova um item e executa a ação sugerida
+func (h *NotificationHandler) ApproveReviewItem(itemId, reviewedBy uuid.UUID) error {
+	return h.inboundProcessor.ApproveReviewItem(itemId, reviewedBy)
+}
+
+// RejectReviewItem rejeita um item sem executar ação
+func (h *NotificationHandler) RejectReviewItem(itemId, reviewedBy uuid.UUID, notes string) error {
+	return h.inboundProcessor.RejectReviewItem(itemId, reviewedBy, notes)
+}
+
+// ExecuteCustomAction executa uma ação customizada no item
+func (h *NotificationHandler) ExecuteCustomAction(itemId, reviewedBy uuid.UUID, action, notes string) error {
+	return h.inboundProcessor.ExecuteCustomAction(itemId, reviewedBy, action, notes)
 }

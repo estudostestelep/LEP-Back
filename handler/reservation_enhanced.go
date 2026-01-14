@@ -11,8 +11,9 @@ import (
 )
 
 type ReservationEnhancedHandler struct {
-	repo         *repositories.DBconn
-	eventService *utils.EventService
+	repo            *repositories.DBconn
+	eventService    *utils.EventService
+	scheduleService *utils.NotificationScheduleService
 }
 
 type IReservationEnhancedHandler interface {
@@ -27,9 +28,18 @@ type IReservationEnhancedHandler interface {
 
 func NewReservationEnhancedHandler(repo *repositories.DBconn) IReservationEnhancedHandler {
 	eventService := utils.NewEventService(repo.Notifications, repo.Projects, repo.Settings)
+	scheduleService := utils.NewNotificationScheduleService(
+		repo.Notifications,
+		repo.Reservations,
+		repo.Customers,
+		repo.Tables,
+		repo.Settings,
+		repo.Projects,
+	)
 	return &ReservationEnhancedHandler{
-		repo:         repo,
-		eventService: eventService,
+		repo:            repo,
+		eventService:    eventService,
+		scheduleService: scheduleService,
 	}
 }
 
@@ -76,10 +86,15 @@ func (r *ReservationEnhancedHandler) CreateReservationWithTriggers(reservation *
 		return fmt.Errorf("table not found: %w", err)
 	}
 
-	// Trigger de notificação
+	// Trigger de notificação imediata (reserva criada)
 	if err := r.eventService.TriggerReservationCreated(reservation.OrganizationId, reservation.ProjectId, reservation, customer, table); err != nil {
 		// Log do erro mas não interrompe o processo
 		fmt.Printf("Error triggering reservation created event: %v\n", err)
+	}
+
+	// Agendar notificações futuras (confirmação X horas antes, lembrete, etc.)
+	if err := r.scheduleService.ScheduleReservationNotifications(reservation, customer, table); err != nil {
+		fmt.Printf("Error scheduling notification: %v\n", err)
 	}
 
 	return nil
@@ -157,6 +172,11 @@ func (r *ReservationEnhancedHandler) CancelReservationWithTriggers(id, reason st
 	// Liberar mesa
 	if err := r.updateTableStatus(reservation.TableId, "livre"); err != nil {
 		fmt.Printf("Error freeing table after cancellation: %v\n", err)
+	}
+
+	// Cancelar agendamentos pendentes para esta reserva
+	if err := r.scheduleService.CancelReservationSchedules(reservationId); err != nil {
+		fmt.Printf("Error cancelling scheduled notifications: %v\n", err)
 	}
 
 	// Buscar dados adicionais para o trigger

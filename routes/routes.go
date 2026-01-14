@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"lep/handler"
 	"lep/middleware"
 	"lep/resource"
 
@@ -19,6 +20,14 @@ func SetupRoutes(r *gin.Engine) {
 
 	// Admin routes (temporary - for password reset)
 	r.POST("/admin/reset-passwords", resource.ServersControllers.SourceAdmin.ServiceResetPasswords)
+
+	// =========================================================================
+	// DEV MIGRATION ENDPOINT
+	// Este endpoint é exclusivo para desenvolvedores (pablo@lep.com)
+	// Permite executar migrações de banco de dados através de um botão no frontend
+	// Para adicionar novas migrações, edite server/admin.go -> ServiceRunDevMigration
+	// =========================================================================
+	r.POST("/admin/run-migration", resource.ServersControllers.SourceAdmin.ServiceRunDevMigration)
 
 	// Public routes for menu and reservations (no authentication)
 	setupPublicRoutes(r)
@@ -133,7 +142,10 @@ func setupProductRoutes(r gin.IRouter) {
 		productRoutes.GET("/purchase/:id", resource.ServersControllers.SourceProducts.ServiceGetProductByPurchase)
 		productRoutes.GET("", resource.ServersControllers.SourceProducts.ServiceListProducts)            // Endpoint de listagem
 		productRoutes.GET("/by-tag", resource.ServersControllers.SourceProducts.ServiceGetProductsByTag) // Buscar produtos por tag
-		productRoutes.POST("", resource.ServersControllers.SourceProducts.ServiceCreateProduct)
+		// Aplicar middleware de limite na criação de produtos
+		productRoutes.POST("",
+			middleware.PackageLimitMiddleware(resource.Handlers.HandlerLimits, handler.LimitProducts),
+			resource.ServersControllers.SourceProducts.ServiceCreateProduct)
 		productRoutes.PUT("/:id", resource.ServersControllers.SourceProducts.ServiceUpdateProduct)
 		productRoutes.PUT("/:id/image", resource.ServersControllers.SourceProducts.ServiceUpdateProductImage) // Atualizar apenas imagem
 		productRoutes.DELETE("/:id", resource.ServersControllers.SourceProducts.ServiceDeleteProduct)
@@ -159,7 +171,10 @@ func setupTableRoutes(r gin.IRouter) {
 	{
 		tableRoutes.GET("/:id", resource.ServersControllers.SourceTables.ServiceGetTable)
 		tableRoutes.GET("", resource.ServersControllers.SourceTables.ServiceListTables)
-		tableRoutes.POST("", resource.ServersControllers.SourceTables.ServiceCreateTable)
+		// Aplicar middleware de limite na criação de mesas
+		tableRoutes.POST("",
+			middleware.PackageLimitMiddleware(resource.Handlers.HandlerLimits, handler.LimitTables),
+			resource.ServersControllers.SourceTables.ServiceCreateTable)
 		tableRoutes.PUT("/:id", resource.ServersControllers.SourceTables.ServiceUpdateTable)
 		tableRoutes.DELETE("/:id", resource.ServersControllers.SourceTables.ServiceDeleteTable)
 	}
@@ -168,6 +183,9 @@ func setupTableRoutes(r gin.IRouter) {
 func setupWaitlistRoutes(r gin.IRouter) {
 	waitlistRoutes := r.Group("/waitlist")
 	{
+		// Verificar se módulo de fila de espera está disponível
+		waitlistRoutes.Use(middleware.ModuleRequiredMiddleware(resource.Handlers.HandlerLimits, "client_waitlist"))
+
 		waitlistRoutes.GET("/:id", resource.ServersControllers.SourceWaitlist.ServiceGetWaitlist)
 		waitlistRoutes.GET("", resource.ServersControllers.SourceWaitlist.ServiceListWaitlists)
 		waitlistRoutes.POST("", resource.ServersControllers.SourceWaitlist.ServiceCreateWaitlist)
@@ -179,9 +197,15 @@ func setupWaitlistRoutes(r gin.IRouter) {
 func setupReservationRoutes(r gin.IRouter) {
 	reservationRoutes := r.Group("/reservation")
 	{
+		// Verificar se módulo de reservas está disponível
+		reservationRoutes.Use(middleware.ModuleRequiredMiddleware(resource.Handlers.HandlerLimits, "client_reservations"))
+
 		reservationRoutes.GET("/:id", resource.ServersControllers.SourceReservation.ServiceGetReservation)
 		reservationRoutes.GET("", resource.ServersControllers.SourceReservation.ServiceListReservations)
-		reservationRoutes.POST("", resource.ServersControllers.SourceReservation.ServiceCreateReservation)
+		// Verificar limite de reservas por dia na criação
+		reservationRoutes.POST("",
+			middleware.PackageLimitMiddleware(resource.Handlers.HandlerLimits, handler.LimitReservationsDay),
+			resource.ServersControllers.SourceReservation.ServiceCreateReservation)
 		reservationRoutes.PUT("/:id", resource.ServersControllers.SourceReservation.ServiceUpdateReservation)
 		reservationRoutes.DELETE("/:id", resource.ServersControllers.SourceReservation.ServiceDeleteReservation)
 	}
@@ -289,6 +313,8 @@ func setupNotificationRoutes(r *gin.Engine) {
 
 	// APIs de notificação (protegidas)
 	notificationRoutes := r.Group("/notification")
+	notificationRoutes.Use(middleware.AuthMiddleware())
+	notificationRoutes.Use(middleware.HeaderValidationMiddleware())
 	{
 		// Enviar notificação manual
 		notificationRoutes.POST("/send", resource.ServersControllers.SourceNotification.SendNotification)
@@ -302,6 +328,12 @@ func setupNotificationRoutes(r *gin.Engine) {
 		notificationRoutes.PUT("/template", resource.ServersControllers.SourceNotification.UpdateNotificationTemplate)
 		// Configurações
 		notificationRoutes.POST("/config", resource.ServersControllers.SourceNotification.CreateOrUpdateNotificationConfig)
+
+		// Fila de revisão de respostas
+		notificationRoutes.GET("/review-queue/:orgId/:projectId", resource.ServersControllers.SourceNotification.GetReviewQueue)
+		notificationRoutes.POST("/review-queue/:id/approve", resource.ServersControllers.SourceNotification.ApproveReviewItem)
+		notificationRoutes.POST("/review-queue/:id/reject", resource.ServersControllers.SourceNotification.RejectReviewItem)
+		notificationRoutes.POST("/review-queue/:id/custom", resource.ServersControllers.SourceNotification.ExecuteCustomAction)
 	}
 }
 
@@ -572,6 +604,7 @@ func setupPackageRoutes(r gin.IRouter) {
 	{
 		// Rotas específicas primeiro (antes de /:id para evitar conflitos)
 		packageRoutes.GET("/subscription", resource.ServersControllers.SourceRole.GetOrganizationSubscription)
+		packageRoutes.GET("/usage-limits", resource.ServersControllers.SourceRole.GetUsageAndLimits)
 		packageRoutes.POST("/subscribe", resource.ServersControllers.SourceRole.SubscribeOrganization)
 
 		// Lista de todas as assinaturas (Master Admin only)

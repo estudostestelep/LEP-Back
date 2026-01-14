@@ -251,3 +251,111 @@ func (s *NotificationServer) CreateOrUpdateNotificationConfig(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"config": config})
 }
+
+// === REVIEW QUEUE ENDPOINTS ===
+
+// GetReviewQueue - Lista itens pendentes na fila de revisão
+func (s *NotificationServer) GetReviewQueue(c *gin.Context) {
+	orgIdStr := c.Param("orgId")
+	projectIdStr := c.Param("projectId")
+
+	orgId, err := uuid.Parse(orgIdStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization ID"})
+		return
+	}
+
+	projectId, err := uuid.Parse(projectIdStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
+
+	items, err := s.notificationHandler.GetPendingReviewItems(orgId, projectId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+// ApproveReviewItem - Aprova um item da fila e executa a ação sugerida
+func (s *NotificationServer) ApproveReviewItem(c *gin.Context) {
+	itemIdStr := c.Param("id")
+	itemId, err := uuid.Parse(itemIdStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item ID"})
+		return
+	}
+
+	// Pegar user ID do contexto de autenticação
+	userIdStr := c.GetString("user_id")
+	userId, _ := uuid.Parse(userIdStr)
+
+	err = s.notificationHandler.ApproveReviewItem(itemId, userId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Item approved and action executed"})
+}
+
+// RejectReviewItem - Rejeita um item da fila sem ação
+func (s *NotificationServer) RejectReviewItem(c *gin.Context) {
+	itemIdStr := c.Param("id")
+	itemId, err := uuid.Parse(itemIdStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item ID"})
+		return
+	}
+
+	var req struct {
+		Notes string `json:"notes"`
+	}
+	c.ShouldBindJSON(&req)
+
+	// Pegar user ID do contexto de autenticação
+	userIdStr := c.GetString("user_id")
+	userId, _ := uuid.Parse(userIdStr)
+
+	err = s.notificationHandler.RejectReviewItem(itemId, userId, req.Notes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Item rejected"})
+}
+
+// ExecuteCustomAction - Executa uma ação customizada no item da fila
+func (s *NotificationServer) ExecuteCustomAction(c *gin.Context) {
+	itemIdStr := c.Param("id")
+	itemId, err := uuid.Parse(itemIdStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item ID"})
+		return
+	}
+
+	var req struct {
+		Action string `json:"action"` // "confirm" ou "cancel"
+		Notes  string `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Pegar user ID do contexto de autenticação
+	userIdStr := c.GetString("user_id")
+	userId, _ := uuid.Parse(userIdStr)
+
+	err = s.notificationHandler.ExecuteCustomAction(itemId, userId, req.Action, req.Notes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Custom action executed"})
+}

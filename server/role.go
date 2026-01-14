@@ -10,11 +10,17 @@ import (
 )
 
 type RoleServer struct {
-	handler *handler.RoleHandler
+	handler      *handler.RoleHandler
+	limitHandler *handler.LimitHandler
 }
 
 func NewRoleServer(h *handler.RoleHandler) *RoleServer {
 	return &RoleServer{handler: h}
+}
+
+// SetLimitHandler configura o handler de limites (injetado separadamente)
+func (s *RoleServer) SetLimitHandler(h *handler.LimitHandler) {
+	s.limitHandler = h
 }
 
 // ==================== Role CRUD ====================
@@ -1075,4 +1081,38 @@ func (s *RoleServer) GetPermission(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": permission})
+}
+
+// ==================== Usage & Limits ====================
+
+// GetUsageAndLimits godoc
+// @Summary Retorna o uso atual e limites do plano da organização
+// @Description Retorna informações sobre uso de recursos (mesas, usuários, produtos, reservas) e os limites do plano atual
+// @Tags Packages
+// @Produce json
+// @Success 200 {object} handler.UsageLimitsResponse
+// @Failure 403 {object} map[string]string "Organização sem plano ativo"
+// @Router /package/usage-limits [get]
+func (s *RoleServer) GetUsageAndLimits(c *gin.Context) {
+	orgId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
+
+	if s.limitHandler == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Handler de limites não configurado",
+			"message": "Erro interno do servidor",
+		})
+		return
+	}
+
+	response, err := s.limitHandler.GetUsageAndLimits(orgId, projectId)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":   "Erro ao buscar dados do plano",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": response})
 }

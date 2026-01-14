@@ -242,6 +242,13 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 		return nil, fmt.Errorf("erro ao adicionar master admins: %v", err)
 	}
 
+	// 🎯 REGRA DE NEGÓCIO: Atribuir plano gratuito automaticamente
+	// Toda organização começa com o plano "free"
+	if err := r.assignFreePackage(org.Id); err != nil {
+		fmt.Printf("⚠️ Aviso: erro ao atribuir plano gratuito: %v\n", err)
+		// Não falha a criação, apenas registra o aviso
+	}
+
 	// Montar resposta
 	response := &OrganizationBootstrapResponse{
 		Organization: struct {
@@ -330,6 +337,31 @@ func (r *resourceOrganization) addMasterAdminsToOrganization(
 	}
 
 	return nil
+}
+
+// assignFreePackage atribui o plano gratuito (free) para uma nova organização
+// Esta função é chamada automaticamente no bootstrap de organizações
+func (r *resourceOrganization) assignFreePackage(orgId uuid.UUID) error {
+	// Buscar o pacote gratuito pelo código
+	freePkg, err := r.repo.Packages.GetByCodeName("free")
+	if err != nil {
+		return fmt.Errorf("plano gratuito não encontrado: %w", err)
+	}
+
+	// Criar a assinatura da organização
+	now := time.Now()
+	orgPackage := &models.OrganizationPackage{
+		Id:             uuid.New(),
+		OrganizationId: orgId,
+		PackageId:      freePkg.Id,
+		BillingCycle:   "monthly",
+		Active:         true,
+		StartedAt:      &now,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	return r.repo.Packages.SubscribeOrganization(orgPackage)
 }
 
 func NewSourceHandlerOrganization(repo *repositories.DBconn) IHandlerOrganization {

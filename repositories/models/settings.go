@@ -23,6 +23,17 @@ type Settings struct {
 	NotifyTableAvailable    bool `json:"notify_table_available" gorm:"default:true"`
 	NotifyConfirmation24h   bool `json:"notify_confirmation_24h" gorm:"default:true"`
 
+	// Configurações de agendamento flexível de notificações
+	ConfirmationHoursBefore   int `json:"confirmation_hours_before" gorm:"default:24"`   // Horas antes da reserva para enviar confirmação
+	ReminderHoursBefore       int `json:"reminder_hours_before" gorm:"default:0"`        // Horas antes para lembrete (0 = desabilitado)
+	AutoCancelNoResponseHours int `json:"auto_cancel_no_response_hours" gorm:"default:0"` // Cancelar automaticamente se sem resposta (0 = desabilitado)
+
+	// Modo de processamento de respostas do cliente
+	// "automatic" - Sistema processa e atualiza reserva automaticamente
+	// "ai_assisted" - IA analisa e sugere ação, aguarda aprovação humana
+	// "manual" - Todas as respostas vão para fila de revisão manual
+	ResponseProcessingMode string `json:"response_processing_mode" gorm:"default:'automatic'"`
+
 	// Canais de notificação preferenciais
 	DefaultNotificationChannel string `json:"default_notification_channel" gorm:"default:'sms'"` // sms, email, whatsapp
 	EnableSms                  bool   `json:"enable_sms" gorm:"default:true"`

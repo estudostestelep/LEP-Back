@@ -19,6 +19,7 @@ type IReservationRepository interface {
 	GetReservationsByProject(orgId, projectId uuid.UUID) ([]models.Reservation, error)
 	GetReservationsByTableAndDateRange(tableId uuid.UUID, startDate, endDate time.Time) ([]models.Reservation, error)
 	DeleteReservation(id uuid.UUID) error
+	GetPendingConfirmationReservation(orgId, projectId, customerId uuid.UUID) (*models.Reservation, error)
 }
 
 type ReservationRepository struct {
@@ -86,4 +87,22 @@ func (r *ReservationRepository) GetReservationsByTableAndDateRange(tableId uuid.
 
 func (r *ReservationRepository) DeleteReservation(id uuid.UUID) error {
 	return r.db.Delete(&models.Reservation{}, id).Error
+}
+
+// GetPendingConfirmationReservation busca a reserva mais próxima do cliente aguardando confirmação
+// Retorna reservas futuras com status "confirmed" ou "awaiting_confirmation"
+func (r *ReservationRepository) GetPendingConfirmationReservation(orgId, projectId, customerId uuid.UUID) (*models.Reservation, error) {
+	var reservation models.Reservation
+	now := time.Now()
+
+	// Busca a reserva futura mais próxima para este cliente
+	err := r.db.Where(
+		"organization_id = ? AND project_id = ? AND customer_id = ? AND datetime > ? AND status IN (?, ?) AND deleted_at IS NULL",
+		orgId, projectId, customerId, now, "confirmed", "awaiting_confirmation",
+	).Order("datetime ASC").First(&reservation).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &reservation, nil
 }

@@ -23,6 +23,7 @@ type INotificationRepository interface {
 	CreateNotificationInbound(inbound *models.NotificationInbound) error
 	GetUnprocessedInbound(orgId, projectId uuid.UUID) ([]models.NotificationInbound, error)
 	MarkInboundAsProcessed(id uuid.UUID) error
+	UpdateNotificationInbound(inbound *models.NotificationInbound) error
 
 	// NotificationEvent
 	CreateNotificationEvent(event *models.NotificationEvent) error
@@ -39,6 +40,19 @@ type INotificationRepository interface {
 	CreateNotificationTemplate(template *models.NotificationTemplate) error
 	UpdateNotificationTemplate(template *models.NotificationTemplate) error
 	GetNotificationTemplatesByProject(orgId, projectId uuid.UUID) ([]models.NotificationTemplate, error)
+
+	// NotificationSchedule - Agendamentos de notificações
+	CreateNotificationSchedule(schedule *models.NotificationSchedule) error
+	GetDueSchedules(now time.Time) ([]models.NotificationSchedule, error)
+	UpdateScheduleStatus(id uuid.UUID, status string) error
+	CancelSchedulesByEntity(entityType string, entityId uuid.UUID) error
+	GetSchedulesByReservation(reservationId uuid.UUID) ([]models.NotificationSchedule, error)
+
+	// ResponseReviewQueue - Fila de revisão de respostas
+	CreateReviewQueueItem(item *models.ResponseReviewQueue) error
+	GetPendingReviewItems(orgId, projectId uuid.UUID) ([]models.ResponseReviewQueue, error)
+	GetReviewQueueItemById(id uuid.UUID) (*models.ResponseReviewQueue, error)
+	UpdateReviewQueueItem(item *models.ResponseReviewQueue) error
 }
 
 func NewNotificationRepository(db *gorm.DB) INotificationRepository {
@@ -204,4 +218,83 @@ func (r *NotificationRepository) GetNotificationTemplatesByProject(orgId, projec
 	err := r.db.Where("organization_id = ? AND project_id = ?", orgId, projectId).
 		Order("channel ASC, name ASC").Find(&templates).Error
 	return templates, err
+}
+
+// === NotificationInbound Update ===
+
+func (r *NotificationRepository) UpdateNotificationInbound(inbound *models.NotificationInbound) error {
+	return r.db.Save(inbound).Error
+}
+
+// === NotificationSchedule ===
+
+func (r *NotificationRepository) CreateNotificationSchedule(schedule *models.NotificationSchedule) error {
+	schedule.Id = uuid.New()
+	schedule.CreatedAt = time.Now()
+	schedule.UpdatedAt = time.Now()
+	return r.db.Create(schedule).Error
+}
+
+func (r *NotificationRepository) GetDueSchedules(now time.Time) ([]models.NotificationSchedule, error) {
+	var schedules []models.NotificationSchedule
+	err := r.db.Where("scheduled_for <= ? AND status = ?", now, "pending").
+		Order("scheduled_for ASC").Find(&schedules).Error
+	return schedules, err
+}
+
+func (r *NotificationRepository) UpdateScheduleStatus(id uuid.UUID, status string) error {
+	now := time.Now()
+	return r.db.Model(&models.NotificationSchedule{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"status":       status,
+			"processed_at": now,
+			"updated_at":   now,
+		}).Error
+}
+
+func (r *NotificationRepository) CancelSchedulesByEntity(entityType string, entityId uuid.UUID) error {
+	return r.db.Model(&models.NotificationSchedule{}).
+		Where("entity_type = ? AND entity_id = ? AND status = ?", entityType, entityId, "pending").
+		Updates(map[string]interface{}{
+			"status":     "cancelled",
+			"updated_at": time.Now(),
+		}).Error
+}
+
+func (r *NotificationRepository) GetSchedulesByReservation(reservationId uuid.UUID) ([]models.NotificationSchedule, error) {
+	var schedules []models.NotificationSchedule
+	err := r.db.Where("entity_type = ? AND entity_id = ?", "reservation", reservationId).
+		Order("scheduled_for ASC").Find(&schedules).Error
+	return schedules, err
+}
+
+// === ResponseReviewQueue ===
+
+func (r *NotificationRepository) CreateReviewQueueItem(item *models.ResponseReviewQueue) error {
+	item.Id = uuid.New()
+	item.CreatedAt = time.Now()
+	item.UpdatedAt = time.Now()
+	return r.db.Create(item).Error
+}
+
+func (r *NotificationRepository) GetPendingReviewItems(orgId, projectId uuid.UUID) ([]models.ResponseReviewQueue, error) {
+	var items []models.ResponseReviewQueue
+	err := r.db.Where("organization_id = ? AND project_id = ? AND status = ?", orgId, projectId, "pending_review").
+		Order("created_at ASC").Find(&items).Error
+	return items, err
+}
+
+func (r *NotificationRepository) GetReviewQueueItemById(id uuid.UUID) (*models.ResponseReviewQueue, error) {
+	var item models.ResponseReviewQueue
+	err := r.db.First(&item, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *NotificationRepository) UpdateReviewQueueItem(item *models.ResponseReviewQueue) error {
+	item.UpdatedAt = time.Now()
+	return r.db.Save(item).Error
 }

@@ -118,7 +118,8 @@
       "Bash(gcloud run deploy:*)",
       "Bash(gcloud run services logs read:*)",
       "Bash(gcloud run services describe:*)",
-      "Bash(gcloud run revisions list:*)"
+      "Bash(gcloud run revisions list:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

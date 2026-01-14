@@ -35,6 +35,7 @@ type Handlers struct {
 	HandlerOnboarding         IOnboardingHandler
 	HandlerRole               *RoleHandler
 	HandlerPlanChangeRequest  IPlanChangeRequestHandler
+	HandlerLimits             *LimitHandler
 	ImageManagementService    service.IImageManagementService // Service direto para o Upload server
 }
 
@@ -56,7 +57,14 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerDisplaySettings = NewDisplaySettingsHandler(repo.DisplaySettings)
 	h.HandlerThemeCustomization = NewThemeCustomizationHandler(repo.ThemeCustomization)
 	h.HandlerEnvironment = NewEnvironmentHandler(repo.Environments)
-	h.HandlerNotification = NewNotificationHandler(repo.Notifications, repo.Projects)
+	h.HandlerNotification = NewNotificationHandler(
+		repo.Notifications,
+		repo.Projects,
+		repo.Reservations,
+		repo.Customers,
+		repo.Tables,
+		repo.Settings,
+	)
 	h.HandlerReports = NewReportsHandler(repo)
 	h.HandlerTag = NewSourceHandlerTag(repo)
 	h.HandlerMenu = NewSourceHandlerMenu(repo)
@@ -78,4 +86,14 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 
 	// Plan Change Request Handler
 	h.HandlerPlanChangeRequest = NewPlanChangeRequestHandler(repo.PlanChangeRequests, h.HandlerRole)
+
+	// Limits Handler - Verificação de limites de plano
+	h.HandlerLimits = NewLimitHandler(
+		repo.Packages,
+		repo.Tables,
+		repo.UserOrganizations,
+		repo.Products,
+		repo.Reservations,
+		repo.Modules,
+	)
 }

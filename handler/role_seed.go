@@ -74,6 +74,9 @@ func SeedRolesAndPermissions(db *gorm.DB) error {
 	// 5. Configurar permissões padrão para cargos
 	configureDefaultPermissions(roleRepo, permissionRepo)
 
+	// 6. Configurar limites e módulos dos pacotes
+	configurePackageLimitsAndModules(packageRepo, moduleRepo)
+
 	fmt.Println("🌱 Seed de roles e permissões concluído!")
 	return nil
 }
@@ -647,5 +650,133 @@ func configureDefaultPermissions(roleRepo repositories.IRoleRepository, permissi
 			}
 		}
 		fmt.Printf("✅ Permissões configuradas para: %s\n", role.DisplayName)
+	}
+}
+
+// configurePackageLimitsAndModules configura os limites e módulos para cada pacote
+func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepository, moduleRepo repositories.IModuleRepository) {
+	fmt.Println("📦 Configurando limites e módulos dos pacotes...")
+
+	// Definição de limites por pacote
+	// -1 = ilimitado, 0 = desabilitado
+	packageLimits := map[string]map[string]int{
+		"free": {
+			"users":                3,
+			"tables":               10,
+			"products":             50,
+			"reservations_per_day": 0, // Desabilitado no plano gratuito
+		},
+		"starter": {
+			"users":                10,
+			"tables":               30,
+			"products":             200,
+			"reservations_per_day": 20,
+		},
+		"professional": {
+			"users":                50,
+			"tables":               100,
+			"products":             1000,
+			"reservations_per_day": 100,
+		},
+		"enterprise": {
+			"users":                -1, // Ilimitado
+			"tables":               -1,
+			"products":             -1,
+			"reservations_per_day": -1,
+		},
+	}
+
+	// Definição de módulos por pacote
+	// Módulos gratuitos (IsFree=true) são incluídos em todos os pacotes
+	packageModules := map[string][]string{
+		"free": {
+			// Apenas módulos gratuitos
+			"client_users",
+			"client_tables",
+			"client_customers",
+			"client_menu",
+			"client_products",
+			"client_orders",
+			"client_settings",
+		},
+		"starter": {
+			// Gratuitos + reservas e fila
+			"client_users",
+			"client_tables",
+			"client_customers",
+			"client_menu",
+			"client_products",
+			"client_orders",
+			"client_settings",
+			"client_reservations",
+			"client_waitlist",
+			"client_reports",
+		},
+		"professional": {
+			// Starter + notificações
+			"client_users",
+			"client_tables",
+			"client_customers",
+			"client_menu",
+			"client_products",
+			"client_orders",
+			"client_settings",
+			"client_reservations",
+			"client_waitlist",
+			"client_reports",
+			"client_notifications",
+		},
+		"enterprise": {
+			// Todos os módulos
+			"client_users",
+			"client_tables",
+			"client_customers",
+			"client_menu",
+			"client_products",
+			"client_orders",
+			"client_settings",
+			"client_reservations",
+			"client_waitlist",
+			"client_reports",
+			"client_notifications",
+		},
+	}
+
+	// Aplicar limites para cada pacote
+	for pkgCode, limits := range packageLimits {
+		pkg, err := packageRepo.GetByCodeName(pkgCode)
+		if err != nil || pkg == nil {
+			fmt.Printf("⚠️ Pacote %s não encontrado\n", pkgCode)
+			continue
+		}
+
+		for limitType, limitValue := range limits {
+			err := packageRepo.SetPackageLimit(pkg.Id.String(), limitType, limitValue)
+			if err != nil {
+				fmt.Printf("⚠️ Erro ao definir limite %s para %s: %v\n", limitType, pkgCode, err)
+			}
+		}
+		fmt.Printf("✅ Limites configurados para: %s\n", pkg.DisplayName)
+	}
+
+	// Aplicar módulos para cada pacote
+	for pkgCode, modules := range packageModules {
+		pkg, err := packageRepo.GetByCodeName(pkgCode)
+		if err != nil || pkg == nil {
+			continue
+		}
+
+		for _, modCode := range modules {
+			mod, err := moduleRepo.GetByCodeName(modCode)
+			if err != nil || mod == nil {
+				continue
+			}
+
+			err = packageRepo.AddModuleToPackage(pkg.Id.String(), mod.Id.String())
+			if err != nil {
+				fmt.Printf("⚠️ Erro ao adicionar módulo %s ao pacote %s: %v\n", modCode, pkgCode, err)
+			}
+		}
+		fmt.Printf("✅ Módulos configurados para: %s\n", pkg.DisplayName)
 	}
 }
