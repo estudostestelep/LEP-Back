@@ -209,13 +209,31 @@ func (s *NotificationServer) CreateNotificationTemplate(c *gin.Context) {
 		return
 	}
 
+	// Extrair organization_id do header se não vier no body
+	if template.OrganizationId == uuid.Nil {
+		orgIdStr := c.GetHeader("X-Lpe-Organization-Id")
+		if orgId, err := uuid.Parse(orgIdStr); err == nil {
+			template.OrganizationId = orgId
+		}
+	}
+
+	// Gerar ID se não existir
+	if template.Id == uuid.Nil {
+		template.Id = uuid.New()
+	}
+
+	// Definir timestamps
+	template.CreatedAt = time.Now()
+	template.UpdatedAt = time.Now()
+	template.Active = true
+
 	err := s.notificationHandler.CreateNotificationTemplate(&template)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"template": template})
+	c.JSON(http.StatusCreated, template)
 }
 
 // UpdateNotificationTemplate - Atualizar template de notificação
@@ -226,13 +244,23 @@ func (s *NotificationServer) UpdateNotificationTemplate(c *gin.Context) {
 		return
 	}
 
+	// Extrair organization_id do header se não vier no body
+	if template.OrganizationId == uuid.Nil {
+		orgIdStr := c.GetHeader("X-Lpe-Organization-Id")
+		if orgId, err := uuid.Parse(orgIdStr); err == nil {
+			template.OrganizationId = orgId
+		}
+	}
+
+	template.UpdatedAt = time.Now()
+
 	err := s.notificationHandler.UpdateNotificationTemplate(&template)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"template": template})
+	c.JSON(http.StatusOK, template)
 }
 
 // CreateOrUpdateNotificationConfig - Criar/atualizar configuração de notificação
@@ -243,13 +271,29 @@ func (s *NotificationServer) CreateOrUpdateNotificationConfig(c *gin.Context) {
 		return
 	}
 
+	// Extrair organization_id do header se não vier no body
+	if config.OrganizationId == uuid.Nil {
+		orgIdStr := c.GetHeader("X-Lpe-Organization-Id")
+		if orgId, err := uuid.Parse(orgIdStr); err == nil {
+			config.OrganizationId = orgId
+		}
+	}
+
+	// Extrair project_id do header se não vier no body
+	if config.ProjectId == uuid.Nil {
+		projIdStr := c.GetHeader("X-Lpe-Project-Id")
+		if projId, err := uuid.Parse(projIdStr); err == nil {
+			config.ProjectId = projId
+		}
+	}
+
 	err := s.notificationHandler.CreateOrUpdateNotificationConfig(&config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"config": config})
+	c.JSON(http.StatusOK, config)
 }
 
 // === REVIEW QUEUE ENDPOINTS ===
