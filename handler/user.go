@@ -14,14 +14,15 @@ import (
 )
 
 type resourceUser struct {
-	repo *repositories.DBconn
+	repo     *repositories.DBconn
+	roleRepo repositories.IRoleRepository
 }
 
 type IHandlerUser interface {
 	GetUser(id string) (*models.User, error)
 	GetUserByGroup(id string) ([]models.User, error)
 	ListUsers(orgId, projectId string) ([]models.User, error)
-	CreateUser(user *models.User, orgId, projectId string) error
+	CreateUser(user *models.User, orgId, projectId, roleId string) error
 	UpdateUser(updatedUser *models.User) error
 	DeleteUser(id string) error
 	GetUserByEmail(email string) (*models.User, error)
@@ -52,7 +53,7 @@ func (r *resourceUser) ListUsers(orgId, projectId string) ([]models.User, error)
 	return resp, nil
 }
 
-func (r *resourceUser) CreateUser(user *models.User, orgId, projectId string) error {
+func (r *resourceUser) CreateUser(user *models.User, orgId, projectId, roleId string) error {
 	existingUser, _ := r.repo.User.GetUserByEmail(user.Email)
 
 	if existingUser != nil {
@@ -87,6 +88,13 @@ func (r *resourceUser) CreateUser(user *models.User, orgId, projectId string) er
 		// Vincular usuário à organização e projeto especificados
 		if err := r.linkUserToOrgAndProject(user.Id, orgId, projectId); err != nil {
 			fmt.Printf("Aviso: erro ao vincular usuário a org/projeto: %v\n", err)
+		}
+	}
+
+	// 🔑 ATRIBUIR CARGO: Se roleId foi fornecido, atribuir o cargo ao usuário
+	if roleId != "" && orgId != "" && r.roleRepo != nil {
+		if err := r.assignRoleToUser(user.Id, roleId, orgId, projectId); err != nil {
+			fmt.Printf("Aviso: erro ao atribuir cargo ao usuário: %v\n", err)
 		}
 	}
 
@@ -206,6 +214,44 @@ func (r *resourceUser) linkUserToOrgAndProject(userId uuid.UUID, orgId, projectI
 	return nil
 }
 
+// assignRoleToUser atribui um cargo a um usuário no sistema de permissões granulares
+func (r *resourceUser) assignRoleToUser(userId uuid.UUID, roleId, orgId, projectId string) error {
+	fmt.Printf("🔑 assignRoleToUser: userId=%s, roleId=%s, orgId=%s, projectId=%s\n", userId, roleId, orgId, projectId)
+
+	roleUUID, err := uuid.Parse(roleId)
+	if err != nil {
+		return fmt.Errorf("ID do cargo inválido: %v", err)
+	}
+
+	orgUUID, err := uuid.Parse(orgId)
+	if err != nil {
+		return fmt.Errorf("ID da organização inválido: %v", err)
+	}
+
+	userRole := &models.UserRole{
+		Id:             uuid.New(),
+		UserId:         userId,
+		RoleId:         roleUUID,
+		OrganizationId: orgUUID,
+		Active:         true,
+	}
+
+	// Se projectId foi fornecido, adicionar ao contexto
+	if projectId != "" {
+		projUUID, err := uuid.Parse(projectId)
+		if err == nil {
+			userRole.ProjectId = &projUUID
+		}
+	}
+
+	if err := r.roleRepo.AssignRoleToUser(userRole); err != nil {
+		return fmt.Errorf("erro ao atribuir cargo: %v", err)
+	}
+
+	fmt.Printf("✅ Cargo atribuído com sucesso ao usuário %s\n", userId)
+	return nil
+}
+
 // addMasterAdminToAllOrganizations adiciona um novo master admin a todas as organizações existentes
 // REGRA DE NEGÓCIO: Master admins devem ter acesso automático a todas as orgs
 func (r *resourceUser) addMasterAdminToAllOrganizations(userId uuid.UUID) error {
@@ -261,6 +307,6 @@ func (r *resourceUser) addMasterAdminToAllOrganizations(userId uuid.UUID) error 
 	return nil
 }
 
-func NewSourceHandlerUser(repo *repositories.DBconn) IHandlerUser {
-	return &resourceUser{repo: repo}
+func NewSourceHandlerUser(repo *repositories.DBconn, roleRepo repositories.IRoleRepository) IHandlerUser {
+	return &resourceUser{repo: repo, roleRepo: roleRepo}
 }

@@ -18,6 +18,7 @@ type ISubcategoryRepository interface {
 	GetSubcategoryList(organizationId, projectId uuid.UUID) ([]models.Subcategory, error)
 	GetSubcategoriesByCategory(categoryId uuid.UUID) ([]models.Subcategory, error)
 	GetActiveSubcategoryList(organizationId, projectId uuid.UUID) ([]models.Subcategory, error)
+	CheckSubcategoryNameExists(orgId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error)
 	CreateSubcategory(subcategory *models.Subcategory) error
 	UpdateSubcategory(subcategory *models.Subcategory) error
 	UpdateSubcategoryOrder(id uuid.UUID, order int) error
@@ -75,6 +76,23 @@ func (r *SubcategoryRepository) GetActiveSubcategoryList(organizationId, project
 		Order(`"order" ASC`).
 		Find(&subcategories).Error
 	return subcategories, err
+}
+
+// CheckSubcategoryNameExists verifica se já existe subcategoria com o mesmo nome no projeto
+func (r *SubcategoryRepository) CheckSubcategoryNameExists(orgId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&models.Subcategory{}).
+		Where("organization_id = ? AND project_id = ? AND LOWER(name) = LOWER(?) AND deleted_at IS NULL", orgId, projectId, name)
+
+	if excludeId != nil {
+		query = query.Where("id != ?", *excludeId)
+	}
+
+	err := query.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *SubcategoryRepository) UpdateSubcategory(subcategory *models.Subcategory) error {

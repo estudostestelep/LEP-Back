@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"lep/repositories"
 	"lep/repositories/models"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -94,6 +95,14 @@ func (r *resourceOrganization) CreateOrganization(organization *models.Organizat
 	if err != nil {
 		return err
 	}
+
+	// 🎯 REGRA DE NEGÓCIO: Atribuir plano gratuito automaticamente
+	// Toda organização começa com o plano "free"
+	if err := r.assignFreePackage(organization.Id); err != nil {
+		fmt.Printf("⚠️ Aviso: erro ao atribuir plano gratuito: %v\n", err)
+		// Não falha a criação, apenas registra o aviso
+	}
+
 	return nil
 }
 
@@ -112,7 +121,8 @@ func (r *resourceOrganization) SoftDeleteOrganization(id string) error {
 		return err
 	}
 
-	err = r.repo.Organizations.SoftDeleteOrganization(organizationId)
+	// Usar cascade delete para deletar todos os dados relacionados
+	err = r.repo.CascadeDelete.SoftDeleteOrganizationCascade(organizationId)
 	if err != nil {
 		return err
 	}
@@ -126,7 +136,8 @@ func (r *resourceOrganization) HardDeleteOrganization(id string) error {
 		return err
 	}
 
-	err = r.repo.Organizations.HardDeleteOrganization(organizationId)
+	// Usar cascade delete para deletar permanentemente todos os dados relacionados
+	err = r.repo.CascadeDelete.HardDeleteOrganizationCascade(organizationId)
 	if err != nil {
 		return err
 	}
@@ -144,8 +155,11 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 		return nil, errors.New("nome da organização é obrigatório")
 	}
 
+	// Normalizar nome para gerar email válido (sem espaços, lowercase)
+	normalizedName := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+
 	// Verificar se já existe organização com esse nome
-	existingOrg, _ := r.repo.Organizations.GetOrganizationByEmail(fmt.Sprintf("%s@lep.com", name))
+	existingOrg, _ := r.repo.Organizations.GetOrganizationByEmail(fmt.Sprintf("%s@lep.com", normalizedName))
 	if existingOrg != nil {
 		return nil, errors.New("já existe uma organização com esse nome")
 	}
@@ -154,7 +168,7 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 	org := &models.Organization{
 		Id:          uuid.New(),
 		Name:        name,
-		Email:       fmt.Sprintf("%s@lep.com", name),
+		Email:       fmt.Sprintf("%s@lep.com", normalizedName),
 		Description: fmt.Sprintf("Organização %s", name),
 		Active:      true,
 		CreatedAt:   time.Now(),
@@ -191,7 +205,7 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 	user := &models.User{
 		Id:          uuid.New(),
 		Name:        name,
-		Email:       fmt.Sprintf("%s@lep.com", name),
+		Email:       fmt.Sprintf("%s@lep.com", normalizedName),
 		Password:    string(hashedPassword),
 		Permissions: []string{"admin"},
 		Active:      true,

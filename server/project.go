@@ -21,6 +21,7 @@ type IProjectServer interface {
 	CreateProject(c *gin.Context)
 	UpdateProject(c *gin.Context)
 	SoftDeleteProject(c *gin.Context)
+	HardDeleteProject(c *gin.Context)
 	GetActiveProjects(c *gin.Context)
 }
 
@@ -224,6 +225,39 @@ func (s *ProjectServer) SoftDeleteProject(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Project deleted successfully"})
+}
+
+// HardDeleteProject remove projeto permanentemente (cascade delete)
+func (s *ProjectServer) HardDeleteProject(c *gin.Context) {
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
+		})
+		return
+	}
+
+	idStr := c.Param("id")
+
+	// Verificar se projeto existe e pertence à organização
+	project, err := s.handler.GetProjectById(idStr)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if project.OrganizationId.String() != organizationId {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	err = s.handler.HardDeleteProject(idStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error permanently deleting project"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Project permanently deleted"})
 }
 
 // GetActiveProjects busca projetos ativos

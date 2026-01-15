@@ -40,6 +40,7 @@ type ServerController struct {
 	SourceRole               *RoleServer
 	SourcePlanChangeRequest  IPlanChangeRequestServer
 	SourceAdmin              *AdminController
+	SourceSidebarConfig      ISidebarConfigServer
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -51,8 +52,8 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	user.Password = "senha123"
 	user.Name = "Pablo"
 	user.Permissions = pq.StringArray{"master_admin"}
-	// Para master_admin, não precisa passar orgId/projectId pois a função adiciona automaticamente a todas as orgs
-	err := handler.HandlerUser.CreateUser(&user, "", "")
+	// Para master_admin, não precisa passar orgId/projectId/roleId pois a função adiciona automaticamente a todas as orgs
+	err := handler.HandlerUser.CreateUser(&user, "", "", "")
 	if err != nil {
 		log.Printf("❌ Error creating master_admin user: %v", err)
 	} else {
@@ -153,4 +154,7 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceRole.SetLimitHandler(handler.HandlerLimits) // Injetar handler de limites
 	h.SourcePlanChangeRequest = NewPlanChangeRequestServer(handler.HandlerPlanChangeRequest)
 	// AdminController is initialized separately with DB in resource/inject.go
+
+	// Sidebar Config Server
+	h.SourceSidebarConfig = NewSidebarConfigServer(handler.HandlerSidebarConfig)
 }

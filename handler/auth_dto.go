@@ -21,14 +21,15 @@ type UserOrganizationWithName struct {
 }
 
 type UserProjectWithName struct {
-	Id             uuid.UUID  `json:"id"`
-	UserId         uuid.UUID  `json:"user_id"`
-	ProjectId      uuid.UUID  `json:"project_id"`
-	ProjectName    string     `json:"project_name"`    // Nome do projeto
-	OrganizationId uuid.UUID  `json:"organization_id"` // ✅ NOVO: ID da organização pai
-	Role           string     `json:"role"`
-	Active         bool       `json:"active"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+	Id               uuid.UUID  `json:"id"`
+	UserId           uuid.UUID  `json:"user_id"`
+	ProjectId        uuid.UUID  `json:"project_id"`
+	ProjectName      string     `json:"project_name"`      // Nome do projeto
+	OrganizationId   uuid.UUID  `json:"organization_id"`   // ID da organização pai
+	OrganizationName string     `json:"organization_name"` // Nome da organização pai
+	Role             string     `json:"role"`
+	Active           bool       `json:"active"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }

@@ -22,6 +22,7 @@ type ICustomersRepository interface {
 	SoftDelete(id uuid.UUID) error
 	SoftDeleteCustomer(id uuid.UUID) error
 	GetCustomerByPhone(orgId, projectId uuid.UUID, phone string) (*models.Customer, error)
+	CheckCustomerEmailExists(orgId, projectId uuid.UUID, email string, excludeId *uuid.UUID) (bool, error)
 }
 
 func NewConnCustomer(db *gorm.DB) ICustomersRepository {
@@ -90,4 +91,21 @@ func getLastDigits(s string, n int) string {
 		return s
 	}
 	return s[len(s)-n:]
+}
+
+// CheckCustomerEmailExists verifica se já existe cliente com o mesmo email no projeto
+func (r *CustomerRepository) CheckCustomerEmailExists(orgId, projectId uuid.UUID, email string, excludeId *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&models.Customer{}).
+		Where("organization_id = ? AND project_id = ? AND LOWER(email) = LOWER(?) AND deleted_at IS NULL", orgId, projectId, email)
+
+	if excludeId != nil {
+		query = query.Where("id != ?", *excludeId)
+	}
+
+	err := query.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

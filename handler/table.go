@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"lep/repositories"
 	"lep/repositories/models"
 	"time"
@@ -33,10 +35,19 @@ func (r *resourceTables) GetTable(id string) (*models.Table, error) {
 }
 
 func (r *resourceTables) CreateTable(table *models.Table) error {
+	// Verificar se já existe mesa com o mesmo número no projeto
+	exists, err := r.repo.Tables.CheckTableNumberExists(table.OrganizationId, table.ProjectId, table.Number, nil)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
+	}
+	if exists {
+		return errors.New("already_exists: table with this number already exists in this project")
+	}
+
 	table.Id = uuid.New()
 	table.CreatedAt = time.Now()
 	table.UpdatedAt = time.Now()
-	err := r.repo.Tables.CreateTable(table)
+	err = r.repo.Tables.CreateTable(table)
 	if err != nil {
 		return err
 	}
@@ -44,8 +55,17 @@ func (r *resourceTables) CreateTable(table *models.Table) error {
 }
 
 func (r *resourceTables) UpdateTable(updatedTable *models.Table) error {
+	// Verificar se já existe outra mesa com o mesmo número no projeto
+	exists, err := r.repo.Tables.CheckTableNumberExists(updatedTable.OrganizationId, updatedTable.ProjectId, updatedTable.Number, &updatedTable.Id)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
+	}
+	if exists {
+		return errors.New("already_exists: table with this number already exists in this project")
+	}
+
 	updatedTable.UpdatedAt = time.Now()
-	err := r.repo.Tables.UpdateTable(updatedTable)
+	err = r.repo.Tables.UpdateTable(updatedTable)
 	if err != nil {
 		return err
 	}

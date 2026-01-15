@@ -37,10 +37,11 @@ type Handlers struct {
 	HandlerPlanChangeRequest  IPlanChangeRequestHandler
 	HandlerLimits             *LimitHandler
 	ImageManagementService    service.IImageManagementService // Service direto para o Upload server
+	HandlerSidebarConfig      ISidebarConfigHandler
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
-	h.HandlerUser = NewSourceHandlerUser(repo)
+	h.HandlerUser = NewSourceHandlerUser(repo, repo.Roles)
 	h.HandlerUserOrganization = NewSourceHandlerUserOrganization(repo)
 	h.HandlerUserProject = NewSourceHandlerUserProject(repo)
 	h.HandlerUserAccess = NewUserAccessHandler(db)
@@ -52,7 +53,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerWaitlist = NewSourceHandlerWaitlist(repo)
 	h.HandlerReservation = NewSourceHandlerReservation(repo)
 	h.HandlerCustomer = NewSourceHandlerCustomer(repo)
-	h.HandlerProject = NewProjectHandler(repo.Projects, repo.Settings, repo.Notifications)
+	h.HandlerProject = NewProjectHandler(repo.Projects, repo.Settings, repo.Notifications, repo.CascadeDelete)
 	h.HandlerSettings = NewSettingsHandler(repo.Settings)
 	h.HandlerDisplaySettings = NewDisplaySettingsHandler(repo.DisplaySettings)
 	h.HandlerThemeCustomization = NewThemeCustomizationHandler(repo.ThemeCustomization)
@@ -96,4 +97,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 		repo.Reservations,
 		repo.Modules,
 	)
+
+	// Sidebar Config Handler
+	h.HandlerSidebarConfig = NewSidebarConfigHandler(repo.SidebarConfig)
 }

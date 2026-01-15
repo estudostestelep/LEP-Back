@@ -50,6 +50,7 @@ func SetupRoutes(r *gin.Engine) {
 	setupSettingsRoutes(protected)
 	setupDisplaySettingsRoutes(protected)
 	setupThemeCustomizationRoutes(protected)
+	setupSidebarConfigRoutes(protected)
 
 	// Then register generic project routes
 	setupOrganizationRoutes(protected)
@@ -138,45 +139,89 @@ func setupUserProjectRoutes(r gin.IRouter) {
 func setupProductRoutes(r gin.IRouter) {
 	productRoutes := r.Group("/product")
 	{
-		productRoutes.GET("/:id", resource.ServersControllers.SourceProducts.ServiceGetProduct)
-		productRoutes.GET("/purchase/:id", resource.ServersControllers.SourceProducts.ServiceGetProductByPurchase)
-		productRoutes.GET("", resource.ServersControllers.SourceProducts.ServiceListProducts)            // Endpoint de listagem
-		productRoutes.GET("/by-tag", resource.ServersControllers.SourceProducts.ServiceGetProductsByTag) // Buscar produtos por tag
-		// Aplicar middleware de limite na criação de produtos
+		// Rotas de leitura - requer permissão client_products_view
+		productRoutes.GET("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_view", 1),
+			resource.ServersControllers.SourceProducts.ServiceGetProduct)
+		productRoutes.GET("/purchase/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_view", 1),
+			resource.ServersControllers.SourceProducts.ServiceGetProductByPurchase)
+		productRoutes.GET("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_view", 1),
+			resource.ServersControllers.SourceProducts.ServiceListProducts)
+		productRoutes.GET("/by-tag",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_view", 1),
+			resource.ServersControllers.SourceProducts.ServiceGetProductsByTag)
+
+		// Rotas de escrita - requerem permissões específicas + limite de pacote
 		productRoutes.POST("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_create", 1),
 			middleware.PackageLimitMiddleware(resource.Handlers.HandlerLimits, handler.LimitProducts),
 			resource.ServersControllers.SourceProducts.ServiceCreateProduct)
-		productRoutes.PUT("/:id", resource.ServersControllers.SourceProducts.ServiceUpdateProduct)
-		productRoutes.PUT("/:id/image", resource.ServersControllers.SourceProducts.ServiceUpdateProductImage) // Atualizar apenas imagem
-		productRoutes.DELETE("/:id", resource.ServersControllers.SourceProducts.ServiceDeleteProduct)
+		productRoutes.PUT("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_edit", 1),
+			resource.ServersControllers.SourceProducts.ServiceUpdateProduct)
+		productRoutes.PUT("/:id/image",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_edit", 1),
+			resource.ServersControllers.SourceProducts.ServiceUpdateProductImage)
+		productRoutes.DELETE("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_delete", 1),
+			resource.ServersControllers.SourceProducts.ServiceDeleteProduct)
 
-		// Tag management
-		productRoutes.GET("/:id/tags", resource.ServersControllers.SourceProducts.ServiceGetProductTags)
-		productRoutes.POST("/:id/tags", resource.ServersControllers.SourceProducts.ServiceAddTagToProduct)
-		productRoutes.DELETE("/:id/tags/:tagId", resource.ServersControllers.SourceProducts.ServiceRemoveTagFromProduct)
+		// Tag management - requer permissão de edição
+		productRoutes.GET("/:id/tags",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_view", 1),
+			resource.ServersControllers.SourceProducts.ServiceGetProductTags)
+		productRoutes.POST("/:id/tags",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_edit", 1),
+			resource.ServersControllers.SourceProducts.ServiceAddTagToProduct)
+		productRoutes.DELETE("/:id/tags/:tagId",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_edit", 1),
+			resource.ServersControllers.SourceProducts.ServiceRemoveTagFromProduct)
 
-		// Order and status management
-		productRoutes.PUT("/:id/order", resource.ServersControllers.SourceProducts.ServiceUpdateProductOrder)
-		productRoutes.PUT("/:id/status", resource.ServersControllers.SourceProducts.ServiceUpdateProductStatus)
+		// Order and status management - requer permissão de edição
+		productRoutes.PUT("/:id/order",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_edit", 1),
+			resource.ServersControllers.SourceProducts.ServiceUpdateProductOrder)
+		productRoutes.PUT("/:id/status",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_edit", 1),
+			resource.ServersControllers.SourceProducts.ServiceUpdateProductStatus)
 
-		// Filtering by menu structure
-		productRoutes.GET("/type/:type", resource.ServersControllers.SourceProducts.ServiceGetProductsByType)
-		productRoutes.GET("/category/:categoryId", resource.ServersControllers.SourceProducts.ServiceGetProductsByCategory)
-		productRoutes.GET("/subcategory/:subcategoryId", resource.ServersControllers.SourceProducts.ServiceGetProductsBySubcategory)
+		// Filtering by menu structure - requer permissão de visualização
+		productRoutes.GET("/type/:type",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_view", 1),
+			resource.ServersControllers.SourceProducts.ServiceGetProductsByType)
+		productRoutes.GET("/category/:categoryId",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_view", 1),
+			resource.ServersControllers.SourceProducts.ServiceGetProductsByCategory)
+		productRoutes.GET("/subcategory/:subcategoryId",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_products_view", 1),
+			resource.ServersControllers.SourceProducts.ServiceGetProductsBySubcategory)
 	}
 }
 
 func setupTableRoutes(r gin.IRouter) {
 	tableRoutes := r.Group("/table")
 	{
-		tableRoutes.GET("/:id", resource.ServersControllers.SourceTables.ServiceGetTable)
-		tableRoutes.GET("", resource.ServersControllers.SourceTables.ServiceListTables)
-		// Aplicar middleware de limite na criação de mesas
+		// Rotas de leitura - requer permissão client_tables_view
+		tableRoutes.GET("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tables_view", 1),
+			resource.ServersControllers.SourceTables.ServiceGetTable)
+		tableRoutes.GET("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tables_view", 1),
+			resource.ServersControllers.SourceTables.ServiceListTables)
+
+		// Rotas de escrita - requerem permissões específicas + limite de pacote
 		tableRoutes.POST("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tables_create", 1),
 			middleware.PackageLimitMiddleware(resource.Handlers.HandlerLimits, handler.LimitTables),
 			resource.ServersControllers.SourceTables.ServiceCreateTable)
-		tableRoutes.PUT("/:id", resource.ServersControllers.SourceTables.ServiceUpdateTable)
-		tableRoutes.DELETE("/:id", resource.ServersControllers.SourceTables.ServiceDeleteTable)
+		tableRoutes.PUT("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tables_edit", 1),
+			resource.ServersControllers.SourceTables.ServiceUpdateTable)
+		tableRoutes.DELETE("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tables_delete", 1),
+			resource.ServersControllers.SourceTables.ServiceDeleteTable)
 	}
 }
 
@@ -186,11 +231,24 @@ func setupWaitlistRoutes(r gin.IRouter) {
 		// Verificar se módulo de fila de espera está disponível
 		waitlistRoutes.Use(middleware.ModuleRequiredMiddleware(resource.Handlers.HandlerLimits, "client_waitlist"))
 
-		waitlistRoutes.GET("/:id", resource.ServersControllers.SourceWaitlist.ServiceGetWaitlist)
-		waitlistRoutes.GET("", resource.ServersControllers.SourceWaitlist.ServiceListWaitlists)
-		waitlistRoutes.POST("", resource.ServersControllers.SourceWaitlist.ServiceCreateWaitlist)
-		waitlistRoutes.PUT("/:id", resource.ServersControllers.SourceWaitlist.ServiceUpdateWaitlist)
-		waitlistRoutes.DELETE("/:id", resource.ServersControllers.SourceWaitlist.ServiceDeleteWaitlist)
+		// Rotas de leitura
+		waitlistRoutes.GET("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_waitlist_view", 1),
+			resource.ServersControllers.SourceWaitlist.ServiceGetWaitlist)
+		waitlistRoutes.GET("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_waitlist_view", 1),
+			resource.ServersControllers.SourceWaitlist.ServiceListWaitlists)
+
+		// Rotas de escrita
+		waitlistRoutes.POST("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_waitlist_create", 1),
+			resource.ServersControllers.SourceWaitlist.ServiceCreateWaitlist)
+		waitlistRoutes.PUT("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_waitlist_edit", 1),
+			resource.ServersControllers.SourceWaitlist.ServiceUpdateWaitlist)
+		waitlistRoutes.DELETE("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_waitlist_delete", 1),
+			resource.ServersControllers.SourceWaitlist.ServiceDeleteWaitlist)
 	}
 }
 
@@ -200,38 +258,79 @@ func setupReservationRoutes(r gin.IRouter) {
 		// Verificar se módulo de reservas está disponível
 		reservationRoutes.Use(middleware.ModuleRequiredMiddleware(resource.Handlers.HandlerLimits, "client_reservations"))
 
-		reservationRoutes.GET("/:id", resource.ServersControllers.SourceReservation.ServiceGetReservation)
-		reservationRoutes.GET("", resource.ServersControllers.SourceReservation.ServiceListReservations)
-		// Verificar limite de reservas por dia na criação
+		// Rotas de leitura
+		reservationRoutes.GET("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_reservations_view", 1),
+			resource.ServersControllers.SourceReservation.ServiceGetReservation)
+		reservationRoutes.GET("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_reservations_view", 1),
+			resource.ServersControllers.SourceReservation.ServiceListReservations)
+
+		// Rotas de escrita + limite de reservas por dia
 		reservationRoutes.POST("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_reservations_create", 1),
 			middleware.PackageLimitMiddleware(resource.Handlers.HandlerLimits, handler.LimitReservationsDay),
 			resource.ServersControllers.SourceReservation.ServiceCreateReservation)
-		reservationRoutes.PUT("/:id", resource.ServersControllers.SourceReservation.ServiceUpdateReservation)
-		reservationRoutes.DELETE("/:id", resource.ServersControllers.SourceReservation.ServiceDeleteReservation)
+		reservationRoutes.PUT("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_reservations_edit", 1),
+			resource.ServersControllers.SourceReservation.ServiceUpdateReservation)
+		reservationRoutes.DELETE("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_reservations_delete", 1),
+			resource.ServersControllers.SourceReservation.ServiceDeleteReservation)
 	}
 }
 
 func setupCustomerRoutes(r gin.IRouter) {
 	customerRoutes := r.Group("/customer")
 	{
-		customerRoutes.GET("/:id", resource.ServersControllers.SourceCustomer.ServiceGetCustomer)
-		customerRoutes.GET("", resource.ServersControllers.SourceCustomer.ServiceListCustomers)
-		customerRoutes.POST("", resource.ServersControllers.SourceCustomer.ServiceCreateCustomer)
-		customerRoutes.PUT("/:id", resource.ServersControllers.SourceCustomer.ServiceUpdateCustomer)
-		customerRoutes.DELETE("/:id", resource.ServersControllers.SourceCustomer.ServiceDeleteCustomer)
+		// Rotas de leitura
+		customerRoutes.GET("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_customers_view", 1),
+			resource.ServersControllers.SourceCustomer.ServiceGetCustomer)
+		customerRoutes.GET("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_customers_view", 1),
+			resource.ServersControllers.SourceCustomer.ServiceListCustomers)
+
+		// Rotas de escrita
+		customerRoutes.POST("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_customers_create", 1),
+			resource.ServersControllers.SourceCustomer.ServiceCreateCustomer)
+		customerRoutes.PUT("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_customers_edit", 1),
+			resource.ServersControllers.SourceCustomer.ServiceUpdateCustomer)
+		customerRoutes.DELETE("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_customers_delete", 1),
+			resource.ServersControllers.SourceCustomer.ServiceDeleteCustomer)
 	}
 }
 
 func setupOrderRoutes(r gin.IRouter) {
 	orderRoutes := r.Group("/order")
 	{
-		orderRoutes.GET("/:id", resource.ServersControllers.SourceOrders.GetOrderById)
-		orderRoutes.GET("/:id/progress", resource.ServersControllers.SourceOrders.GetOrderProgress)
-		orderRoutes.GET("", resource.ServersControllers.SourceOrders.ListOrders) // Moved to maintain consistency
-		orderRoutes.POST("", resource.ServersControllers.SourceOrders.CreateOrder)
-		orderRoutes.PUT("/:id", resource.ServersControllers.SourceOrders.UpdateOrder)
-		orderRoutes.PUT("/:id/status", resource.ServersControllers.SourceOrders.UpdateOrderStatus)
-		orderRoutes.DELETE("/:id", resource.ServersControllers.SourceOrders.SoftDeleteOrder)
+		// Rotas de leitura
+		orderRoutes.GET("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_orders_view", 1),
+			resource.ServersControllers.SourceOrders.GetOrderById)
+		orderRoutes.GET("/:id/progress",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_orders_view", 1),
+			resource.ServersControllers.SourceOrders.GetOrderProgress)
+		orderRoutes.GET("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_orders_view", 1),
+			resource.ServersControllers.SourceOrders.ListOrders)
+
+		// Rotas de escrita
+		orderRoutes.POST("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_orders_create", 1),
+			resource.ServersControllers.SourceOrders.CreateOrder)
+		orderRoutes.PUT("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_orders_edit", 1),
+			resource.ServersControllers.SourceOrders.UpdateOrder)
+		orderRoutes.PUT("/:id/status",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_orders_edit", 1),
+			resource.ServersControllers.SourceOrders.UpdateOrderStatus)
+		orderRoutes.DELETE("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_orders_delete", 1),
+			resource.ServersControllers.SourceOrders.SoftDeleteOrder)
 	}
 
 	// Kitchen specific routes
@@ -253,6 +352,7 @@ func setupProjectRoutes(r gin.IRouter) {
 		// POST removed - registered as public route for seeding
 		projectRoutes.PUT("/:id", resource.ServersControllers.SourceProject.UpdateProject)
 		projectRoutes.DELETE("/:id", resource.ServersControllers.SourceProject.SoftDeleteProject)
+		projectRoutes.DELETE("/:id/permanent", resource.ServersControllers.SourceProject.HardDeleteProject)
 	}
 }
 
@@ -284,6 +384,19 @@ func setupThemeCustomizationRoutes(r gin.IRouter) {
 		themeRoutes.PUT("", resource.ServersControllers.SourceThemeCustomization.CreateOrUpdateTheme)
 		themeRoutes.POST("/reset", resource.ServersControllers.SourceThemeCustomization.ResetTheme)
 		themeRoutes.DELETE("", resource.ServersControllers.SourceThemeCustomization.DeleteTheme)
+	}
+}
+
+// setupSidebarConfigRoutes configura rotas para configuração da sidebar
+func setupSidebarConfigRoutes(r gin.IRouter) {
+	sidebarConfigRoutes := r.Group("/sidebar-config")
+	{
+		// GET - Qualquer usuário autenticado pode ler
+		sidebarConfigRoutes.GET("", resource.ServersControllers.SourceSidebarConfig.GetConfig)
+		// PUT - Apenas Master Admin (verificado no handler)
+		sidebarConfigRoutes.PUT("", resource.ServersControllers.SourceSidebarConfig.UpdateConfig)
+		// POST /reset - Apenas Master Admin (verificado no handler)
+		sidebarConfigRoutes.POST("/reset", resource.ServersControllers.SourceSidebarConfig.ResetConfig)
 	}
 }
 
@@ -413,13 +526,30 @@ func setupUploadRoutes(r *gin.Engine) {
 func setupTagRoutes(r gin.IRouter) {
 	tagRoutes := r.Group("/tag")
 	{
-		tagRoutes.GET("/:id", resource.ServersControllers.SourceTag.ServiceGetTag)
-		tagRoutes.GET("", resource.ServersControllers.SourceTag.ServiceListTags)
-		tagRoutes.GET("/active", resource.ServersControllers.SourceTag.ServiceListActiveTags)
-		tagRoutes.GET("/entity/:entityType", resource.ServersControllers.SourceTag.ServiceGetTagsByEntityType)
-		tagRoutes.POST("", resource.ServersControllers.SourceTag.ServiceCreateTag)
-		tagRoutes.PUT("/:id", resource.ServersControllers.SourceTag.ServiceUpdateTag)
-		tagRoutes.DELETE("/:id", resource.ServersControllers.SourceTag.ServiceDeleteTag)
+		// Rotas de leitura - requer permissão client_tags_view (nível 1)
+		tagRoutes.GET("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tags_view", 1),
+			resource.ServersControllers.SourceTag.ServiceGetTag)
+		tagRoutes.GET("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tags_view", 1),
+			resource.ServersControllers.SourceTag.ServiceListTags)
+		tagRoutes.GET("/active",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tags_view", 1),
+			resource.ServersControllers.SourceTag.ServiceListActiveTags)
+		tagRoutes.GET("/entity/:entityType",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tags_view", 1),
+			resource.ServersControllers.SourceTag.ServiceGetTagsByEntityType)
+
+		// Rotas de escrita - requerem permissões específicas (nível 1 = habilitado)
+		tagRoutes.POST("",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tags_create", 1),
+			resource.ServersControllers.SourceTag.ServiceCreateTag)
+		tagRoutes.PUT("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tags_edit", 1),
+			resource.ServersControllers.SourceTag.ServiceUpdateTag)
+		tagRoutes.DELETE("/:id",
+			middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_tags_delete", 1),
+			resource.ServersControllers.SourceTag.ServiceDeleteTag)
 	}
 }
 

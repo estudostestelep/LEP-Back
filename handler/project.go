@@ -10,9 +10,10 @@ import (
 )
 
 type ProjectHandler struct {
-	projectRepo      repositories.IProjectRepository
-	settingsRepo     repositories.ISettingsRepository
-	notificationRepo repositories.INotificationRepository
+	projectRepo       repositories.IProjectRepository
+	settingsRepo      repositories.ISettingsRepository
+	notificationRepo  repositories.INotificationRepository
+	cascadeDeleteRepo repositories.ICascadeDeleteRepository
 }
 
 type IProjectHandler interface {
@@ -21,14 +22,21 @@ type IProjectHandler interface {
 	CreateProject(project *models.Project) error
 	UpdateProject(project *models.Project) error
 	SoftDeleteProject(id string) error
+	HardDeleteProject(id string) error
 	GetActiveProjects(orgId string) ([]models.Project, error)
 }
 
-func NewProjectHandler(projectRepo repositories.IProjectRepository, settingsRepo repositories.ISettingsRepository, notificationRepo repositories.INotificationRepository) IProjectHandler {
+func NewProjectHandler(
+	projectRepo repositories.IProjectRepository,
+	settingsRepo repositories.ISettingsRepository,
+	notificationRepo repositories.INotificationRepository,
+	cascadeDeleteRepo repositories.ICascadeDeleteRepository,
+) IProjectHandler {
 	return &ProjectHandler{
-		projectRepo:      projectRepo,
-		settingsRepo:     settingsRepo,
-		notificationRepo: notificationRepo,
+		projectRepo:       projectRepo,
+		settingsRepo:      settingsRepo,
+		notificationRepo:  notificationRepo,
+		cascadeDeleteRepo: cascadeDeleteRepo,
 	}
 }
 
@@ -99,13 +107,24 @@ func (h *ProjectHandler) UpdateProject(project *models.Project) error {
 	return h.projectRepo.UpdateProject(project)
 }
 
-// SoftDeleteProject remove projeto logicamente
+// SoftDeleteProject remove projeto logicamente com cascade delete
 func (h *ProjectHandler) SoftDeleteProject(id string) error {
 	projectId, err := uuid.Parse(id)
 	if err != nil {
 		return err
 	}
-	return h.projectRepo.SoftDeleteProject(projectId)
+	// Usar cascade delete para deletar todos os dados relacionados
+	return h.cascadeDeleteRepo.SoftDeleteProjectCascade(projectId)
+}
+
+// HardDeleteProject remove projeto permanentemente com cascade delete
+func (h *ProjectHandler) HardDeleteProject(id string) error {
+	projectId, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+	// Usar cascade delete para deletar permanentemente todos os dados relacionados
+	return h.cascadeDeleteRepo.HardDeleteProjectCascade(projectId)
 }
 
 // GetActiveProjects busca projetos ativos por organização

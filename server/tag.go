@@ -6,6 +6,7 @@ import (
 	"lep/resource/validation"
 	"lep/utils"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -85,6 +86,11 @@ func (r *ResourceTag) ServiceCreateTag(c *gin.Context) {
 
 	err = r.handler.HandlerTag.CreateTag(&newTag)
 	if err != nil {
+		// Verificar se é erro de duplicata
+		if strings.Contains(err.Error(), "already_exists") {
+			utils.SendConflictError(c, "Tag with this name and type already exists", err)
+			return
+		}
 		utils.SendInternalServerError(c, "Error creating tag", err)
 		return
 	}
@@ -137,6 +143,11 @@ func (r *ResourceTag) ServiceUpdateTag(c *gin.Context) {
 
 	err = r.handler.HandlerTag.UpdateTag(&updatedTag)
 	if err != nil {
+		// Verificar se é erro de duplicata
+		if strings.Contains(err.Error(), "already_exists") {
+			utils.SendConflictError(c, "Tag with this name and type already exists", err)
+			return
+		}
 		utils.SendInternalServerError(c, "Error updating tag", err)
 		return
 	}

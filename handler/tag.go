@@ -61,7 +61,7 @@ func (r *resourceTag) CreateTag(tag *models.Tag) error {
 	}
 
 	if existingTag != nil {
-		return fmt.Errorf("tag with name '%s' and type '%s' already exists in this project", tag.Name, tag.EntityType)
+		return errors.New("already_exists: tag with this name and type already exists in this project")
 	}
 
 	// Gerar ID e timestamps
@@ -103,7 +103,7 @@ func (r *resourceTag) UpdateTag(updatedTag *models.Tag) error {
 
 	// Se encontrou outra tag com mesmo nome+tipo, verificar se é a mesma tag
 	if existingTag != nil && existingTag.Id != updatedTag.Id {
-		return fmt.Errorf("tag with name '%s' and type '%s' already exists in this project", updatedTag.Name, updatedTag.EntityType)
+		return errors.New("already_exists: tag with this name and type already exists in this project")
 	}
 
 	updatedTag.UpdatedAt = time.Now()

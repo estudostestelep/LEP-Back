@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"lep/repositories"
 	"lep/repositories/models"
 	"time"
@@ -56,6 +58,15 @@ func (r *resourceSubcategory) ListActiveSubcategories(orgId, projectId string) (
 }
 
 func (r *resourceSubcategory) CreateSubcategory(subcategory *models.Subcategory) error {
+	// Verificar se já existe subcategoria com o mesmo nome no projeto
+	exists, err := r.repo.Subcategories.CheckSubcategoryNameExists(subcategory.OrganizationId, subcategory.ProjectId, subcategory.Name, nil)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
+	}
+	if exists {
+		return errors.New("already_exists: subcategory with this name already exists in this project")
+	}
+
 	subcategory.Id = uuid.New()
 	subcategory.CreatedAt = time.Now()
 	subcategory.UpdatedAt = time.Now()
@@ -63,6 +74,15 @@ func (r *resourceSubcategory) CreateSubcategory(subcategory *models.Subcategory)
 }
 
 func (r *resourceSubcategory) UpdateSubcategory(updatedSubcategory *models.Subcategory) error {
+	// Verificar se já existe outra subcategoria com o mesmo nome no projeto
+	exists, err := r.repo.Subcategories.CheckSubcategoryNameExists(updatedSubcategory.OrganizationId, updatedSubcategory.ProjectId, updatedSubcategory.Name, &updatedSubcategory.Id)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
+	}
+	if exists {
+		return errors.New("already_exists: subcategory with this name already exists in this project")
+	}
+
 	updatedSubcategory.UpdatedAt = time.Now()
 	return r.repo.Subcategories.UpdateSubcategory(updatedSubcategory)
 }

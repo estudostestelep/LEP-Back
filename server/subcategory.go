@@ -265,6 +265,7 @@ func (r *ResourceSubcategory) ServiceDeleteSubcategory(c *gin.Context) {
 
 func (r *ResourceSubcategory) ServiceAddCategoryToSubcategory(c *gin.Context) {
 	subcategoryId := c.Param("id")
+	categoryIdFromPath := c.Param("categoryId") // Pegar do path
 
 	_, err := uuid.Parse(subcategoryId)
 	if err != nil {
@@ -272,22 +273,28 @@ func (r *ResourceSubcategory) ServiceAddCategoryToSubcategory(c *gin.Context) {
 		return
 	}
 
-	var requestBody struct {
-		CategoryId string `json:"category_id" binding:"required"`
+	// Usar categoryId do path se disponível, senão tentar do body (compatibilidade)
+	categoryId := categoryIdFromPath
+	if categoryId == "" {
+		var requestBody struct {
+			CategoryId string `json:"category_id"`
+		}
+		c.ShouldBindJSON(&requestBody)
+		categoryId = requestBody.CategoryId
 	}
 
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		utils.SendBadRequestError(c, "Invalid request body", err)
+	if categoryId == "" {
+		utils.SendBadRequestError(c, "Category ID is required (in path or body)", nil)
 		return
 	}
 
-	_, err = uuid.Parse(requestBody.CategoryId)
+	_, err = uuid.Parse(categoryId)
 	if err != nil {
 		utils.SendBadRequestError(c, "Invalid category ID format", err)
 		return
 	}
 
-	err = r.handler.HandlerSubcategory.AddCategoryToSubcategory(subcategoryId, requestBody.CategoryId)
+	err = r.handler.HandlerSubcategory.AddCategoryToSubcategory(subcategoryId, categoryId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error adding category to subcategory", err)
 		return

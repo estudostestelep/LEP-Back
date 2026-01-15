@@ -119,7 +119,11 @@
       "Bash(gcloud run services logs read:*)",
       "Bash(gcloud run services describe:*)",
       "Bash(gcloud run revisions list:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(PGPASSWORD=lep_password psql:*)",
+      "Bash(docker exec:*)",
+      "Bash(go clean:*)",
+      "Bash(docker ps:*)"
     ],
     "deny": [],
     "ask": []

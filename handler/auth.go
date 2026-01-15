@@ -139,24 +139,32 @@ func (r *resourceAuth) GetUserProjectsWithNames(userId string) ([]UserProjectWit
 	// Criar slice de resposta enriquecida
 	result := make([]UserProjectWithName, 0, len(userProjs))
 
-	// Para cada projeto, buscar o nome
+	// Para cada projeto, buscar o nome e também o nome da organização
 	for _, userProj := range userProjs {
 		proj, err := r.repo.Projects.GetProjectById(userProj.ProjectId)
 		if err != nil {
 			// Se projeto não for encontrado, pular
 			continue
 		}
+
+		// Buscar nome da organização
+		orgName := ""
+		if org, err := r.repo.Organizations.GetOrganizationById(proj.OrganizationId); err == nil && org != nil {
+			orgName = org.Name
+		}
+
 		result = append(result, UserProjectWithName{
-			Id:             userProj.Id,
-			UserId:         userProj.UserId,
-			ProjectId:      userProj.ProjectId,
-			ProjectName:    proj.Name,
-			OrganizationId: proj.OrganizationId, // ✅ NOVO: Incluir organization_id
-			Role:           userProj.Role,
-			Active:         userProj.Active,
-			CreatedAt:      userProj.CreatedAt,
-			UpdatedAt:      userProj.UpdatedAt,
-			DeletedAt:      userProj.DeletedAt,
+			Id:               userProj.Id,
+			UserId:           userProj.UserId,
+			ProjectId:        userProj.ProjectId,
+			ProjectName:      proj.Name,
+			OrganizationId:   proj.OrganizationId,
+			OrganizationName: orgName, // Nome da organização pai
+			Role:             userProj.Role,
+			Active:           userProj.Active,
+			CreatedAt:        userProj.CreatedAt,
+			UpdatedAt:        userProj.UpdatedAt,
+			DeletedAt:        userProj.DeletedAt,
 		})
 	}
 

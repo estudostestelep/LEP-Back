@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"lep/handler"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 )
 
 // RolePermissionMiddleware verifica se o usuário tem a permissão necessária (sistema de níveis)
@@ -174,18 +176,29 @@ func isMasterAdmin(c *gin.Context) bool {
 		return false
 	}
 
-	permArray, ok := permissions.([]string)
-	if !ok {
+	// Tentar converter para []string primeiro
+	if permArray, ok := permissions.([]string); ok {
+		for _, perm := range permArray {
+			if perm == "master_admin" {
+				return true
+			}
+		}
 		return false
 	}
 
-	for _, perm := range permArray {
-		if perm == "master_admin" {
-			return true
+	// Tentar converter para pq.StringArray (tipo usado pelo GORM com PostgreSQL)
+	if permArray, ok := permissions.(pq.StringArray); ok {
+		for _, perm := range permArray {
+			if perm == "master_admin" {
+				return true
+			}
 		}
+		return false
 	}
 
-	return false
+	// Fallback: usar fmt.Sprintf e strings.Contains
+	permStr := fmt.Sprintf("%v", permissions)
+	return strings.Contains(permStr, "master_admin")
 }
 
 // GetUserHierarchyLevel retorna o nível de hierarquia do usuário atual

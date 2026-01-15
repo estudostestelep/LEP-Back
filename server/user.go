@@ -63,12 +63,16 @@ func (r *ResourceUsers) ServiceGetUserByGroup(c *gin.Context) {
 }
 
 func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
-	var newUser models.User
-	err := c.BindJSON(&newUser)
+	// Usar DTO que aceita tanto 'role' quanto 'permissions'
+	var request models.CreateUserRequest
+	err := c.ShouldBindJSON(&request)
 	if err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
+
+	// Converter request para User (mapeia role -> permissions se necessário)
+	newUser := request.ToUser()
 
 	// Gerar ID se não fornecido
 	if newUser.Id == uuid.Nil {
@@ -76,7 +80,7 @@ func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 	}
 
 	// Validações estruturadas
-	if err := validation.CreateUserValidation(&newUser); err != nil {
+	if err := validation.CreateUserValidation(newUser); err != nil {
 		utils.SendValidationError(c, "Validation failed", err)
 		return
 	}
@@ -85,9 +89,12 @@ func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 	organizationId := c.Request.Header.Get("X-Lpe-Organization-Id")
 	projectId := c.Request.Header.Get("X-Lpe-Project-Id")
 
-	fmt.Printf("📦 ServiceCreateUser - Contexto recebido: orgId='%s', projectId='%s', userId='%s'\n", organizationId, projectId, newUser.Id)
+	// Pegar roleId do request para atribuir cargo ao usuário
+	roleId := request.RoleId
 
-	err = r.handler.CreateUser(&newUser, organizationId, projectId)
+	fmt.Printf("📦 ServiceCreateUser - Contexto recebido: orgId='%s', projectId='%s', userId='%s', roleId='%s'\n", organizationId, projectId, newUser.Id, roleId)
+
+	err = r.handler.CreateUser(newUser, organizationId, projectId, roleId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error creating user", err)
 		return

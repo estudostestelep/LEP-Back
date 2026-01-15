@@ -80,6 +80,9 @@ func Start(db *gorm.DB) {
 
 		// Plan Change Request System
 		&models.PlanChangeRequest{},
+
+		// Sidebar Config System
+		&models.SidebarConfig{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product

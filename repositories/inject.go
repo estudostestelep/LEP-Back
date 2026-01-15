@@ -38,6 +38,10 @@ type DBconn struct {
 	Packages    IPackageRepository
 	// Plan Change Request
 	PlanChangeRequests IPlanChangeRequestRepository
+	// Sidebar Config
+	SidebarConfig ISidebarConfigRepository
+	// Cascade Delete
+	CascadeDelete ICascadeDeleteRepository
 }
 
 func (r *DBconn) InjectPostgres(db *gorm.DB) {
@@ -74,4 +78,8 @@ func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.Packages = NewPackageRepository(db)
 	// Plan Change Request
 	r.PlanChangeRequests = NewPlanChangeRequestRepository(db)
+	// Sidebar Config
+	r.SidebarConfig = NewSidebarConfigRepository(db)
+	// Cascade Delete
+	r.CascadeDelete = NewCascadeDeleteRepository(db)
 }

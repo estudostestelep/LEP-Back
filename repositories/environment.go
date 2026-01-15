@@ -15,6 +15,7 @@ type EnvironmentRepository struct {
 type IEnvironmentRepository interface {
 	GetEnvironmentById(id uuid.UUID) (*models.Environment, error)
 	GetEnvironmentsByProject(orgId, projectId uuid.UUID) ([]models.Environment, error)
+	CheckEnvironmentNameExists(orgId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error)
 	CreateEnvironment(environment *models.Environment) error
 	UpdateEnvironment(environment *models.Environment) error
 	SoftDeleteEnvironment(id uuid.UUID) error
@@ -40,6 +41,23 @@ func (r *EnvironmentRepository) GetEnvironmentsByProject(orgId, projectId uuid.U
 	var environments []models.Environment
 	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", orgId, projectId).Find(&environments).Error
 	return environments, err
+}
+
+// CheckEnvironmentNameExists verifica se já existe ambiente com o mesmo nome no projeto
+func (r *EnvironmentRepository) CheckEnvironmentNameExists(orgId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&models.Environment{}).
+		Where("organization_id = ? AND project_id = ? AND LOWER(name) = LOWER(?) AND deleted_at IS NULL", orgId, projectId, name)
+
+	if excludeId != nil {
+		query = query.Where("id != ?", *excludeId)
+	}
+
+	err := query.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // CreateEnvironment cria novo ambiente

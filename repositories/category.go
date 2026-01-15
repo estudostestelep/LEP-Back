@@ -18,6 +18,7 @@ type ICategoryRepository interface {
 	GetCategoryList(organizationId, projectId uuid.UUID) ([]models.Category, error)
 	GetCategoriesByMenu(menuId uuid.UUID) ([]models.Category, error)
 	GetActiveCategoryList(organizationId, projectId uuid.UUID) ([]models.Category, error)
+	CheckCategoryNameExists(orgId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error)
 	CreateCategory(category *models.Category) error
 	UpdateCategory(category *models.Category) error
 	UpdateCategoryOrder(id uuid.UUID, order int) error
@@ -94,4 +95,22 @@ func (r *CategoryRepository) SoftDelete(id uuid.UUID) error {
 
 func (r *CategoryRepository) SoftDeleteCategory(id uuid.UUID) error {
 	return r.SoftDelete(id)
+}
+
+// CheckCategoryNameExists verifica se já existe categoria com o mesmo nome no projeto
+// excludeId permite excluir um ID específico (útil para updates)
+func (r *CategoryRepository) CheckCategoryNameExists(orgId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&models.Category{}).
+		Where("organization_id = ? AND project_id = ? AND LOWER(name) = LOWER(?) AND deleted_at IS NULL", orgId, projectId, name)
+
+	if excludeId != nil {
+		query = query.Where("id != ?", *excludeId)
+	}
+
+	err := query.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"lep/repositories"
 	"lep/repositories/models"
 	"time"
@@ -53,6 +55,15 @@ func (r *resourceCategory) ListActiveCategories(orgId, projectId string) ([]mode
 }
 
 func (r *resourceCategory) CreateCategory(category *models.Category) error {
+	// Verificar se já existe categoria com o mesmo nome no projeto
+	exists, err := r.repo.Categories.CheckCategoryNameExists(category.OrganizationId, category.ProjectId, category.Name, nil)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
+	}
+	if exists {
+		return errors.New("already_exists: category with this name already exists in this project")
+	}
+
 	category.Id = uuid.New()
 	category.CreatedAt = time.Now()
 	category.UpdatedAt = time.Now()
@@ -60,6 +71,15 @@ func (r *resourceCategory) CreateCategory(category *models.Category) error {
 }
 
 func (r *resourceCategory) UpdateCategory(updatedCategory *models.Category) error {
+	// Verificar se já existe outra categoria com o mesmo nome no projeto (excluindo a atual)
+	exists, err := r.repo.Categories.CheckCategoryNameExists(updatedCategory.OrganizationId, updatedCategory.ProjectId, updatedCategory.Name, &updatedCategory.Id)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
+	}
+	if exists {
+		return errors.New("already_exists: category with this name already exists in this project")
+	}
+
 	updatedCategory.UpdatedAt = time.Now()
 	return r.repo.Categories.UpdateCategory(updatedCategory)
 }

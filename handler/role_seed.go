@@ -251,6 +251,17 @@ func createModules() []models.Module {
 			IsFree:       false,
 			Active:       true,
 		},
+		{
+			Id:           uuid.New(),
+			CodeName:     "client_tags",
+			DisplayName:  "Tags",
+			Description:  "Gerenciamento de tags e etiquetas",
+			Icon:         "tag",
+			Scope:        "client",
+			DisplayOrder: 12,
+			IsFree:       true,
+			Active:       true,
+		},
 	}
 }
 
@@ -351,6 +362,9 @@ func createPermissions(moduleRepo repositories.IModuleRepository) []models.Permi
 			models.Permission{Id: uuid.New(), CodeName: "client_notifications_send", DisplayName: "Enviar Notificações", Description: "Pode enviar notificações manualmente", ModuleId: clientNotificationsModuleId, Active: true},
 		)
 	}
+
+	// Permissões Cliente - Tags (CRUD)
+	addCRUDPermissions("client_tags", "Tags")
 
 	return permissions
 }
@@ -540,6 +554,7 @@ func configureDefaultPermissions(roleRepo repositories.IRoleRepository, permissi
 			"client_reports_view": 1, "client_reports_export": 1,
 			"client_settings_view": 1, "client_settings_edit": 1,
 			"client_notifications_view": 1, "client_notifications_create": 1, "client_notifications_edit": 1, "client_notifications_delete": 1, "client_notifications_send": 1,
+			"client_tags_view": 1, "client_tags_create": 1, "client_tags_edit": 1, "client_tags_delete": 1,
 		},
 		"manager": {
 			// CRUD completo para a maioria, mas sem algumas configurações
@@ -554,6 +569,7 @@ func configureDefaultPermissions(roleRepo repositories.IRoleRepository, permissi
 			"client_reports_view": 1, "client_reports_export": 1,
 			"client_settings_view": 1,
 			"client_notifications_view": 1,
+			"client_tags_view": 1, "client_tags_create": 1, "client_tags_edit": 1, "client_tags_delete": 1,
 		},
 		"supervisor": {
 			// View e algumas edições, sem delete na maioria
@@ -566,6 +582,7 @@ func configureDefaultPermissions(roleRepo repositories.IRoleRepository, permissi
 			"client_reservations_view": 1, "client_reservations_create": 1, "client_reservations_edit": 1, "client_reservations_delete": 1,
 			"client_waitlist_view": 1, "client_waitlist_create": 1, "client_waitlist_edit": 1, "client_waitlist_delete": 1,
 			"client_reports_view": 1,
+			"client_tags_view": 1,
 		},
 		"attendant": {
 			// Operacional: pedidos, reservas, fila
@@ -596,6 +613,7 @@ func configureDefaultPermissions(roleRepo repositories.IRoleRepository, permissi
 			"client_orders_view": 1,
 			"client_reservations_view": 1,
 			"client_waitlist_view": 1,
+			"client_tags_view": 1,
 		},
 	}
 
@@ -665,6 +683,7 @@ func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepositor
 			"client_products",
 			"client_orders",
 			"client_settings",
+			"client_tags",
 		},
 		"starter": {
 			// Gratuitos + reservas e fila
@@ -675,6 +694,7 @@ func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepositor
 			"client_products",
 			"client_orders",
 			"client_settings",
+			"client_tags",
 			"client_reservations",
 			"client_waitlist",
 			"client_reports",
@@ -688,6 +708,7 @@ func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepositor
 			"client_products",
 			"client_orders",
 			"client_settings",
+			"client_tags",
 			"client_reservations",
 			"client_waitlist",
 			"client_reports",
@@ -702,6 +723,7 @@ func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepositor
 			"client_products",
 			"client_orders",
 			"client_settings",
+			"client_tags",
 			"client_reservations",
 			"client_waitlist",
 			"client_reports",

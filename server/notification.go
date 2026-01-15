@@ -233,7 +233,8 @@ func (s *NotificationServer) CreateNotificationTemplate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, template)
+	// Retornar resposta padronizada com o template criado (inclui ID)
+	utils.SendCreatedSuccess(c, "Template created successfully", template)
 }
 
 // UpdateNotificationTemplate - Atualizar template de notificação

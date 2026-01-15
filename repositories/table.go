@@ -16,6 +16,7 @@ type ITableRepository interface {
 	ListTables(OrganizationId, projectId uuid.UUID) ([]models.Table, error)
 	ListTablesByProject(OrganizationId, projectId uuid.UUID) ([]models.Table, error)
 	GetTablesByProject(orgId, projectId uuid.UUID) ([]models.Table, error)
+	CheckTableNumberExists(orgId, projectId uuid.UUID, number int, excludeId *uuid.UUID) (bool, error)
 	UpdateTable(table *models.Table) error
 	SoftDeleteTable(id uuid.UUID) error
 }
@@ -53,6 +54,23 @@ func (r *TableRepository) ListTables(OrganizationId, projectId uuid.UUID) ([]mod
 
 func (r *TableRepository) ListTablesByProject(OrganizationId, projectId uuid.UUID) ([]models.Table, error) {
 	return r.ListTables(OrganizationId, projectId)
+}
+
+// CheckTableNumberExists verifica se já existe mesa com o mesmo número no projeto
+func (r *TableRepository) CheckTableNumberExists(orgId, projectId uuid.UUID, number int, excludeId *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&models.Table{}).
+		Where("organization_id = ? AND project_id = ? AND number = ? AND deleted_at IS NULL", orgId, projectId, number)
+
+	if excludeId != nil {
+		query = query.Where("id != ?", *excludeId)
+	}
+
+	err := query.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *TableRepository) UpdateTable(table *models.Table) error {
