@@ -39,6 +39,7 @@ func getDefaultSidebarItems() []models.SidebarItemConfig {
 		{ModuleCode: "client_reservations", Behavior: models.BehaviorLock},
 		{ModuleCode: "client_waitlist", Behavior: models.BehaviorLock},
 		{ModuleCode: "client_reports", Behavior: models.BehaviorLock},
+		{ModuleCode: "client_audit_logs", Behavior: models.BehaviorLock},
 		// Módulos premium - esconder
 		{ModuleCode: "client_notifications", Behavior: models.BehaviorHide},
 	}

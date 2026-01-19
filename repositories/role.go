@@ -124,8 +124,15 @@ func (r *resourceRole) AssignRoleToUser(userRole *models.UserRole) error {
 
 	// Verificar se já existe associação ativa
 	var existing models.UserRole
-	query := r.db.Where("user_id = ? AND role_id = ? AND organization_id = ? AND deleted_at IS NULL",
-		userRole.UserId, userRole.RoleId, userRole.OrganizationId)
+	query := r.db.Where("user_id = ? AND role_id = ? AND deleted_at IS NULL",
+		userRole.UserId, userRole.RoleId)
+
+	// Tratar OrganizationId null (cargo admin global)
+	if userRole.OrganizationId != nil {
+		query = query.Where("organization_id = ?", userRole.OrganizationId)
+	} else {
+		query = query.Where("organization_id IS NULL")
+	}
 
 	if userRole.ProjectId != nil {
 		query = query.Where("project_id = ?", userRole.ProjectId)
@@ -148,16 +155,32 @@ func (r *resourceRole) AssignRoleToUser(userRole *models.UserRole) error {
 
 // RemoveRoleFromUser remove associação de cargo do usuário
 func (r *resourceRole) RemoveRoleFromUser(userId, roleId, orgId string) error {
-	return r.db.Where("user_id = ? AND role_id = ? AND organization_id = ?", userId, roleId, orgId).
-		Delete(&models.UserRole{}).Error
+	query := r.db.Where("user_id = ? AND role_id = ?", userId, roleId)
+
+	// Tratar orgId vazio (cargo admin global)
+	if orgId != "" {
+		query = query.Where("organization_id = ?", orgId)
+	} else {
+		query = query.Where("organization_id IS NULL")
+	}
+
+	return query.Delete(&models.UserRole{}).Error
 }
 
 // GetUserRoles busca todos os cargos de um usuário em uma organização
+// Se orgId for vazio, busca cargos admin globais (organization_id IS NULL)
 func (r *resourceRole) GetUserRoles(userId, orgId string) ([]models.UserRole, error) {
 	var userRoles []models.UserRole
-	err := r.db.Where("user_id = ? AND organization_id = ? AND deleted_at IS NULL AND active = true", userId, orgId).
-		Preload("Role").
-		Find(&userRoles).Error
+	query := r.db.Where("user_id = ? AND deleted_at IS NULL AND active = true", userId)
+
+	// Tratar orgId vazio (cargos admin globais)
+	if orgId != "" {
+		query = query.Where("organization_id = ?", orgId)
+	} else {
+		query = query.Where("organization_id IS NULL")
+	}
+
+	err := query.Preload("Role").Find(&userRoles).Error
 	return userRoles, err
 }
 
@@ -246,12 +269,20 @@ func (r *resourceRole) GetUserMaxHierarchyLevel(userId, orgId string) (int, erro
 
 	// Se não é Master Admin pelo sistema legado, buscar da tabela user_roles
 	var maxLevel int
-	err = r.db.Model(&models.UserRole{}).
+	query := r.db.Model(&models.UserRole{}).
 		Select("COALESCE(MAX(roles.hierarchy_level), 0)").
 		Joins("JOIN roles ON roles.id = user_roles.role_id").
-		Where("user_roles.user_id = ? AND user_roles.organization_id = ? AND user_roles.deleted_at IS NULL AND user_roles.active = true", userId, orgId).
-		Where("roles.deleted_at IS NULL AND roles.active = true").
-		Scan(&maxLevel).Error
+		Where("user_roles.user_id = ? AND user_roles.deleted_at IS NULL AND user_roles.active = true", userId).
+		Where("roles.deleted_at IS NULL AND roles.active = true")
+
+	// Tratar orgId vazio (cargos admin globais - organization_id IS NULL)
+	if orgId != "" {
+		query = query.Where("user_roles.organization_id = ?", orgId)
+	} else {
+		query = query.Where("user_roles.organization_id IS NULL")
+	}
+
+	err = query.Scan(&maxLevel).Error
 
 	return maxLevel, err
 }

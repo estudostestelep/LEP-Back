@@ -19,6 +19,8 @@ type IHandlerAuth interface {
 	VerificationToken(token string) (*models.User, error)
 	GetUserOrganizationsWithNames(userId string) ([]UserOrganizationWithName, error)
 	GetUserProjectsWithNames(userId string) ([]UserProjectWithName, error)
+	RecordAccessLog(userId, ip, userAgent string) error
+	GetAccessLogs(userId string, page, perPage int) (*models.AccessLogPaginatedResponse, error)
 }
 
 func (r *resourceAuth) PostToken(user *models.User, token string) error {
@@ -169,6 +171,31 @@ func (r *resourceAuth) GetUserProjectsWithNames(userId string) ([]UserProjectWit
 	}
 
 	return result, nil
+}
+
+// RecordAccessLog registra um log de acesso do usuário
+func (r *resourceAuth) RecordAccessLog(userId, ip, userAgent string) error {
+	userUUID, err := uuid.Parse(userId)
+	if err != nil {
+		return fmt.Errorf("ID de usuário inválido: %v", err)
+	}
+
+	accessLog := &models.AccessLog{
+		Id:        uuid.New(),
+		UserId:    userUUID,
+		IP:        ip,
+		UserAgent: userAgent,
+		Location:  "", // TODO: Implementar geolocalização por IP
+		LoginAt:   time.Now(),
+		CreatedAt: time.Now(),
+	}
+
+	return r.repo.AccessLogs.Create(accessLog)
+}
+
+// GetAccessLogs retorna logs de acesso paginados de um usuário
+func (r *resourceAuth) GetAccessLogs(userId string, page, perPage int) (*models.AccessLogPaginatedResponse, error) {
+	return r.repo.AccessLogs.GetByUserId(userId, page, perPage)
 }
 
 func NewAuthHandler(repo *repositories.DBconn) IHandlerAuth {

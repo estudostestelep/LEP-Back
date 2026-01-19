@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"lep/handler"
 	"lep/repositories/models"
 	"net/http"
@@ -10,12 +11,18 @@ import (
 )
 
 type RoleServer struct {
-	handler      *handler.RoleHandler
-	limitHandler *handler.LimitHandler
+	handler           *handler.RoleHandler
+	limitHandler      *handler.LimitHandler
+	adminAuditHandler handler.IAdminAuditLogHandler
 }
 
 func NewRoleServer(h *handler.RoleHandler) *RoleServer {
 	return &RoleServer{handler: h}
+}
+
+// SetAdminAuditHandler configura o handler de auditoria (injetado separadamente)
+func (s *RoleServer) SetAdminAuditHandler(h handler.IAdminAuditLogHandler) {
+	s.adminAuditHandler = h
 }
 
 // SetLimitHandler configura o handler de limites (injetado separadamente)
@@ -41,19 +48,50 @@ func (s *RoleServer) CreateRole(c *gin.Context) {
 	}
 
 	userId := c.GetString("user_id")
+	userEmail := c.GetString("user_email")
 	orgId := c.GetString("organization_id")
 
 	// Se não especificado, associar à organização atual
+	var orgUUID *uuid.UUID
 	if role.OrganizationId == nil {
-		orgUUID, err := uuid.Parse(orgId)
+		parsed, err := uuid.Parse(orgId)
 		if err == nil {
-			role.OrganizationId = &orgUUID
+			orgUUID = &parsed
+			role.OrganizationId = orgUUID
 		}
+	} else {
+		orgUUID = role.OrganizationId
 	}
 
 	if err := s.handler.CreateRole(&role, userId, orgId); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 		return
+	}
+
+	// 📝 LOG DE AUDITORIA: Registrar criação de cargo
+	if s.adminAuditHandler != nil {
+		actorUUID, _ := uuid.Parse(userId)
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		go func() {
+			s.adminAuditHandler.LogGenericAction(handler.AuditLogParams{
+				ActorId:       actorUUID,
+				ActorEmail:    userEmail,
+				TargetId:      role.Id,
+				TargetEmail:   "",
+				Action:        models.AdminAuditActionCreate,
+				EntityType:    models.AdminAuditEntityRole,
+				OrgId:         orgUUID,
+				ProjectId:     role.ProjectId,
+				IsAdminZone:   true,
+				OldValues:     nil,
+				NewValues:     map[string]interface{}{"name": role.Name, "display_name": role.DisplayName, "scope": role.Scope},
+				ChangedFields: []string{"*"},
+				IpAddress:     ipAddress,
+				UserAgent:     userAgent,
+			})
+		}()
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"data": role})
@@ -90,6 +128,9 @@ func (s *RoleServer) GetRole(c *gin.Context) {
 func (s *RoleServer) UpdateRole(c *gin.Context) {
 	id := c.Param("id")
 
+	// Capturar estado anterior para auditoria
+	oldRole, _ := s.handler.GetRole(id)
+
 	var role models.Role
 	if err := c.ShouldBindJSON(&role); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
@@ -104,11 +145,43 @@ func (s *RoleServer) UpdateRole(c *gin.Context) {
 	role.Id = roleUUID
 
 	userId := c.GetString("user_id")
+	userEmail := c.GetString("user_email")
 	orgId := c.GetString("organization_id")
 
 	if err := s.handler.UpdateRole(&role, userId, orgId); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 		return
+	}
+
+	// 📝 LOG DE AUDITORIA: Registrar atualização de cargo
+	if s.adminAuditHandler != nil && oldRole != nil {
+		actorUUID, _ := uuid.Parse(userId)
+		var orgUUID *uuid.UUID
+		if orgId != "" {
+			parsed, _ := uuid.Parse(orgId)
+			orgUUID = &parsed
+		}
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		go func() {
+			s.adminAuditHandler.LogGenericAction(handler.AuditLogParams{
+				ActorId:       actorUUID,
+				ActorEmail:    userEmail,
+				TargetId:      roleUUID,
+				TargetEmail:   "",
+				Action:        models.AdminAuditActionUpdate,
+				EntityType:    models.AdminAuditEntityRole,
+				OrgId:         orgUUID,
+				ProjectId:     role.ProjectId,
+				IsAdminZone:   true,
+				OldValues:     map[string]interface{}{"name": oldRole.Name, "display_name": oldRole.DisplayName},
+				NewValues:     map[string]interface{}{"name": role.Name, "display_name": role.DisplayName},
+				ChangedFields: []string{"name", "display_name", "permissions"},
+				IpAddress:     ipAddress,
+				UserAgent:     userAgent,
+			})
+		}()
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": role})
@@ -124,11 +197,47 @@ func (s *RoleServer) UpdateRole(c *gin.Context) {
 func (s *RoleServer) DeleteRole(c *gin.Context) {
 	id := c.Param("id")
 	userId := c.GetString("user_id")
+	userEmail := c.GetString("user_email")
 	orgId := c.GetString("organization_id")
+
+	// Capturar dados do cargo ANTES de deletar
+	oldRole, _ := s.handler.GetRole(id)
 
 	if err := s.handler.DeleteRole(id, userId, orgId); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 		return
+	}
+
+	// 📝 LOG DE AUDITORIA: Registrar exclusão de cargo
+	if s.adminAuditHandler != nil && oldRole != nil {
+		actorUUID, _ := uuid.Parse(userId)
+		roleUUID, _ := uuid.Parse(id)
+		var orgUUID *uuid.UUID
+		if orgId != "" {
+			parsed, _ := uuid.Parse(orgId)
+			orgUUID = &parsed
+		}
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		go func() {
+			s.adminAuditHandler.LogGenericAction(handler.AuditLogParams{
+				ActorId:       actorUUID,
+				ActorEmail:    userEmail,
+				TargetId:      roleUUID,
+				TargetEmail:   "",
+				Action:        models.AdminAuditActionDelete,
+				EntityType:    models.AdminAuditEntityRole,
+				OrgId:         orgUUID,
+				ProjectId:     oldRole.ProjectId,
+				IsAdminZone:   true,
+				OldValues:     map[string]interface{}{"name": oldRole.Name, "display_name": oldRole.DisplayName},
+				NewValues:     nil,
+				ChangedFields: []string{"*"},
+				IpAddress:     ipAddress,
+				UserAgent:     userAgent,
+			})
+		}()
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cargo removido com sucesso"})
@@ -188,6 +297,7 @@ func (s *RoleServer) AssignRoleToUser(c *gin.Context) {
 	}
 
 	actorUserId := c.GetString("user_id")
+	actorEmail := c.GetString("user_email")
 	orgId := c.GetString("organization_id")
 
 	userUUID, err := uuid.Parse(req.UserId)
@@ -202,30 +312,63 @@ func (s *RoleServer) AssignRoleToUser(c *gin.Context) {
 		return
 	}
 
-	orgUUID, err := uuid.Parse(orgId)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "ID da organização inválido"})
-		return
+	userRole := &models.UserRole{
+		UserId: userUUID,
+		RoleId: roleUUID,
+		Active: true,
 	}
 
-	userRole := &models.UserRole{
-		UserId:         userUUID,
-		RoleId:         roleUUID,
-		OrganizationId: orgUUID,
-		Active:         true,
+	// Se orgId foi fornecido, adicionar ao contexto
+	// Se vazio, OrganizationId fica nil (cargo admin global)
+	var orgUUID *uuid.UUID
+	if orgId != "" {
+		parsed, err := uuid.Parse(orgId)
+		if err == nil {
+			orgUUID = &parsed
+			userRole.OrganizationId = orgUUID
+		}
 	}
 
 	// Se tiver projectId, adicionar
+	var projUUID *uuid.UUID
 	if req.ProjectId != "" {
-		projUUID, err := uuid.Parse(req.ProjectId)
+		parsed, err := uuid.Parse(req.ProjectId)
 		if err == nil {
-			userRole.ProjectId = &projUUID
+			projUUID = &parsed
+			userRole.ProjectId = projUUID
 		}
 	}
 
 	if err := s.handler.AssignRoleToUser(userRole, actorUserId); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 		return
+	}
+
+	// 📝 LOG DE AUDITORIA: Registrar atribuição de cargo
+	if s.adminAuditHandler != nil {
+		// Buscar informações do cargo
+		role, _ := s.handler.GetRole(req.RoleId)
+
+		roleName := ""
+		if role != nil {
+			roleName = role.DisplayName
+		}
+
+		actorUUID, _ := uuid.Parse(actorUserId)
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		go func() {
+			if err := s.adminAuditHandler.LogRoleAssignment(
+				actorUUID, actorEmail,
+				userUUID, "", // targetEmail será vazio, pois não temos acesso fácil
+				roleUUID, roleName,
+				orgUUID, projUUID,
+				ipAddress, userAgent,
+			); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (ASSIGN_ROLE): %v\n", err)
+			}
+		}()
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cargo atribuído com sucesso"})
@@ -247,11 +390,47 @@ func (s *RoleServer) RemoveRoleFromUser(c *gin.Context) {
 	}
 
 	actorUserId := c.GetString("user_id")
+	actorEmail := c.GetString("user_email")
 	orgId := c.GetString("organization_id")
+
+	// Buscar informações do cargo ANTES de remover (para o log)
+	var roleName string
+	role, _ := s.handler.GetRole(req.RoleId)
+	if role != nil {
+		roleName = role.DisplayName
+	}
 
 	if err := s.handler.RemoveRoleFromUser(req.UserId, req.RoleId, orgId, actorUserId); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 		return
+	}
+
+	// 📝 LOG DE AUDITORIA: Registrar remoção de cargo
+	if s.adminAuditHandler != nil {
+		userUUID, _ := uuid.Parse(req.UserId)
+		roleUUID, _ := uuid.Parse(req.RoleId)
+		actorUUID, _ := uuid.Parse(actorUserId)
+
+		var orgUUID *uuid.UUID
+		if orgId != "" {
+			parsed, _ := uuid.Parse(orgId)
+			orgUUID = &parsed
+		}
+
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		go func() {
+			if err := s.adminAuditHandler.LogRoleRemoval(
+				actorUUID, actorEmail,
+				userUUID, "",
+				roleUUID, roleName,
+				orgUUID, nil,
+				ipAddress, userAgent,
+			); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (REMOVE_ROLE): %v\n", err)
+			}
+		}()
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cargo removido com sucesso"})
@@ -651,6 +830,9 @@ func (s *RoleServer) CreatePackage(c *gin.Context) {
 		return
 	}
 
+	userId := c.GetString("user_id")
+	userEmail := c.GetString("user_email")
+
 	if pkg.Id == uuid.Nil {
 		pkg.Id = uuid.New()
 	}
@@ -658,6 +840,25 @@ func (s *RoleServer) CreatePackage(c *gin.Context) {
 	if err := s.handler.CreatePackage(&pkg); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao criar pacote", "error": err.Error()})
 		return
+	}
+
+	// 📝 LOG DE AUDITORIA
+	if s.adminAuditHandler != nil {
+		actorUUID, _ := uuid.Parse(userId)
+		go func() {
+			s.adminAuditHandler.LogGenericAction(handler.AuditLogParams{
+				ActorId:       actorUUID,
+				ActorEmail:    userEmail,
+				TargetId:      pkg.Id,
+				Action:        models.AdminAuditActionCreate,
+				EntityType:    models.AdminAuditEntityPackage,
+				IsAdminZone:   true,
+				NewValues:     map[string]interface{}{"code_name": pkg.CodeName, "display_name": pkg.DisplayName},
+				ChangedFields: []string{"*"},
+				IpAddress:     c.ClientIP(),
+				UserAgent:     c.Request.UserAgent(),
+			})
+		}()
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"data": pkg})
@@ -674,6 +875,8 @@ func (s *RoleServer) CreatePackage(c *gin.Context) {
 // @Router /package/{id} [put]
 func (s *RoleServer) UpdatePackage(c *gin.Context) {
 	id := c.Param("id")
+	userId := c.GetString("user_id")
+	userEmail := c.GetString("user_email")
 
 	var pkg models.Package
 	if err := c.ShouldBindJSON(&pkg); err != nil {
@@ -693,6 +896,25 @@ func (s *RoleServer) UpdatePackage(c *gin.Context) {
 		return
 	}
 
+	// 📝 LOG DE AUDITORIA
+	if s.adminAuditHandler != nil {
+		actorUUID, _ := uuid.Parse(userId)
+		go func() {
+			s.adminAuditHandler.LogGenericAction(handler.AuditLogParams{
+				ActorId:       actorUUID,
+				ActorEmail:    userEmail,
+				TargetId:      pkgUUID,
+				Action:        models.AdminAuditActionUpdate,
+				EntityType:    models.AdminAuditEntityPackage,
+				IsAdminZone:   true,
+				NewValues:     map[string]interface{}{"code_name": pkg.CodeName, "display_name": pkg.DisplayName},
+				ChangedFields: []string{"code_name", "display_name", "prices"},
+				IpAddress:     c.ClientIP(),
+				UserAgent:     c.Request.UserAgent(),
+			})
+		}()
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": pkg})
 }
 
@@ -705,10 +927,39 @@ func (s *RoleServer) UpdatePackage(c *gin.Context) {
 // @Router /package/{id} [delete]
 func (s *RoleServer) DeletePackage(c *gin.Context) {
 	id := c.Param("id")
+	userId := c.GetString("user_id")
+	userEmail := c.GetString("user_email")
+
+	// Capturar dados antes de deletar
+	oldPkg, _ := s.handler.GetPackageWithModules(id)
 
 	if err := s.handler.DeletePackage(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao remover pacote", "error": err.Error()})
 		return
+	}
+
+	// 📝 LOG DE AUDITORIA
+	if s.adminAuditHandler != nil {
+		actorUUID, _ := uuid.Parse(userId)
+		pkgUUID, _ := uuid.Parse(id)
+		var oldValues map[string]interface{}
+		if oldPkg != nil {
+			oldValues = map[string]interface{}{"code_name": oldPkg.CodeName, "display_name": oldPkg.DisplayName}
+		}
+		go func() {
+			s.adminAuditHandler.LogGenericAction(handler.AuditLogParams{
+				ActorId:       actorUUID,
+				ActorEmail:    userEmail,
+				TargetId:      pkgUUID,
+				Action:        models.AdminAuditActionDelete,
+				EntityType:    models.AdminAuditEntityPackage,
+				IsAdminZone:   true,
+				OldValues:     oldValues,
+				ChangedFields: []string{"*"},
+				IpAddress:     c.ClientIP(),
+				UserAgent:     c.Request.UserAgent(),
+			})
+		}()
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Pacote removido com sucesso"})

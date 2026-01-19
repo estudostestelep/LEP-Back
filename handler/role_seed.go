@@ -262,6 +262,17 @@ func createModules() []models.Module {
 			IsFree:       true,
 			Active:       true,
 		},
+		{
+			Id:           uuid.New(),
+			CodeName:     "client_audit_logs",
+			DisplayName:  "Logs de Auditoria",
+			Description:  "Visualização de logs de auditoria das operações",
+			Icon:         "history",
+			Scope:        "client",
+			DisplayOrder: 13,
+			IsFree:       false,
+			Active:       true,
+		},
 	}
 }
 
@@ -365,6 +376,15 @@ func createPermissions(moduleRepo repositories.IModuleRepository) []models.Permi
 
 	// Permissões Cliente - Tags (CRUD)
 	addCRUDPermissions("client_tags", "Tags")
+
+	// Permissões Cliente - Logs de Auditoria (apenas view e configure)
+	clientAuditLogsModuleId := getModuleId("client_audit_logs")
+	if clientAuditLogsModuleId != uuid.Nil {
+		permissions = append(permissions,
+			models.Permission{Id: uuid.New(), CodeName: "client_audit_logs_view", DisplayName: "Visualizar Logs de Auditoria", Description: "Pode visualizar logs de auditoria", ModuleId: clientAuditLogsModuleId, Active: true},
+			models.Permission{Id: uuid.New(), CodeName: "client_audit_logs_configure", DisplayName: "Configurar Auditoria", Description: "Pode configurar o módulo de auditoria", ModuleId: clientAuditLogsModuleId, Active: true},
+		)
+	}
 
 	return permissions
 }
@@ -555,6 +575,7 @@ func configureDefaultPermissions(roleRepo repositories.IRoleRepository, permissi
 			"client_settings_view": 1, "client_settings_edit": 1,
 			"client_notifications_view": 1, "client_notifications_create": 1, "client_notifications_edit": 1, "client_notifications_delete": 1, "client_notifications_send": 1,
 			"client_tags_view": 1, "client_tags_create": 1, "client_tags_edit": 1, "client_tags_delete": 1,
+			"client_audit_logs_view": 1, "client_audit_logs_configure": 1,
 		},
 		"manager": {
 			// CRUD completo para a maioria, mas sem algumas configurações
@@ -570,6 +591,7 @@ func configureDefaultPermissions(roleRepo repositories.IRoleRepository, permissi
 			"client_settings_view": 1,
 			"client_notifications_view": 1,
 			"client_tags_view": 1, "client_tags_create": 1, "client_tags_edit": 1, "client_tags_delete": 1,
+			"client_audit_logs_view": 1,
 		},
 		"supervisor": {
 			// View e algumas edições, sem delete na maioria
@@ -646,28 +668,36 @@ func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepositor
 	// -1 = ilimitado, 0 = desabilitado
 	packageLimits := map[string]map[string]int{
 		"free": {
-			"users":                3,
-			"tables":               10,
-			"products":             50,
-			"reservations_per_day": 0, // Desabilitado no plano gratuito
+			"users":                  3,
+			"tables":                 10,
+			"products":               50,
+			"reservations_per_day":   0,  // Desabilitado no plano gratuito
+			"audit_logs_limit":       0,  // Desabilitado no plano gratuito
+			"audit_logs_retention":   0,  // Desabilitado no plano gratuito
 		},
 		"starter": {
-			"users":                10,
-			"tables":               30,
-			"products":             200,
-			"reservations_per_day": 20,
+			"users":                  10,
+			"tables":                 30,
+			"products":               200,
+			"reservations_per_day":   20,
+			"audit_logs_limit":       0,  // Desabilitado no plano starter
+			"audit_logs_retention":   0,  // Desabilitado no plano starter
 		},
 		"professional": {
-			"users":                50,
-			"tables":               100,
-			"products":             1000,
-			"reservations_per_day": 100,
+			"users":                  50,
+			"tables":                 100,
+			"products":               1000,
+			"reservations_per_day":   100,
+			"audit_logs_limit":       10000, // 10.000 logs
+			"audit_logs_retention":   90,    // 90 dias
 		},
 		"enterprise": {
-			"users":                -1, // Ilimitado
-			"tables":               -1,
-			"products":             -1,
-			"reservations_per_day": -1,
+			"users":                  -1, // Ilimitado
+			"tables":                 -1,
+			"products":               -1,
+			"reservations_per_day":   -1,
+			"audit_logs_limit":       -1, // Ilimitado
+			"audit_logs_retention":   365, // 1 ano
 		},
 	}
 
@@ -700,7 +730,7 @@ func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepositor
 			"client_reports",
 		},
 		"professional": {
-			// Starter + notificações
+			// Starter + notificações + audit logs
 			"client_users",
 			"client_tables",
 			"client_customers",
@@ -713,6 +743,7 @@ func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepositor
 			"client_waitlist",
 			"client_reports",
 			"client_notifications",
+			"client_audit_logs",
 		},
 		"enterprise": {
 			// Todos os módulos
@@ -728,6 +759,7 @@ func configurePackageLimitsAndModules(packageRepo repositories.IPackageRepositor
 			"client_waitlist",
 			"client_reports",
 			"client_notifications",
+			"client_audit_logs",
 		},
 	}
 

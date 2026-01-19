@@ -111,8 +111,14 @@ func (h *RoleHandler) ListSystemRoles() ([]models.Role, error) {
 
 // AssignRoleToUser atribui um cargo a um usuário
 func (h *RoleHandler) AssignRoleToUser(userRole *models.UserRole, actorUserId string) error {
+	// Obter orgId - pode ser vazio para cargos admin globais
+	orgId := ""
+	if userRole.OrganizationId != nil {
+		orgId = userRole.OrganizationId.String()
+	}
+
 	// Validar se o ator pode atribuir este cargo
-	canManage, err := h.roleRepo.CanManageRole(actorUserId, userRole.RoleId.String(), userRole.OrganizationId.String())
+	canManage, err := h.roleRepo.CanManageRole(actorUserId, userRole.RoleId.String(), orgId)
 	if err != nil {
 		return fmt.Errorf("erro ao verificar permissão: %w", err)
 	}

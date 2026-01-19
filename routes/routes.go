@@ -77,6 +77,8 @@ func SetupRoutes(r *gin.Engine) {
 	setupPermissionRoutes(protected)
 	setupPackageRoutes(protected)
 	setupPlanChangeRequestRoutes(protected)
+	setupAdminAuditLogRoutes(protected)  // Admin audit logs (read-only, master admin only)
+	setupClientAuditLogRoutes(protected) // Client audit logs (optional module)
 
 	// Notification routes (mixed public/protected)
 	setupNotificationRoutes(r)
@@ -106,6 +108,10 @@ func setupUserRoutes(r gin.IRouter) {
 		userRoutes.POST("/:id/organizations-projects",
 			middleware.MasterAdminOnlyMiddleware(),
 			resource.ServersControllers.SourceUserAccess.ServiceUpdateUserOrganizationsAndProjects)
+
+		// Access Logs - Histórico de acessos do usuário
+		userRoutes.GET("/:id/access-logs",
+			resource.ServersControllers.SourceAccessLog.ServiceGetUserAccessLogs)
 	}
 }
 
@@ -804,5 +810,52 @@ func setupPlanChangeRequestRoutes(r gin.IRouter) {
 		adminRoutes.GET("/organization/:orgId", resource.ServersControllers.SourcePlanChangeRequest.GetRequestsByOrganization)
 		adminRoutes.POST("/:id/approve", resource.ServersControllers.SourcePlanChangeRequest.ApproveRequest)
 		adminRoutes.POST("/:id/reject", resource.ServersControllers.SourcePlanChangeRequest.RejectRequest)
+	}
+}
+
+// setupAdminAuditLogRoutes configura rotas para logs de auditoria administrativa
+// IMPORTANTE: Estas rotas são READ-ONLY e acessíveis apenas por Master Admins
+func setupAdminAuditLogRoutes(r gin.IRouter) {
+	auditRoutes := r.Group("/admin/audit-logs")
+	auditRoutes.Use(middleware.MasterAdminOnlyMiddleware())
+	{
+		// GET /admin/audit-logs - Lista logs com filtros e paginação
+		auditRoutes.GET("", resource.ServersControllers.SourceAdminAuditLog.ServiceListAdminAuditLogs)
+
+		// DELETE /admin/audit-logs/cleanup?days=90 - Remove logs mais antigos que X dias
+		// IMPORTANTE: Esta rota deve vir ANTES de /:id para evitar conflito
+		auditRoutes.DELETE("/cleanup", resource.ServersControllers.SourceAdminAuditLog.ServiceDeleteOldLogs)
+
+		// GET /admin/audit-logs/:id - Detalhes de um log específico
+		auditRoutes.GET("/:id", resource.ServersControllers.SourceAdminAuditLog.ServiceGetAdminAuditLog)
+	}
+}
+
+// setupClientAuditLogRoutes configura rotas para logs de auditoria de cliente
+// IMPORTANTE: Estas rotas são READ-ONLY para logs, mas permitem gerenciar configurações
+// Os logs são isolados por Organization/Project (headers obrigatórios)
+func setupClientAuditLogRoutes(r gin.IRouter) {
+	// Rotas de logs (read-only)
+	logRoutes := r.Group("/client-audit-logs")
+	{
+		// GET /client-audit-logs - Lista logs com filtros e paginação
+		logRoutes.GET("", resource.ServersControllers.SourceClientAuditLog.ServiceListClientAuditLogs)
+
+		// GET /client-audit-logs/:id - Detalhes de um log específico
+		logRoutes.GET("/:id", resource.ServersControllers.SourceClientAuditLog.ServiceGetClientAuditLog)
+	}
+
+	// Rotas de configuração (Master Admin only)
+	configRoutes := r.Group("/client-audit-config")
+	configRoutes.Use(middleware.MasterAdminOnlyMiddleware())
+	{
+		// GET /client-audit-config - Obtém configuração da organização
+		configRoutes.GET("", resource.ServersControllers.SourceClientAuditLog.ServiceGetClientAuditConfig)
+
+		// PUT /client-audit-config - Atualiza configuração da organização
+		configRoutes.PUT("", resource.ServersControllers.SourceClientAuditLog.ServiceUpdateClientAuditConfig)
+
+		// GET /client-audit-modules - Lista módulos disponíveis para auditoria
+		configRoutes.GET("/modules", resource.ServersControllers.SourceClientAuditLog.ServiceGetAvailableModules)
 	}
 }

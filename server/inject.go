@@ -41,6 +41,9 @@ type ServerController struct {
 	SourcePlanChangeRequest  IPlanChangeRequestServer
 	SourceAdmin              *AdminController
 	SourceSidebarConfig      ISidebarConfigServer
+	SourceAccessLog          IAccessLogServer
+	SourceAdminAuditLog      IAdminAuditLogServer  // Logs de auditoria admin (read-only)
+	SourceClientAuditLog     IClientAuditLogServer // Logs de auditoria de cliente (módulo opcional)
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -151,10 +154,20 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceSubcategory = NewSourceServerSubcategory(handler)
 	h.SourceOnboarding = NewOnboardingServer(handler.HandlerOnboarding)
 	h.SourceRole = NewRoleServer(handler.HandlerRole)
-	h.SourceRole.SetLimitHandler(handler.HandlerLimits) // Injetar handler de limites
+	h.SourceRole.SetLimitHandler(handler.HandlerLimits)             // Injetar handler de limites
+	h.SourceRole.SetAdminAuditHandler(handler.HandlerAdminAuditLog) // Injetar handler de auditoria
 	h.SourcePlanChangeRequest = NewPlanChangeRequestServer(handler.HandlerPlanChangeRequest)
 	// AdminController is initialized separately with DB in resource/inject.go
 
 	// Sidebar Config Server
 	h.SourceSidebarConfig = NewSidebarConfigServer(handler.HandlerSidebarConfig)
+
+	// Access Log Server
+	h.SourceAccessLog = NewAccessLogController(handler)
+
+	// Admin Audit Log Server (read-only)
+	h.SourceAdminAuditLog = NewAdminAuditLogServer(handler.HandlerAdminAuditLog)
+
+	// Client Audit Log Server (módulo opcional)
+	h.SourceClientAuditLog = NewClientAuditLogServer(handler.HandlerClientAuditLog)
 }

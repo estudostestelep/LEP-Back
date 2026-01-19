@@ -226,6 +226,15 @@ func (r *resourcePackage) GetOrganizationPackage(orgId string) (*models.Organiza
 	if err != nil {
 		return nil, err
 	}
+
+	// Carregar módulos do pacote (campo com gorm:"-" precisa ser preenchido manualmente)
+	if orgPackage.Package != nil {
+		modules, err := r.GetPackageModules(orgPackage.PackageId.String())
+		if err == nil {
+			orgPackage.Package.Modules = modules
+		}
+	}
+
 	return &orgPackage, nil
 }
 

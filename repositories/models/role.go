@@ -35,8 +35,8 @@ type UserRole struct {
 	Id             uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
 	UserId         uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
 	RoleId         uuid.UUID  `json:"role_id" gorm:"type:uuid;not null;index"`
-	OrganizationId uuid.UUID  `json:"organization_id" gorm:"type:uuid;not null;index"` // Contexto da organização
-	ProjectId      *uuid.UUID `json:"project_id,omitempty" gorm:"type:uuid;index"`     // Contexto do projeto (opcional)
+	OrganizationId *uuid.UUID `json:"organization_id,omitempty" gorm:"type:uuid;index"` // NULL = cargo admin global (zona administrativa)
+	ProjectId      *uuid.UUID `json:"project_id,omitempty" gorm:"type:uuid;index"`      // Contexto do projeto (opcional)
 	Active         bool       `json:"active" gorm:"default:true"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`

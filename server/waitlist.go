@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ResourceWaitlist struct {
@@ -103,12 +104,25 @@ func (r *ResourceWaitlist) ServiceUpdateWaitlist(c *gin.Context) {
 		return
 	}
 
+	// Obter ID da URL
+	id := c.Param("id")
+	waitlistId, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid waitlist ID"})
+		return
+	}
+
 	var updatedWaitlist models.Waitlist
-	err := c.BindJSON(&updatedWaitlist)
+	err = c.BindJSON(&updatedWaitlist)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
+
+	// Setar IDs obrigatórios
+	updatedWaitlist.Id = waitlistId
+	updatedWaitlist.OrganizationId, _ = uuid.Parse(organizationId)
+	updatedWaitlist.ProjectId, _ = uuid.Parse(projectId)
 
 	err = r.handler.HandlerWaitlist.UpdateWaitlist(&updatedWaitlist)
 	if err != nil {

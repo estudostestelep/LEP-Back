@@ -38,6 +38,9 @@ func (h *ThemeCustomizationHandler) GetThemeByProject(projectId string) (*models
 		defaultTheme := h.buildDefaultTheme(projectUUID, uuid.UUID{})
 		return defaultTheme, nil
 	}
+
+	// Preencher valores padrão para campos nulos
+	h.fillDefaultsForNullFields(theme)
 	return theme, nil
 }
 
@@ -143,21 +146,21 @@ func (h *ThemeCustomizationHandler) CreateOrUpdateTheme(projectId string, organi
 	return newTheme, nil
 }
 
-// ResetToDefaults apaga todas as cores customizadas (seta para nil)
-// deixando o frontend lidar com a cor padrão
+// ResetToDefaults apaga todas as cores customizadas e retorna valores padrão
 func (h *ThemeCustomizationHandler) ResetToDefaults(projectId string) (*models.ThemeCustomization, error) {
 	projectUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return nil, err
 	}
 
-	// Delega para o repositório que vai zerar todas as cores
-	theme, err := h.themeRepo.ResetToDefaults(projectUUID)
+	// Delega para o repositório que vai zerar todas as cores no banco
+	_, err = h.themeRepo.ResetToDefaults(projectUUID)
 	if err != nil {
 		return nil, err
 	}
 
-	return theme, nil
+	// Retorna tema com valores padrão para exibição
+	return h.buildDefaultTheme(projectUUID, uuid.UUID{}), nil
 }
 
 // DeleteTheme deleta customização de tema
@@ -171,6 +174,149 @@ func (h *ThemeCustomizationHandler) DeleteTheme(projectId string) error {
 }
 
 // ==================== Helper Functions ====================
+
+// fillDefaultsForNullFields preenche valores padrão para campos nulos
+func (h *ThemeCustomizationHandler) fillDefaultsForNullFields(theme *models.ThemeCustomization) {
+	// LIGHT MODE - Cores profissionais claras
+	lightPrimary := "#1E293B"
+	lightSecondary := "#8B5CF6"
+	lightBackground := "#FFFFFF"
+	lightCardBackground := "#FFFFFF"
+	lightText := "#0F172A"
+	lightTextSecondary := "#64748B"
+	lightAccent := "#EC4899"
+	lightDestructive := "#EF4444"
+	lightSuccess := "#10B981"
+	lightWarning := "#F59E0B"
+	lightBorder := "#E5E7EB"
+	lightPrice := "#10B981"
+	lightFocusRing := "#3B82F6"
+	lightInputBackground := "#F3F4F6"
+
+	// DARK MODE - Cores profissionais escuras
+	darkPrimary := "#F8FAFC"
+	darkSecondary := "#A78BFA"
+	darkBackground := "#0F172A"
+	darkCardBackground := "#1E293B"
+	darkText := "#F8FAFC"
+	darkTextSecondary := "#94A3B8"
+	darkAccent := "#F472B6"
+	darkDestructive := "#DC2626"
+	darkSuccess := "#34D399"
+	darkWarning := "#FBBF24"
+	darkBorder := "#475569"
+	darkPrice := "#34D399"
+	darkFocusRing := "#93C5FD"
+	darkInputBackground := "#1F2937"
+
+	// Configurações numéricas
+	disabledOpacity := 0.5
+	shadowIntensity := 1.0
+
+	// Light Mode - cores principais
+	if theme.PrimaryColorLight == nil {
+		theme.PrimaryColorLight = &lightPrimary
+	}
+	if theme.SecondaryColorLight == nil {
+		theme.SecondaryColorLight = &lightSecondary
+	}
+	if theme.BackgroundColorLight == nil {
+		theme.BackgroundColorLight = &lightBackground
+	}
+	if theme.CardBackgroundColorLight == nil {
+		theme.CardBackgroundColorLight = &lightCardBackground
+	}
+	if theme.TextColorLight == nil {
+		theme.TextColorLight = &lightText
+	}
+	if theme.TextSecondaryColorLight == nil {
+		theme.TextSecondaryColorLight = &lightTextSecondary
+	}
+	if theme.AccentColorLight == nil {
+		theme.AccentColorLight = &lightAccent
+	}
+
+	// Dark Mode - cores principais
+	if theme.PrimaryColorDark == nil {
+		theme.PrimaryColorDark = &darkPrimary
+	}
+	if theme.SecondaryColorDark == nil {
+		theme.SecondaryColorDark = &darkSecondary
+	}
+	if theme.BackgroundColorDark == nil {
+		theme.BackgroundColorDark = &darkBackground
+	}
+	if theme.CardBackgroundColorDark == nil {
+		theme.CardBackgroundColorDark = &darkCardBackground
+	}
+	if theme.TextColorDark == nil {
+		theme.TextColorDark = &darkText
+	}
+	if theme.TextSecondaryColorDark == nil {
+		theme.TextSecondaryColorDark = &darkTextSecondary
+	}
+	if theme.AccentColorDark == nil {
+		theme.AccentColorDark = &darkAccent
+	}
+
+	// Light Mode - cores semânticas
+	if theme.DestructiveColorLight == nil {
+		theme.DestructiveColorLight = &lightDestructive
+	}
+	if theme.SuccessColorLight == nil {
+		theme.SuccessColorLight = &lightSuccess
+	}
+	if theme.WarningColorLight == nil {
+		theme.WarningColorLight = &lightWarning
+	}
+	if theme.BorderColorLight == nil {
+		theme.BorderColorLight = &lightBorder
+	}
+	if theme.PriceColorLight == nil {
+		theme.PriceColorLight = &lightPrice
+	}
+
+	// Dark Mode - cores semânticas
+	if theme.DestructiveColorDark == nil {
+		theme.DestructiveColorDark = &darkDestructive
+	}
+	if theme.SuccessColorDark == nil {
+		theme.SuccessColorDark = &darkSuccess
+	}
+	if theme.WarningColorDark == nil {
+		theme.WarningColorDark = &darkWarning
+	}
+	if theme.BorderColorDark == nil {
+		theme.BorderColorDark = &darkBorder
+	}
+	if theme.PriceColorDark == nil {
+		theme.PriceColorDark = &darkPrice
+	}
+
+	// Light Mode - cores sistema
+	if theme.FocusRingColorLight == nil {
+		theme.FocusRingColorLight = &lightFocusRing
+	}
+	if theme.InputBackgroundColorLight == nil {
+		theme.InputBackgroundColorLight = &lightInputBackground
+	}
+
+	// Dark Mode - cores sistema
+	if theme.FocusRingColorDark == nil {
+		theme.FocusRingColorDark = &darkFocusRing
+	}
+	if theme.InputBackgroundColorDark == nil {
+		theme.InputBackgroundColorDark = &darkInputBackground
+	}
+
+	// Configurações numéricas
+	if theme.DisabledOpacity == nil {
+		theme.DisabledOpacity = &disabledOpacity
+	}
+	if theme.ShadowIntensity == nil {
+		theme.ShadowIntensity = &shadowIntensity
+	}
+}
 
 // buildDefaultTheme constrói tema padrão com cores profissionais light/dark
 func (h *ThemeCustomizationHandler) buildDefaultTheme(projectID uuid.UUID, orgID uuid.UUID) *models.ThemeCustomization {

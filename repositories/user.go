@@ -19,6 +19,7 @@ type IUserRepository interface {
 	ListUsersByOrganizationAndProject(orgId, projectId string) ([]models.User, error)
 	CreateUser(user *models.User) error
 	UpdateUser(user *models.User) error
+	UpdateLastAccess(userId string) error
 	SoftDeleteUser(id string) error
 	DeleteUser(id string) error
 	GetUserWithRelations(id string) (*models.UserWithRelations, error)
@@ -89,6 +90,10 @@ func (r *resourceUser) CreateUser(user *models.User) error {
 
 func (r *resourceUser) UpdateUser(user *models.User) error {
 	return r.db.Save(user).Error
+}
+
+func (r *resourceUser) UpdateLastAccess(userId string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userId).Update("last_access_at", time.Now()).Error
 }
 
 func (r *resourceUser) SoftDeleteUser(id string) error {

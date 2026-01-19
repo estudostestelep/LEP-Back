@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ResourceReservation struct {
@@ -77,6 +78,23 @@ func (r *ResourceReservation) ServiceCreateReservation(c *gin.Context) {
 		return
 	}
 
+	// Setar IDs da organização e projeto a partir dos headers
+	newReservation.OrganizationId, err = uuid.Parse(organizationId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error parsing organization ID"})
+		return
+	}
+	newReservation.ProjectId, err = uuid.Parse(projectId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error parsing project ID"})
+		return
+	}
+
+	// Gerar ID se não fornecido
+	if newReservation.Id == uuid.Nil {
+		newReservation.Id = uuid.New()
+	}
+
 	err = r.handler.HandlerReservation.CreateReservation(&newReservation)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -103,12 +121,25 @@ func (r *ResourceReservation) ServiceUpdateReservation(c *gin.Context) {
 		return
 	}
 
+	// Obter ID da URL
+	id := c.Param("id")
+	reservationId, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid reservation ID"})
+		return
+	}
+
 	var updatedReservation models.Reservation
-	err := c.BindJSON(&updatedReservation)
+	err = c.BindJSON(&updatedReservation)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
+
+	// Setar IDs obrigatórios
+	updatedReservation.Id = reservationId
+	updatedReservation.OrganizationId, _ = uuid.Parse(organizationId)
+	updatedReservation.ProjectId, _ = uuid.Parse(projectId)
 
 	err = r.handler.HandlerReservation.UpdateReservation(&updatedReservation)
 	if err != nil {

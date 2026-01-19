@@ -38,6 +38,8 @@ type Handlers struct {
 	HandlerLimits             *LimitHandler
 	ImageManagementService    service.IImageManagementService // Service direto para o Upload server
 	HandlerSidebarConfig      ISidebarConfigHandler
+	HandlerAdminAuditLog      IAdminAuditLogHandler       // Logs de auditoria administrativa (read-only)
+	HandlerClientAuditLog     IClientAuditLogHandler      // Logs de auditoria de cliente (módulo opcional)
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
@@ -100,4 +102,14 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 
 	// Sidebar Config Handler
 	h.HandlerSidebarConfig = NewSidebarConfigHandler(repo.SidebarConfig)
+
+	// Admin Audit Log Handler (read-only)
+	h.HandlerAdminAuditLog = NewAdminAuditLogHandler(
+		repo.AdminAuditLogs,
+		repo.Organizations,
+		repo.Projects,
+	)
+
+	// Client Audit Log Handler (módulo opcional)
+	h.HandlerClientAuditLog = NewClientAuditLogHandler(repo.ClientAuditLogs)
 }

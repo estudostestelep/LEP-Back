@@ -24,6 +24,7 @@ type IHandlerUser interface {
 	ListUsers(orgId, projectId string) ([]models.User, error)
 	CreateUser(user *models.User, orgId, projectId, roleId string) error
 	UpdateUser(updatedUser *models.User) error
+	UpdateLastAccess(userId string) error
 	DeleteUser(id string) error
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserWithRelations(id string) (*models.UserWithRelations, error)
@@ -92,7 +93,8 @@ func (r *resourceUser) CreateUser(user *models.User, orgId, projectId, roleId st
 	}
 
 	// 🔑 ATRIBUIR CARGO: Se roleId foi fornecido, atribuir o cargo ao usuário
-	if roleId != "" && orgId != "" && r.roleRepo != nil {
+	// Para roles admin, orgId pode ser vazio (cargo global da zona administrativa)
+	if roleId != "" && r.roleRepo != nil {
 		if err := r.assignRoleToUser(user.Id, roleId, orgId, projectId); err != nil {
 			fmt.Printf("Aviso: erro ao atribuir cargo ao usuário: %v\n", err)
 		}
@@ -129,6 +131,10 @@ func (r *resourceUser) DeleteUser(id string) error {
 		return err
 	}
 	return nil
+}
+
+func (r *resourceUser) UpdateLastAccess(userId string) error {
+	return r.repo.User.UpdateLastAccess(userId)
 }
 
 func (r *resourceUser) GetUserByEmail(email string) (*models.User, error) {
@@ -215,6 +221,7 @@ func (r *resourceUser) linkUserToOrgAndProject(userId uuid.UUID, orgId, projectI
 }
 
 // assignRoleToUser atribui um cargo a um usuário no sistema de permissões granulares
+// Para roles de escopo "admin", orgId pode ser vazio (cargo global da zona administrativa)
 func (r *resourceUser) assignRoleToUser(userId uuid.UUID, roleId, orgId, projectId string) error {
 	fmt.Printf("🔑 assignRoleToUser: userId=%s, roleId=%s, orgId=%s, projectId=%s\n", userId, roleId, orgId, projectId)
 
@@ -223,17 +230,21 @@ func (r *resourceUser) assignRoleToUser(userId uuid.UUID, roleId, orgId, project
 		return fmt.Errorf("ID do cargo inválido: %v", err)
 	}
 
-	orgUUID, err := uuid.Parse(orgId)
-	if err != nil {
-		return fmt.Errorf("ID da organização inválido: %v", err)
+	userRole := &models.UserRole{
+		Id:     uuid.New(),
+		UserId: userId,
+		RoleId: roleUUID,
+		Active: true,
 	}
 
-	userRole := &models.UserRole{
-		Id:             uuid.New(),
-		UserId:         userId,
-		RoleId:         roleUUID,
-		OrganizationId: orgUUID,
-		Active:         true,
+	// Se orgId foi fornecido, adicionar ao contexto
+	// Se vazio, OrganizationId fica nil (cargo admin global)
+	if orgId != "" {
+		orgUUID, err := uuid.Parse(orgId)
+		if err != nil {
+			return fmt.Errorf("ID da organização inválido: %v", err)
+		}
+		userRole.OrganizationId = &orgUUID
 	}
 
 	// Se projectId foi fornecido, adicionar ao contexto

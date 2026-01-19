@@ -32,6 +32,7 @@ func Start(db *gorm.DB) {
 		&models.Waitlist{},
 		&models.Order{},
 		&models.AuditLog{},
+		&models.AccessLog{}, // User access/login logs
 
 		// SPRINT 1 models
 		&models.Project{},
@@ -46,6 +47,8 @@ func Start(db *gorm.DB) {
 		&models.NotificationLog{},
 		&models.NotificationEvent{},
 		&models.NotificationInbound{},
+		&models.NotificationSchedule{},
+		&models.ResponseReviewQueue{},
 
 		// SPRINT 4 models (Advanced Validations)
 		&models.BlockedPeriod{},
@@ -83,6 +86,13 @@ func Start(db *gorm.DB) {
 
 		// Sidebar Config System
 		&models.SidebarConfig{},
+
+		// Admin Audit Log System (read-only logs for administrative actions)
+		&models.AdminAuditLog{},
+
+		// Client Audit Log System (optional module for client-side logging)
+		&models.ClientAuditLog{},
+		&models.ClientAuditConfig{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product

@@ -64,6 +64,22 @@ func (r *ResourceAuth) ServiceLogin(c *gin.Context) {
 		return
 	}
 
+	// Atualizar último acesso do usuário
+	_ = r.handler.HandlerUser.UpdateLastAccess(user.Id.String())
+
+	// Registrar log de acesso com IP e User-Agent
+	clientIP := c.ClientIP()
+	userAgent := c.Request.UserAgent()
+	// Verificar header X-Forwarded-For para proxies/load balancers
+	if forwardedFor := c.GetHeader("X-Forwarded-For"); forwardedFor != "" {
+		// Pegar o primeiro IP da lista (cliente original)
+		ips := strings.Split(forwardedFor, ",")
+		if len(ips) > 0 {
+			clientIP = strings.TrimSpace(ips[0])
+		}
+	}
+	_ = r.handler.HandlerAuth.RecordAccessLog(user.Id.String(), clientIP, userAgent)
+
 	// Buscar organizações do usuário COM NOMES
 	userOrganizations, err := r.handler.HandlerAuth.GetUserOrganizationsWithNames(user.Id.String())
 	if err != nil {

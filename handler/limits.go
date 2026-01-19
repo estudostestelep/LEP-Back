@@ -12,10 +12,12 @@ import (
 type LimitType string
 
 const (
-	LimitUsers           LimitType = "users"
-	LimitTables          LimitType = "tables"
-	LimitProducts        LimitType = "products"
-	LimitReservationsDay LimitType = "reservations_per_day"
+	LimitUsers             LimitType = "users"
+	LimitTables            LimitType = "tables"
+	LimitProducts          LimitType = "products"
+	LimitReservationsDay   LimitType = "reservations_per_day"
+	LimitAuditLogs         LimitType = "audit_logs_limit"
+	LimitAuditLogsRetention LimitType = "audit_logs_retention"
 )
 
 // UsageData representa o uso atual de recursos
@@ -28,14 +30,17 @@ type UsageData struct {
 
 // LimitsData representa os limites do plano
 type LimitsData struct {
-	MaxTables             int  `json:"max_tables"`
-	MaxUsers              int  `json:"max_users"`
-	MaxProducts           int  `json:"max_products"`
-	MaxReservationsPerDay int  `json:"max_reservations_per_day"`
-	NotificationsEnabled  bool `json:"notifications_enabled"`
-	ReportsEnabled        bool `json:"reports_enabled"`
-	ReservationsEnabled   bool `json:"reservations_enabled"`
-	WaitlistEnabled       bool `json:"waitlist_enabled"`
+	MaxTables              int  `json:"max_tables"`
+	MaxUsers               int  `json:"max_users"`
+	MaxProducts            int  `json:"max_products"`
+	MaxReservationsPerDay  int  `json:"max_reservations_per_day"`
+	MaxAuditLogs           int  `json:"max_audit_logs"`            // -1 = ilimitado, 0 = desabilitado
+	AuditLogsRetentionDays int  `json:"audit_logs_retention_days"` // Dias de retenção dos logs
+	NotificationsEnabled   bool `json:"notifications_enabled"`
+	ReportsEnabled         bool `json:"reports_enabled"`
+	ReservationsEnabled    bool `json:"reservations_enabled"`
+	WaitlistEnabled        bool `json:"waitlist_enabled"`
+	AuditLogsEnabled       bool `json:"audit_logs_enabled"`
 }
 
 // UsageLimitsResponse representa a resposta completa de uso e limites
@@ -201,11 +206,13 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 	// Buscar limites do pacote
 	limits, _ := h.packageRepo.GetPackageLimits(orgPackage.PackageId.String())
 
-	// Mapear limites (default = -1 ilimitado)
+	// Mapear limites (default = -1 ilimitado, exceto audit logs que default = 0 desabilitado)
 	response.Limits.MaxTables = -1
 	response.Limits.MaxUsers = -1
 	response.Limits.MaxProducts = -1
 	response.Limits.MaxReservationsPerDay = -1
+	response.Limits.MaxAuditLogs = 0
+	response.Limits.AuditLogsRetentionDays = 0
 
 	for _, l := range limits {
 		switch l.LimitType {
@@ -217,6 +224,10 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 			response.Limits.MaxProducts = l.LimitValue
 		case "reservations_per_day":
 			response.Limits.MaxReservationsPerDay = l.LimitValue
+		case "audit_logs_limit":
+			response.Limits.MaxAuditLogs = l.LimitValue
+		case "audit_logs_retention":
+			response.Limits.AuditLogsRetentionDays = l.LimitValue
 		}
 	}
 
@@ -232,6 +243,8 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 			response.Limits.ReservationsEnabled = true
 		case "client_waitlist":
 			response.Limits.WaitlistEnabled = true
+		case "client_audit_logs":
+			response.Limits.AuditLogsEnabled = true
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // --- Notification Models (SPRINT 2) ---
@@ -15,7 +16,7 @@ type NotificationConfig struct {
 	ProjectId      uuid.UUID  `json:"project_id"`
 	EventType      string     `json:"event_type"` // "reservation_create", "reservation_update", "table_available", etc.
 	Enabled        bool       `json:"enabled" gorm:"default:true"`
-	Channels       []string   `json:"channels" gorm:"type:text[]"` // ["sms", "email", "whatsapp"]
+	Channels       pq.StringArray `json:"channels" gorm:"type:text[]"` // ["sms", "email", "whatsapp"]
 	TemplateId     *uuid.UUID `json:"template_id,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
@@ -30,7 +31,7 @@ type NotificationTemplate struct {
 	Channel        string    `json:"channel"`                      // "sms", "email", "whatsapp"
 	Subject        string    `json:"subject,omitempty"`            // Para email
 	Body           string    `json:"body"`                         // Conteúdo com variáveis {{nome}}, {{data}}, etc.
-	Variables      []string  `json:"variables" gorm:"type:text[]"` // Lista de variáveis disponíveis
+	Variables      pq.StringArray `json:"variables" gorm:"type:text[]"` // Lista de variáveis disponíveis
 	Active         bool      `json:"active" gorm:"default:true"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`

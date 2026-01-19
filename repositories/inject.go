@@ -6,6 +6,7 @@ import (
 
 type DBconn struct {
 	AuditLogs           IAuditLogsRepository
+	AccessLogs          IAccessLogRepository
 	BannedLists         IBannedListsRepository
 	Customers           ICustomersRepository
 	LoggedLists         ILoggedListsRepository
@@ -42,6 +43,10 @@ type DBconn struct {
 	SidebarConfig ISidebarConfigRepository
 	// Cascade Delete
 	CascadeDelete ICascadeDeleteRepository
+	// Admin Audit Logs (read-only)
+	AdminAuditLogs IAdminAuditLogRepository
+	// Client Audit Logs (optional module)
+	ClientAuditLogs IClientAuditLogRepository
 }
 
 func (r *DBconn) InjectPostgres(db *gorm.DB) {
@@ -56,6 +61,7 @@ func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.Orders = NewConnOrder(db)
 	r.Tables = NewConnTable(db)
 	r.AuditLogs = NewConnAuditLog(db)
+	r.AccessLogs = NewAccessLogRepository(db)
 	r.Reservations = NewConnReservation(db)
 	r.Waitlists = NewWaitlistRepository(db)
 	r.KitchenQueue = NewKitchenQueueRepository(db)
@@ -82,4 +88,8 @@ func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.SidebarConfig = NewSidebarConfigRepository(db)
 	// Cascade Delete
 	r.CascadeDelete = NewCascadeDeleteRepository(db)
+	// Admin Audit Logs (read-only)
+	r.AdminAuditLogs = NewAdminAuditLogRepository(db)
+	// Client Audit Logs (optional module)
+	r.ClientAuditLogs = NewClientAuditLogRepository(db)
 }
