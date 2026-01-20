@@ -13,6 +13,7 @@ type RoleHandler struct {
 	permissionRepo repositories.IPermissionRepository
 	moduleRepo     repositories.IModuleRepository
 	packageRepo    repositories.IPackageRepository
+	userRepo       repositories.IUserRepository
 }
 
 func NewRoleHandler(
@@ -20,12 +21,14 @@ func NewRoleHandler(
 	permissionRepo repositories.IPermissionRepository,
 	moduleRepo repositories.IModuleRepository,
 	packageRepo repositories.IPackageRepository,
+	userRepo repositories.IUserRepository,
 ) *RoleHandler {
 	return &RoleHandler{
 		roleRepo:       roleRepo,
 		permissionRepo: permissionRepo,
 		moduleRepo:     moduleRepo,
 		packageRepo:    packageRepo,
+		userRepo:       userRepo,
 	}
 }
 
@@ -127,6 +130,37 @@ func (h *RoleHandler) AssignRoleToUser(userRole *models.UserRole, actorUserId st
 		return fmt.Errorf("você não tem permissão para atribuir este cargo")
 	}
 
+	// Verificar se o cargo é super_admin para sincronizar permissão master_admin
+	role, err := h.roleRepo.GetById(userRole.RoleId.String())
+	if err != nil {
+		return fmt.Errorf("erro ao buscar cargo: %w", err)
+	}
+
+	// Se o cargo é super_admin, adicionar permissão master_admin ao usuário
+	if role.Name == "super_admin" {
+		user, err := h.userRepo.GetUserById(userRole.UserId.String())
+		if err != nil {
+			return fmt.Errorf("erro ao buscar usuário: %w", err)
+		}
+
+		// Verificar se já tem a permissão
+		hasMasterAdmin := false
+		for _, perm := range user.Permissions {
+			if perm == "master_admin" {
+				hasMasterAdmin = true
+				break
+			}
+		}
+
+		// Adicionar permissão se não tiver
+		if !hasMasterAdmin {
+			user.Permissions = append(user.Permissions, "master_admin")
+			if err := h.userRepo.UpdateUser(user); err != nil {
+				return fmt.Errorf("erro ao atualizar permissões do usuário: %w", err)
+			}
+		}
+	}
+
 	return h.roleRepo.AssignRoleToUser(userRole)
 }
 
@@ -140,6 +174,36 @@ func (h *RoleHandler) RemoveRoleFromUser(userId, roleId, orgId, actorUserId stri
 
 	if !canManage {
 		return fmt.Errorf("você não tem permissão para remover este cargo")
+	}
+
+	// Verificar se o cargo é super_admin para remover permissão master_admin
+	role, err := h.roleRepo.GetById(roleId)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar cargo: %w", err)
+	}
+
+	// Se o cargo é super_admin, remover permissão master_admin do usuário
+	if role.Name == "super_admin" {
+		user, err := h.userRepo.GetUserById(userId)
+		if err != nil {
+			return fmt.Errorf("erro ao buscar usuário: %w", err)
+		}
+
+		// Filtrar a permissão master_admin
+		newPermissions := make([]string, 0)
+		for _, perm := range user.Permissions {
+			if perm != "master_admin" {
+				newPermissions = append(newPermissions, perm)
+			}
+		}
+
+		// Atualizar se houve mudança
+		if len(newPermissions) != len(user.Permissions) {
+			user.Permissions = newPermissions
+			if err := h.userRepo.UpdateUser(user); err != nil {
+				return fmt.Errorf("erro ao atualizar permissões do usuário: %w", err)
+			}
+		}
 	}
 
 	return h.roleRepo.RemoveRoleFromUser(userId, roleId, orgId)

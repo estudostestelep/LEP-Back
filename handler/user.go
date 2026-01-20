@@ -14,8 +14,9 @@ import (
 )
 
 type resourceUser struct {
-	repo     *repositories.DBconn
-	roleRepo repositories.IRoleRepository
+	repo        *repositories.DBconn
+	roleRepo    repositories.IRoleRepository
+	roleHandler *RoleHandler
 }
 
 type IHandlerUser interface {
@@ -222,12 +223,45 @@ func (r *resourceUser) linkUserToOrgAndProject(userId uuid.UUID, orgId, projectI
 
 // assignRoleToUser atribui um cargo a um usuário no sistema de permissões granulares
 // Para roles de escopo "admin", orgId pode ser vazio (cargo global da zona administrativa)
+// IMPORTANTE: Sincroniza permissão master_admin quando role é super_admin
 func (r *resourceUser) assignRoleToUser(userId uuid.UUID, roleId, orgId, projectId string) error {
 	fmt.Printf("🔑 assignRoleToUser: userId=%s, roleId=%s, orgId=%s, projectId=%s\n", userId, roleId, orgId, projectId)
 
 	roleUUID, err := uuid.Parse(roleId)
 	if err != nil {
 		return fmt.Errorf("ID do cargo inválido: %v", err)
+	}
+
+	// Verificar se o cargo é super_admin para sincronizar permissão master_admin
+	role, err := r.roleRepo.GetById(roleId)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar cargo: %v", err)
+	}
+
+	// Se o cargo é super_admin, adicionar permissão master_admin ao usuário
+	if role.Name == "super_admin" {
+		user, err := r.repo.User.GetUserById(userId.String())
+		if err != nil {
+			return fmt.Errorf("erro ao buscar usuário: %v", err)
+		}
+
+		// Verificar se já tem a permissão
+		hasMasterAdmin := false
+		for _, perm := range user.Permissions {
+			if perm == "master_admin" {
+				hasMasterAdmin = true
+				break
+			}
+		}
+
+		// Adicionar permissão se não tiver
+		if !hasMasterAdmin {
+			user.Permissions = append(user.Permissions, "master_admin")
+			if err := r.repo.User.UpdateUser(user); err != nil {
+				return fmt.Errorf("erro ao atualizar permissões do usuário: %w", err)
+			}
+			fmt.Printf("✅ Permissão master_admin adicionada ao usuário %s\n", userId)
+		}
 	}
 
 	userRole := &models.UserRole{
@@ -255,6 +289,7 @@ func (r *resourceUser) assignRoleToUser(userId uuid.UUID, roleId, orgId, project
 		}
 	}
 
+	// Atribuir cargo diretamente (durante criação de usuário não usa validação de hierarquia)
 	if err := r.roleRepo.AssignRoleToUser(userRole); err != nil {
 		return fmt.Errorf("erro ao atribuir cargo: %v", err)
 	}
@@ -318,6 +353,6 @@ func (r *resourceUser) addMasterAdminToAllOrganizations(userId uuid.UUID) error 
 	return nil
 }
 
-func NewSourceHandlerUser(repo *repositories.DBconn, roleRepo repositories.IRoleRepository) IHandlerUser {
-	return &resourceUser{repo: repo, roleRepo: roleRepo}
+func NewSourceHandlerUser(repo *repositories.DBconn, roleRepo repositories.IRoleRepository, roleHandler *RoleHandler) IHandlerUser {
+	return &resourceUser{repo: repo, roleRepo: roleRepo, roleHandler: roleHandler}
 }

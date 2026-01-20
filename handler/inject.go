@@ -43,7 +43,10 @@ type Handlers struct {
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
-	h.HandlerUser = NewSourceHandlerUser(repo, repo.Roles)
+	// Role Handler precisa ser criado primeiro para ser usado pelo UserHandler
+	h.HandlerRole = NewRoleHandler(repo.Roles, repo.Permissions, repo.Modules, repo.Packages, repo.User)
+
+	h.HandlerUser = NewSourceHandlerUser(repo, repo.Roles, h.HandlerRole)
 	h.HandlerUserOrganization = NewSourceHandlerUserOrganization(repo)
 	h.HandlerUserProject = NewSourceHandlerUserProject(repo)
 	h.HandlerUserAccess = NewUserAccessHandler(db)
@@ -83,9 +86,6 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	imageManagementSvc := service.NewImageManagementService(fileRefRepo, entityFileRefRepo, "./uploads")
 	h.HandlerImageManagement = NewHandlerImageManagement(imageManagementSvc)
 	h.ImageManagementService = imageManagementSvc // Armazenar o service direto para o Upload server
-
-	// Role & Permission Handler
-	h.HandlerRole = NewRoleHandler(repo.Roles, repo.Permissions, repo.Modules, repo.Packages)
 
 	// Plan Change Request Handler
 	h.HandlerPlanChangeRequest = NewPlanChangeRequestHandler(repo.PlanChangeRequests, h.HandlerRole)
