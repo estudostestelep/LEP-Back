@@ -154,8 +154,8 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceSubcategory = NewSourceServerSubcategory(handler)
 	h.SourceOnboarding = NewOnboardingServer(handler.HandlerOnboarding)
 	h.SourceRole = NewRoleServer(handler.HandlerRole)
-	h.SourceRole.SetLimitHandler(handler.HandlerLimits)             // Injetar handler de limites
-	h.SourceRole.SetAdminAuditHandler(handler.HandlerAdminAuditLog) // Injetar handler de auditoria
+	h.SourceRole.SetLimitHandler(handler.HandlerLimits) // Injetar handler de limites
+	// Nota: auditoria agora é gerenciada pelo RoleHandler internamente
 	h.SourcePlanChangeRequest = NewPlanChangeRequestServer(handler.HandlerPlanChangeRequest)
 	// AdminController is initialized separately with DB in resource/inject.go
 

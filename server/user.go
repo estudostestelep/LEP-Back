@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"lep/constants"
 	"lep/handler"
 	"lep/repositories/models"
 	"lep/resource/validation"
@@ -12,12 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 type ResourceUsers struct {
-	handler          handler.IHandlerUser
-	adminAuditHandler handler.IAdminAuditLogHandler
+	handler handler.IHandlerUser
 }
 
 type IServerUsers interface {
@@ -30,17 +27,13 @@ type IServerUsers interface {
 }
 
 func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid user ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "user")
+	if !ok {
 		return
 	}
 
 	// Buscar usuário com suas organizações e projetos
-	resp, err := r.handler.GetUserWithRelations(idStr)
+	resp, err := r.handler.GetUserWithRelations(id.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting user", err)
 		return
@@ -98,62 +91,32 @@ func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 
 	fmt.Printf("📦 ServiceCreateUser - Contexto recebido: orgId='%s', projectId='%s', userId='%s', roleId='%s'\n", organizationId, projectId, newUser.Id, roleId)
 
-	err = r.handler.CreateUser(newUser, organizationId, projectId, roleId)
+	// Construir contexto da requisição para auditoria
+	ctx := handler.BuildRequestContext(c)
+
+	// Usar método com contexto que já lida com auditoria internamente
+	err = r.handler.CreateUserWithContext(ctx, newUser, organizationId, projectId, roleId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error creating user", err)
 		return
-	}
-
-	// 📝 LOG DE AUDITORIA: Registrar criação de usuário se o ator for Master Admin
-	if r.isMasterAdmin(c) && r.adminAuditHandler != nil {
-		actor := r.getActorFromContext(c)
-		if actor != nil {
-			orgId, projId, isAdminZone := r.getAuditContext(c)
-			ipAddress := c.ClientIP()
-			userAgent := c.Request.UserAgent()
-
-			go func() {
-				if err := r.adminAuditHandler.LogUserCreate(actor, newUser, orgId, projId, isAdminZone, ipAddress, userAgent); err != nil {
-					fmt.Printf("⚠️ Erro ao registrar log de auditoria (CREATE): %v\n", err)
-				}
-			}()
-		}
 	}
 
 	utils.SendCreatedSuccess(c, "User created successfully", newUser)
 }
 
 func (r *ResourceUsers) ServiceUpdateUser(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid user ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "user")
+	if !ok {
 		return
 	}
 
-	// 📝 AUDITORIA: Capturar estado anterior do usuário ANTES do update
-	var oldUser *models.User
-	if r.isMasterAdmin(c) && r.adminAuditHandler != nil {
-		oldUser, _ = r.handler.GetUser(idStr)
-	}
-
 	var updatedUser models.User
-	err = c.BindJSON(&updatedUser)
-	if err != nil {
+	if err := c.BindJSON(&updatedUser); err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
 
-	// Verificar se é reset de senha (password não vazio no request)
-	isPasswordReset := updatedUser.Password != ""
-
-	updatedUser.Id, err = uuid.Parse(idStr)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error parsing user ID", err)
-		return
-	}
+	updatedUser.Id = id
 
 	// Validações estruturadas
 	if err := validation.UpdateUserValidation(&updatedUser); err != nil {
@@ -161,34 +124,13 @@ func (r *ResourceUsers) ServiceUpdateUser(c *gin.Context) {
 		return
 	}
 
-	err = r.handler.UpdateUser(&updatedUser)
-	if err != nil {
+	// Construir contexto da requisição para auditoria
+	ctx := handler.BuildRequestContext(c)
+
+	// Handler captura estado anterior internamente para auditoria
+	if err := r.handler.UpdateUserWithContext(ctx, id.String(), &updatedUser); err != nil {
 		utils.SendInternalServerError(c, "Error updating user", err)
 		return
-	}
-
-	// 📝 LOG DE AUDITORIA: Registrar atualização de usuário se o ator for Master Admin
-	if r.isMasterAdmin(c) && r.adminAuditHandler != nil && oldUser != nil {
-		actor := r.getActorFromContext(c)
-		if actor != nil {
-			orgId, projId, isAdminZone := r.getAuditContext(c)
-			ipAddress := c.ClientIP()
-			userAgent := c.Request.UserAgent()
-
-			go func() {
-				// Se foi reset de senha, logar separadamente
-				if isPasswordReset {
-					if err := r.adminAuditHandler.LogPasswordReset(actor, &updatedUser, orgId, projId, isAdminZone, ipAddress, userAgent); err != nil {
-						fmt.Printf("⚠️ Erro ao registrar log de auditoria (RESET_PASSWORD): %v\n", err)
-					}
-				}
-
-				// Logar alterações de outros campos
-				if err := r.adminAuditHandler.LogUserUpdate(actor, oldUser, &updatedUser, orgId, projId, isAdminZone, ipAddress, userAgent); err != nil {
-					fmt.Printf("⚠️ Erro ao registrar log de auditoria (UPDATE): %v\n", err)
-				}
-			}()
-		}
 	}
 
 	utils.SendOKSuccess(c, "User updated successfully", updatedUser)
@@ -209,41 +151,23 @@ func (r *ResourceUsers) ServiceListUsers(c *gin.Context) {
 }
 
 func (r *ResourceUsers) ServiceDeleteUser(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid user ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "user")
+	if !ok {
 		return
 	}
 
-	// 📝 AUDITORIA: Capturar dados do usuário ANTES da exclusão
-	var targetUser *models.User
-	if r.isMasterAdmin(c) && r.adminAuditHandler != nil {
-		targetUser, _ = r.handler.GetUser(idStr)
-	}
+	// Construir contexto da requisição para auditoria
+	ctx := handler.BuildRequestContext(c)
 
-	err = r.handler.DeleteUser(idStr)
-	if err != nil {
+	// Handler captura estado anterior internamente e verifica existência
+	if err := r.handler.DeleteUserWithContext(ctx, id.String()); err != nil {
+		// Verificar se é erro de não encontrado
+		if strings.Contains(err.Error(), "não encontrado") {
+			utils.SendNotFoundError(c, "User")
+			return
+		}
 		utils.SendInternalServerError(c, "Error deleting user", err)
 		return
-	}
-
-	// 📝 LOG DE AUDITORIA: Registrar exclusão de usuário se o ator for Master Admin
-	if r.isMasterAdmin(c) && r.adminAuditHandler != nil && targetUser != nil {
-		actor := r.getActorFromContext(c)
-		if actor != nil {
-			orgId, projId, isAdminZone := r.getAuditContext(c)
-			ipAddress := c.ClientIP()
-			userAgent := c.Request.UserAgent()
-
-			go func() {
-				if err := r.adminAuditHandler.LogUserDelete(actor, targetUser, orgId, projId, isAdminZone, ipAddress, userAgent); err != nil {
-					fmt.Printf("⚠️ Erro ao registrar log de auditoria (DELETE): %v\n", err)
-				}
-			}()
-		}
 	}
 
 	utils.SendOKSuccess(c, "User deleted successfully", nil)
@@ -251,57 +175,6 @@ func (r *ResourceUsers) ServiceDeleteUser(c *gin.Context) {
 
 func NewSourceServerUsers(handler *handler.Handlers) IServerUsers {
 	return &ResourceUsers{
-		handler:          handler.HandlerUser,
-		adminAuditHandler: handler.HandlerAdminAuditLog,
+		handler: handler.HandlerUser,
 	}
-}
-
-// isMasterAdmin verifica se o usuário atual é um Master Admin
-func (r *ResourceUsers) isMasterAdmin(c *gin.Context) bool {
-	permissions, exists := c.Get("user_permissions")
-	if !exists {
-		return false
-	}
-	permList, ok := permissions.(pq.StringArray)
-	if !ok {
-		return false
-	}
-	return constants.HasPermission(permList, constants.PermissionMasterAdmin)
-}
-
-// getActorFromContext obtém o usuário ator (quem está fazendo a ação) do contexto
-func (r *ResourceUsers) getActorFromContext(c *gin.Context) *models.User {
-	userIdStr := c.GetString("user_id")
-	if userIdStr == "" {
-		return nil
-	}
-	actor, err := r.handler.GetUser(userIdStr)
-	if err != nil {
-		return nil
-	}
-	return actor
-}
-
-// getAuditContext determina o contexto da auditoria (zona admin ou org/projeto)
-func (r *ResourceUsers) getAuditContext(c *gin.Context) (orgId, projectId *uuid.UUID, isAdminZone bool) {
-	path := c.Request.URL.Path
-	isAdminZone = strings.HasPrefix(path, "/admin")
-
-	if !isAdminZone {
-		orgIdStr := c.GetString("organization_id")
-		projectIdStr := c.GetString("project_id")
-
-		if orgIdStr != "" {
-			if parsed, err := uuid.Parse(orgIdStr); err == nil {
-				orgId = &parsed
-			}
-		}
-		if projectIdStr != "" {
-			if parsed, err := uuid.Parse(projectIdStr); err == nil {
-				projectId = &parsed
-			}
-		}
-	}
-
-	return orgId, projectId, isAdminZone
 }

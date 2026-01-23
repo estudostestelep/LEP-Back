@@ -89,6 +89,10 @@ func (r *resourceUser) CreateUser(user *models.User) error {
 }
 
 func (r *resourceUser) UpdateUser(user *models.User) error {
+	// Se o password estiver vazio, ignora o campo para não sobrescrever o valor existente
+	if user.Password == "" {
+		return r.db.Omit("Password").Save(user).Error
+	}
 	return r.db.Save(user).Error
 }
 

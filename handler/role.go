@@ -9,11 +9,12 @@ import (
 )
 
 type RoleHandler struct {
-	roleRepo       repositories.IRoleRepository
-	permissionRepo repositories.IPermissionRepository
-	moduleRepo     repositories.IModuleRepository
-	packageRepo    repositories.IPackageRepository
-	userRepo       repositories.IUserRepository
+	roleRepo          repositories.IRoleRepository
+	permissionRepo    repositories.IPermissionRepository
+	moduleRepo        repositories.IModuleRepository
+	packageRepo       repositories.IPackageRepository
+	userRepo          repositories.IUserRepository
+	adminAuditHandler IAdminAuditLogHandler
 }
 
 func NewRoleHandler(
@@ -30,6 +31,11 @@ func NewRoleHandler(
 		packageRepo:    packageRepo,
 		userRepo:       userRepo,
 	}
+}
+
+// SetAdminAuditHandler configura o handler de auditoria (injetado separadamente)
+func (h *RoleHandler) SetAdminAuditHandler(handler IAdminAuditLogHandler) {
+	h.adminAuditHandler = handler
 }
 
 // ==================== Role CRUD ====================
@@ -590,4 +596,282 @@ func (h *RoleHandler) DeletePermission(id string) error {
 // GetPermission busca uma permissão por ID
 func (h *RoleHandler) GetPermission(id string) (*models.Permission, error) {
 	return h.permissionRepo.GetById(id)
+}
+
+// ==================== Métodos WithContext para Auditoria ====================
+
+// CreateRoleWithContext cria um cargo e registra auditoria
+func (h *RoleHandler) CreateRoleWithContext(ctx *RequestContext, role *models.Role, orgId string) error {
+	// Executar criação normal
+	if err := h.CreateRole(role, ctx.UserId.String(), orgId); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil {
+		go func() {
+			var orgUUID *uuid.UUID
+			if orgId != "" {
+				parsed, _ := uuid.Parse(orgId)
+				orgUUID = &parsed
+			}
+			h.adminAuditHandler.LogGenericAction(AuditLogParams{
+				ActorId:       ctx.UserId,
+				ActorEmail:    ctx.UserEmail,
+				TargetId:      role.Id,
+				Action:        models.AdminAuditActionCreate,
+				EntityType:    models.AdminAuditEntityRole,
+				OrgId:         orgUUID,
+				ProjectId:     role.ProjectId,
+				IsAdminZone:   true,
+				NewValues:     map[string]interface{}{"name": role.Name, "display_name": role.DisplayName, "scope": role.Scope},
+				ChangedFields: []string{"*"},
+				IpAddress:     ctx.IpAddress,
+				UserAgent:     ctx.UserAgent,
+			})
+		}()
+	}
+
+	return nil
+}
+
+// UpdateRoleWithContext atualiza um cargo e registra auditoria
+func (h *RoleHandler) UpdateRoleWithContext(ctx *RequestContext, roleId string, role *models.Role, orgId string) error {
+	// Capturar estado anterior para auditoria
+	oldRole, _ := h.GetRole(roleId)
+
+	// Executar atualização normal
+	if err := h.UpdateRole(role, ctx.UserId.String(), orgId); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil && oldRole != nil {
+		go func() {
+			var orgUUID *uuid.UUID
+			if orgId != "" {
+				parsed, _ := uuid.Parse(orgId)
+				orgUUID = &parsed
+			}
+			h.adminAuditHandler.LogGenericAction(AuditLogParams{
+				ActorId:       ctx.UserId,
+				ActorEmail:    ctx.UserEmail,
+				TargetId:      role.Id,
+				Action:        models.AdminAuditActionUpdate,
+				EntityType:    models.AdminAuditEntityRole,
+				OrgId:         orgUUID,
+				ProjectId:     role.ProjectId,
+				IsAdminZone:   true,
+				OldValues:     map[string]interface{}{"name": oldRole.Name, "display_name": oldRole.DisplayName},
+				NewValues:     map[string]interface{}{"name": role.Name, "display_name": role.DisplayName},
+				ChangedFields: []string{"name", "display_name", "permissions"},
+				IpAddress:     ctx.IpAddress,
+				UserAgent:     ctx.UserAgent,
+			})
+		}()
+	}
+
+	return nil
+}
+
+// DeleteRoleWithContext remove um cargo e registra auditoria
+func (h *RoleHandler) DeleteRoleWithContext(ctx *RequestContext, roleId, orgId string) error {
+	// Capturar estado anterior para auditoria
+	oldRole, _ := h.GetRole(roleId)
+
+	// Executar exclusão normal
+	if err := h.DeleteRole(roleId, ctx.UserId.String(), orgId); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil && oldRole != nil {
+		go func() {
+			roleUUID, _ := uuid.Parse(roleId)
+			var orgUUID *uuid.UUID
+			if orgId != "" {
+				parsed, _ := uuid.Parse(orgId)
+				orgUUID = &parsed
+			}
+			h.adminAuditHandler.LogGenericAction(AuditLogParams{
+				ActorId:       ctx.UserId,
+				ActorEmail:    ctx.UserEmail,
+				TargetId:      roleUUID,
+				Action:        models.AdminAuditActionDelete,
+				EntityType:    models.AdminAuditEntityRole,
+				OrgId:         orgUUID,
+				ProjectId:     oldRole.ProjectId,
+				IsAdminZone:   true,
+				OldValues:     map[string]interface{}{"name": oldRole.Name, "display_name": oldRole.DisplayName},
+				ChangedFields: []string{"*"},
+				IpAddress:     ctx.IpAddress,
+				UserAgent:     ctx.UserAgent,
+			})
+		}()
+	}
+
+	return nil
+}
+
+// AssignRoleToUserWithContext atribui um cargo e registra auditoria
+func (h *RoleHandler) AssignRoleToUserWithContext(ctx *RequestContext, userRole *models.UserRole) error {
+	// Buscar informações do cargo para o log
+	role, _ := h.GetRole(userRole.RoleId.String())
+	roleName := ""
+	if role != nil {
+		roleName = role.DisplayName
+	}
+
+	// Executar atribuição normal
+	if err := h.AssignRoleToUser(userRole, ctx.UserId.String()); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil {
+		go func() {
+			if err := h.adminAuditHandler.LogRoleAssignment(
+				ctx.UserId, ctx.UserEmail,
+				userRole.UserId, "",
+				userRole.RoleId, roleName,
+				userRole.OrganizationId, userRole.ProjectId,
+				ctx.IpAddress, ctx.UserAgent,
+			); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (ASSIGN_ROLE): %v\n", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+// RemoveRoleFromUserWithContext remove um cargo e registra auditoria
+func (h *RoleHandler) RemoveRoleFromUserWithContext(ctx *RequestContext, userId, roleId, orgId string) error {
+	// Buscar informações do cargo para o log
+	role, _ := h.GetRole(roleId)
+	roleName := ""
+	if role != nil {
+		roleName = role.DisplayName
+	}
+
+	// Executar remoção normal
+	if err := h.RemoveRoleFromUser(userId, roleId, orgId, ctx.UserId.String()); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil {
+		go func() {
+			userUUID, _ := uuid.Parse(userId)
+			roleUUID, _ := uuid.Parse(roleId)
+			var orgUUID *uuid.UUID
+			if orgId != "" {
+				parsed, _ := uuid.Parse(orgId)
+				orgUUID = &parsed
+			}
+			if err := h.adminAuditHandler.LogRoleRemoval(
+				ctx.UserId, ctx.UserEmail,
+				userUUID, "",
+				roleUUID, roleName,
+				orgUUID, nil,
+				ctx.IpAddress, ctx.UserAgent,
+			); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (REMOVE_ROLE): %v\n", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+// CreatePackageWithContext cria um pacote e registra auditoria
+func (h *RoleHandler) CreatePackageWithContext(ctx *RequestContext, pkg *models.Package) error {
+	// Executar criação normal
+	if err := h.CreatePackage(pkg); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil {
+		go func() {
+			h.adminAuditHandler.LogGenericAction(AuditLogParams{
+				ActorId:       ctx.UserId,
+				ActorEmail:    ctx.UserEmail,
+				TargetId:      pkg.Id,
+				Action:        models.AdminAuditActionCreate,
+				EntityType:    models.AdminAuditEntityPackage,
+				IsAdminZone:   true,
+				NewValues:     map[string]interface{}{"code_name": pkg.CodeName, "display_name": pkg.DisplayName},
+				ChangedFields: []string{"*"},
+				IpAddress:     ctx.IpAddress,
+				UserAgent:     ctx.UserAgent,
+			})
+		}()
+	}
+
+	return nil
+}
+
+// UpdatePackageWithContext atualiza um pacote e registra auditoria
+func (h *RoleHandler) UpdatePackageWithContext(ctx *RequestContext, pkg *models.Package) error {
+	// Executar atualização normal
+	if err := h.UpdatePackage(pkg); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil {
+		go func() {
+			h.adminAuditHandler.LogGenericAction(AuditLogParams{
+				ActorId:       ctx.UserId,
+				ActorEmail:    ctx.UserEmail,
+				TargetId:      pkg.Id,
+				Action:        models.AdminAuditActionUpdate,
+				EntityType:    models.AdminAuditEntityPackage,
+				IsAdminZone:   true,
+				NewValues:     map[string]interface{}{"code_name": pkg.CodeName, "display_name": pkg.DisplayName},
+				ChangedFields: []string{"code_name", "display_name", "prices"},
+				IpAddress:     ctx.IpAddress,
+				UserAgent:     ctx.UserAgent,
+			})
+		}()
+	}
+
+	return nil
+}
+
+// DeletePackageWithContext remove um pacote e registra auditoria
+func (h *RoleHandler) DeletePackageWithContext(ctx *RequestContext, packageId string) error {
+	// Capturar estado anterior para auditoria
+	oldPkg, _ := h.GetPackageWithModules(packageId)
+
+	// Executar exclusão normal
+	if err := h.DeletePackage(packageId); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil {
+		go func() {
+			pkgUUID, _ := uuid.Parse(packageId)
+			var oldValues map[string]interface{}
+			if oldPkg != nil {
+				oldValues = map[string]interface{}{"code_name": oldPkg.CodeName, "display_name": oldPkg.DisplayName}
+			}
+			h.adminAuditHandler.LogGenericAction(AuditLogParams{
+				ActorId:       ctx.UserId,
+				ActorEmail:    ctx.UserEmail,
+				TargetId:      pkgUUID,
+				Action:        models.AdminAuditActionDelete,
+				EntityType:    models.AdminAuditEntityPackage,
+				IsAdminZone:   true,
+				OldValues:     oldValues,
+				ChangedFields: []string{"*"},
+				IpAddress:     ctx.IpAddress,
+				UserAgent:     ctx.UserAgent,
+			})
+		}()
+	}
+
+	return nil
 }

@@ -1,8 +1,13 @@
 package validation
 
 import (
+	"fmt"
 	"regexp"
 
+	"lep/utils"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/invopop/validation"
 	"github.com/invopop/validation/is"
 )
@@ -54,4 +59,15 @@ func ValidatePositiveNumber(value float64, fieldName string) error {
 	return validation.Validate(value,
 		validation.Required.Error(fieldName+" is required"),
 		validation.Min(0.01).Error(fieldName+" must be greater than 0"))
+}
+
+// ParseAndValidateUUID valida e retorna UUID parseado
+// Retorna false se inválido (erro já enviado ao client)
+func ParseAndValidateUUID(c *gin.Context, idStr string, entityName string) (uuid.UUID, bool) {
+	if err := ValidateUUIDParam(idStr, entityName+" ID"); err != nil {
+		utils.SendBadRequestError(c, fmt.Sprintf("Invalid %s ID format", entityName), err)
+		return uuid.Nil, false
+	}
+	parsed, _ := uuid.Parse(idStr)
+	return parsed, true
 }

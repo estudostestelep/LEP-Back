@@ -46,7 +46,17 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	// Role Handler precisa ser criado primeiro para ser usado pelo UserHandler
 	h.HandlerRole = NewRoleHandler(repo.Roles, repo.Permissions, repo.Modules, repo.Packages, repo.User)
 
-	h.HandlerUser = NewSourceHandlerUser(repo, repo.Roles, h.HandlerRole)
+	// Admin Audit Log Handler (precisa ser criado antes do UserHandler para injeção)
+	h.HandlerAdminAuditLog = NewAdminAuditLogHandler(
+		repo.AdminAuditLogs,
+		repo.Organizations,
+		repo.Projects,
+	)
+
+	// Injetar handler de auditoria no RoleHandler
+	h.HandlerRole.SetAdminAuditHandler(h.HandlerAdminAuditLog)
+
+	h.HandlerUser = NewSourceHandlerUser(repo, repo.Roles, h.HandlerRole, h.HandlerAdminAuditLog)
 	h.HandlerUserOrganization = NewSourceHandlerUserOrganization(repo)
 	h.HandlerUserProject = NewSourceHandlerUserProject(repo)
 	h.HandlerUserAccess = NewUserAccessHandler(db)
@@ -102,13 +112,6 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 
 	// Sidebar Config Handler
 	h.HandlerSidebarConfig = NewSidebarConfigHandler(repo.SidebarConfig)
-
-	// Admin Audit Log Handler (read-only)
-	h.HandlerAdminAuditLog = NewAdminAuditLogHandler(
-		repo.AdminAuditLogs,
-		repo.Organizations,
-		repo.Projects,
-	)
 
 	// Client Audit Log Handler (módulo opcional)
 	h.HandlerClientAuditLog = NewClientAuditLogHandler(repo.ClientAuditLogs)

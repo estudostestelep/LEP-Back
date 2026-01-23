@@ -37,16 +37,12 @@ type IServerProducts interface {
 }
 
 func (r *ResourceProducts) ServiceGetProduct(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
-	resp, err := r.handler.HandlerProducts.GetProduct(idStr)
+	resp, err := r.handler.HandlerProducts.GetProduct(id.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting product", err)
 		return
@@ -120,18 +116,13 @@ func (r *ResourceProducts) ServiceCreateProduct(c *gin.Context) {
 }
 
 func (r *ResourceProducts) ServiceUpdateProduct(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
 	var updatedProduct models.Product
-	err = c.BindJSON(&updatedProduct)
-	if err != nil {
+	if err := c.BindJSON(&updatedProduct); err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
@@ -140,6 +131,7 @@ func (r *ResourceProducts) ServiceUpdateProduct(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
+	var err error
 	updatedProduct.OrganizationId, err = uuid.Parse(organizationId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error parsing organization ID", err)
@@ -150,11 +142,7 @@ func (r *ResourceProducts) ServiceUpdateProduct(c *gin.Context) {
 		utils.SendInternalServerError(c, "Error parsing project ID", err)
 		return
 	}
-	updatedProduct.Id, err = uuid.Parse(idStr)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error parsing product ID", err)
-		return
-	}
+	updatedProduct.Id = id
 
 	// Validações estruturadas
 	if err := validation.UpdateProductValidation(&updatedProduct); err != nil {
@@ -264,12 +252,8 @@ func (r *ResourceProducts) ServiceListProducts(c *gin.Context) {
 }
 
 func (r *ResourceProducts) ServiceUpdateProductImage(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
@@ -288,7 +272,7 @@ func (r *ResourceProducts) ServiceUpdateProductImage(c *gin.Context) {
 	}
 
 	// Buscar produto existente
-	existingProduct, err := r.handler.HandlerProducts.GetProduct(idStr)
+	existingProduct, err := r.handler.HandlerProducts.GetProduct(id.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting product", err)
 		return
@@ -320,17 +304,12 @@ func (r *ResourceProducts) ServiceUpdateProductImage(c *gin.Context) {
 }
 
 func (r *ResourceProducts) ServiceDeleteProduct(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
-	err = r.handler.HandlerProducts.DeleteProduct(idStr)
-	if err != nil {
+	if err := r.handler.HandlerProducts.DeleteProduct(id.String()); err != nil {
 		utils.SendInternalServerError(c, "Error deleting product", err)
 		return
 	}
@@ -340,12 +319,8 @@ func (r *ResourceProducts) ServiceDeleteProduct(c *gin.Context) {
 
 // ServiceAddTagToProduct adiciona uma tag a um produto
 func (r *ResourceProducts) ServiceAddTagToProduct(c *gin.Context) {
-	productId := c.Param("id")
-
-	// Validar formato UUID do produto
-	_, err := uuid.Parse(productId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	productId, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
@@ -359,13 +334,12 @@ func (r *ResourceProducts) ServiceAddTagToProduct(c *gin.Context) {
 	}
 
 	// Validar formato UUID da tag
-	_, err = uuid.Parse(requestBody.TagId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid tag ID format", err)
+	tagId, ok := validation.ParseAndValidateUUID(c, requestBody.TagId, "tag")
+	if !ok {
 		return
 	}
 
-	err = r.handler.HandlerProducts.AddTagToProduct(productId, requestBody.TagId)
+	err := r.handler.HandlerProducts.AddTagToProduct(productId.String(), tagId.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error adding tag to product", err)
 		return
@@ -376,24 +350,17 @@ func (r *ResourceProducts) ServiceAddTagToProduct(c *gin.Context) {
 
 // ServiceRemoveTagFromProduct remove uma tag de um produto
 func (r *ResourceProducts) ServiceRemoveTagFromProduct(c *gin.Context) {
-	productId := c.Param("id")
-	tagId := c.Param("tagId")
-
-	// Validar formato UUID do produto
-	_, err := uuid.Parse(productId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	productId, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
-	// Validar formato UUID da tag
-	_, err = uuid.Parse(tagId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid tag ID format", err)
+	tagId, ok := validation.ParseAndValidateUUID(c, c.Param("tagId"), "tag")
+	if !ok {
 		return
 	}
 
-	err = r.handler.HandlerProducts.RemoveTagFromProduct(productId, tagId)
+	err := r.handler.HandlerProducts.RemoveTagFromProduct(productId.String(), tagId.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error removing tag from product", err)
 		return
@@ -404,16 +371,12 @@ func (r *ResourceProducts) ServiceRemoveTagFromProduct(c *gin.Context) {
 
 // ServiceGetProductTags retorna todas as tags de um produto
 func (r *ResourceProducts) ServiceGetProductTags(c *gin.Context) {
-	productId := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(productId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	productId, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
-	tags, err := r.handler.HandlerProducts.GetProductTags(productId)
+	tags, err := r.handler.HandlerProducts.GetProductTags(productId.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting product tags", err)
 		return
@@ -424,21 +387,19 @@ func (r *ResourceProducts) ServiceGetProductTags(c *gin.Context) {
 
 // ServiceGetProductsByTag retorna todos os produtos que possuem uma tag específica
 func (r *ResourceProducts) ServiceGetProductsByTag(c *gin.Context) {
-	tagId := c.Query("tag_id")
+	tagIdStr := c.Query("tag_id")
 
-	if tagId == "" {
+	if tagIdStr == "" {
 		utils.SendBadRequestError(c, "tag_id query parameter is required", nil)
 		return
 	}
 
-	// Validar formato UUID
-	_, err := uuid.Parse(tagId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid tag ID format", err)
+	tagId, ok := validation.ParseAndValidateUUID(c, tagIdStr, "tag")
+	if !ok {
 		return
 	}
 
-	products, err := r.handler.HandlerProducts.GetProductsByTag(tagId)
+	products, err := r.handler.HandlerProducts.GetProductsByTag(tagId.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting products by tag", err)
 		return
@@ -449,11 +410,8 @@ func (r *ResourceProducts) ServiceGetProductsByTag(c *gin.Context) {
 
 // ServiceUpdateProductOrder atualiza a ordem de exibição de um produto
 func (r *ResourceProducts) ServiceUpdateProductOrder(c *gin.Context) {
-	productId := c.Param("id")
-
-	_, err := uuid.Parse(productId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	productId, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
@@ -466,7 +424,7 @@ func (r *ResourceProducts) ServiceUpdateProductOrder(c *gin.Context) {
 		return
 	}
 
-	err = r.handler.HandlerProducts.UpdateProductOrder(productId, requestBody.Order)
+	err := r.handler.HandlerProducts.UpdateProductOrder(productId.String(), requestBody.Order)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error updating product order", err)
 		return
@@ -477,11 +435,8 @@ func (r *ResourceProducts) ServiceUpdateProductOrder(c *gin.Context) {
 
 // ServiceUpdateProductStatus atualiza o status (play/pause) de um produto
 func (r *ResourceProducts) ServiceUpdateProductStatus(c *gin.Context) {
-	productId := c.Param("id")
-
-	_, err := uuid.Parse(productId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid product ID format", err)
+	productId, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "product")
+	if !ok {
 		return
 	}
 
@@ -499,7 +454,7 @@ func (r *ResourceProducts) ServiceUpdateProductStatus(c *gin.Context) {
 		return
 	}
 
-	err = r.handler.HandlerProducts.UpdateProductStatus(productId, *requestBody.Active)
+	err := r.handler.HandlerProducts.UpdateProductStatus(productId.String(), *requestBody.Active)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error updating product status", err)
 		return
@@ -531,20 +486,19 @@ func (r *ResourceProducts) ServiceGetProductsByType(c *gin.Context) {
 
 // ServiceGetProductsByCategory filtra produtos por categoria
 func (r *ResourceProducts) ServiceGetProductsByCategory(c *gin.Context) {
-	categoryId := c.Param("categoryId")
+	categoryIdStr := c.Param("categoryId")
 
-	if categoryId == "" {
+	if categoryIdStr == "" {
 		utils.SendBadRequestError(c, "category_id parameter is required", nil)
 		return
 	}
 
-	_, err := uuid.Parse(categoryId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid category ID format", err)
+	categoryId, ok := validation.ParseAndValidateUUID(c, categoryIdStr, "category")
+	if !ok {
 		return
 	}
 
-	products, err := r.handler.HandlerProducts.GetProductsByCategory(categoryId)
+	products, err := r.handler.HandlerProducts.GetProductsByCategory(categoryId.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting products by category", err)
 		return
@@ -555,20 +509,19 @@ func (r *ResourceProducts) ServiceGetProductsByCategory(c *gin.Context) {
 
 // ServiceGetProductsBySubcategory filtra produtos por subcategoria
 func (r *ResourceProducts) ServiceGetProductsBySubcategory(c *gin.Context) {
-	subcategoryId := c.Param("subcategoryId")
+	subcategoryIdStr := c.Param("subcategoryId")
 
-	if subcategoryId == "" {
+	if subcategoryIdStr == "" {
 		utils.SendBadRequestError(c, "subcategory_id parameter is required", nil)
 		return
 	}
 
-	_, err := uuid.Parse(subcategoryId)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid subcategory ID format", err)
+	subcategoryId, ok := validation.ParseAndValidateUUID(c, subcategoryIdStr, "subcategory")
+	if !ok {
 		return
 	}
 
-	products, err := r.handler.HandlerProducts.GetProductsBySubcategory(subcategoryId)
+	products, err := r.handler.HandlerProducts.GetProductsBySubcategory(subcategoryId.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting products by subcategory", err)
 		return

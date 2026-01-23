@@ -27,16 +27,12 @@ type IServerTag interface {
 }
 
 func (r *ResourceTag) ServiceGetTag(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid tag ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "tag")
+	if !ok {
 		return
 	}
 
-	resp, err := r.handler.HandlerTag.GetTag(idStr)
+	resp, err := r.handler.HandlerTag.GetTag(id.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting tag", err)
 		return
@@ -99,18 +95,13 @@ func (r *ResourceTag) ServiceCreateTag(c *gin.Context) {
 }
 
 func (r *ResourceTag) ServiceUpdateTag(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid tag ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "tag")
+	if !ok {
 		return
 	}
 
 	var updatedTag models.Tag
-	err = c.BindJSON(&updatedTag)
-	if err != nil {
+	if err := c.BindJSON(&updatedTag); err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
@@ -119,6 +110,7 @@ func (r *ResourceTag) ServiceUpdateTag(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
+	var err error
 	updatedTag.OrganizationId, err = uuid.Parse(organizationId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error parsing organization ID", err)
@@ -129,11 +121,7 @@ func (r *ResourceTag) ServiceUpdateTag(c *gin.Context) {
 		utils.SendInternalServerError(c, "Error parsing project ID", err)
 		return
 	}
-	updatedTag.Id, err = uuid.Parse(idStr)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error parsing tag ID", err)
-		return
-	}
+	updatedTag.Id = id
 
 	// Validações estruturadas
 	if err := validation.UpdateTagValidation(&updatedTag); err != nil {
@@ -156,17 +144,12 @@ func (r *ResourceTag) ServiceUpdateTag(c *gin.Context) {
 }
 
 func (r *ResourceTag) ServiceDeleteTag(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid tag ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "tag")
+	if !ok {
 		return
 	}
 
-	err = r.handler.HandlerTag.DeleteTag(idStr)
-	if err != nil {
+	if err := r.handler.HandlerTag.DeleteTag(id.String()); err != nil {
 		utils.SendInternalServerError(c, "Error deleting tag", err)
 		return
 	}

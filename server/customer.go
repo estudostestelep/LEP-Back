@@ -24,16 +24,12 @@ type IServerCustomer interface {
 }
 
 func (r *ResourceCustomer) ServiceGetCustomer(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid customer ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "customer")
+	if !ok {
 		return
 	}
 
-	resp, err := r.handler.HandlerCustomer.GetCustomer(idStr)
+	resp, err := r.handler.HandlerCustomer.GetCustomer(id.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting customer", err)
 		return
@@ -91,18 +87,13 @@ func (r *ResourceCustomer) ServiceCreateCustomer(c *gin.Context) {
 }
 
 func (r *ResourceCustomer) ServiceUpdateCustomer(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid customer ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "customer")
+	if !ok {
 		return
 	}
 
 	var updatedCustomer models.Customer
-	err = c.BindJSON(&updatedCustomer)
-	if err != nil {
+	if err := c.BindJSON(&updatedCustomer); err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
@@ -111,6 +102,7 @@ func (r *ResourceCustomer) ServiceUpdateCustomer(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
+	var err error
 	updatedCustomer.OrganizationId, err = uuid.Parse(organizationId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error parsing organization ID", err)
@@ -121,11 +113,7 @@ func (r *ResourceCustomer) ServiceUpdateCustomer(c *gin.Context) {
 		utils.SendInternalServerError(c, "Error parsing project ID", err)
 		return
 	}
-	updatedCustomer.Id, err = uuid.Parse(idStr)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error parsing customer ID", err)
-		return
-	}
+	updatedCustomer.Id = id
 
 	// Validações estruturadas
 	if err := validation.UpdateCustomerValidation(&updatedCustomer); err != nil {
@@ -143,17 +131,12 @@ func (r *ResourceCustomer) ServiceUpdateCustomer(c *gin.Context) {
 }
 
 func (r *ResourceCustomer) ServiceDeleteCustomer(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid customer ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "customer")
+	if !ok {
 		return
 	}
 
-	err = r.handler.HandlerCustomer.DeleteCustomer(idStr)
-	if err != nil {
+	if err := r.handler.HandlerCustomer.DeleteCustomer(id.String()); err != nil {
 		utils.SendInternalServerError(c, "Error deleting customer", err)
 		return
 	}

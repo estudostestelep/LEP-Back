@@ -14,9 +14,10 @@ import (
 )
 
 type resourceUser struct {
-	repo        *repositories.DBconn
-	roleRepo    repositories.IRoleRepository
-	roleHandler *RoleHandler
+	repo              *repositories.DBconn
+	roleRepo          repositories.IRoleRepository
+	roleHandler       *RoleHandler
+	adminAuditHandler IAdminAuditLogHandler
 }
 
 type IHandlerUser interface {
@@ -29,6 +30,11 @@ type IHandlerUser interface {
 	DeleteUser(id string) error
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserWithRelations(id string) (*models.UserWithRelations, error)
+
+	// Métodos com contexto para auditoria (usados pelas rotas admin)
+	CreateUserWithContext(ctx *RequestContext, user *models.User, orgId, projectId, roleId string) error
+	UpdateUserWithContext(ctx *RequestContext, userId string, updatedUser *models.User) error
+	DeleteUserWithContext(ctx *RequestContext, userId string) error
 }
 
 func (r *resourceUser) GetUser(id string) (*models.User, error) {
@@ -353,6 +359,92 @@ func (r *resourceUser) addMasterAdminToAllOrganizations(userId uuid.UUID) error 
 	return nil
 }
 
-func NewSourceHandlerUser(repo *repositories.DBconn, roleRepo repositories.IRoleRepository, roleHandler *RoleHandler) IHandlerUser {
-	return &resourceUser{repo: repo, roleRepo: roleRepo, roleHandler: roleHandler}
+// CreateUserWithContext cria um usuário e registra auditoria se o contexto for de admin
+func (r *resourceUser) CreateUserWithContext(ctx *RequestContext, user *models.User, orgId, projectId, roleId string) error {
+	// Executar criação normal
+	if err := r.CreateUser(user, orgId, projectId, roleId); err != nil {
+		return err
+	}
+
+	// Registrar auditoria se for Master Admin
+	if ctx.IsMasterAdmin() && r.adminAuditHandler != nil {
+		actor := &models.User{Id: ctx.UserId, Email: ctx.UserEmail}
+		go func() {
+			if err := r.adminAuditHandler.LogUserCreate(actor, user, ctx.OrganizationId, ctx.ProjectId, ctx.IsAdminZone, ctx.IpAddress, ctx.UserAgent); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (CREATE): %v\n", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+// UpdateUserWithContext atualiza um usuário e registra auditoria se o contexto for de admin
+func (r *resourceUser) UpdateUserWithContext(ctx *RequestContext, userId string, updatedUser *models.User) error {
+
+	// Executar atualização normal
+	if err := r.UpdateUser(updatedUser); err != nil {
+		return err
+	}
+
+	// Registrar auditoria se for Master Admin
+	if ctx.IsMasterAdmin() && r.adminAuditHandler != nil {
+		// Capturar estado anterior do usuário ANTES do update (necessário para auditoria)
+		oldUser, _ := r.GetUser(userId)
+
+		actor := &models.User{Id: ctx.UserId, Email: ctx.UserEmail}
+		go func() {
+			// Se foi reset de senha, logar separadamente
+			if updatedUser.Password != "" {
+				if err := r.adminAuditHandler.LogPasswordReset(actor, updatedUser, ctx.OrganizationId, ctx.ProjectId, ctx.IsAdminZone, ctx.IpAddress, ctx.UserAgent); err != nil {
+					fmt.Printf("⚠️ Erro ao registrar log de auditoria (RESET_PASSWORD): %v\n", err)
+				}
+			}
+
+			// Logar alterações de outros campos
+			if err := r.adminAuditHandler.LogUserUpdate(actor, oldUser, updatedUser, ctx.OrganizationId, ctx.ProjectId, ctx.IsAdminZone, ctx.IpAddress, ctx.UserAgent); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (UPDATE): %v\n", err)
+			}
+		}()
+
+		isMasterAdmin := constants.HasPermission(updatedUser.Permissions, constants.PermissionMasterAdmin)
+		if isMasterAdmin {
+			if err := r.addMasterAdminToAllOrganizations(updatedUser.Id); err != nil {
+				// Log error but don't fail user creation
+				fmt.Printf("Aviso: erro ao adicionar master admin a organizações: %v\n", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// DeleteUserWithContext exclui um usuário e registra auditoria se o contexto for de admin
+func (r *resourceUser) DeleteUserWithContext(ctx *RequestContext, userId string) error {
+	// Capturar dados do usuário ANTES da exclusão (necessário para auditoria)
+	targetUser, err := r.GetUser(userId)
+	if err != nil {
+		return fmt.Errorf("usuário não encontrado: %w", err)
+	}
+
+	// Executar exclusão normal
+	if err := r.DeleteUser(userId); err != nil {
+		return err
+	}
+
+	// Registrar auditoria se for Master Admin
+	if ctx.IsMasterAdmin() && r.adminAuditHandler != nil && targetUser != nil {
+		actor := &models.User{Id: ctx.UserId, Email: ctx.UserEmail}
+		go func() {
+			if err := r.adminAuditHandler.LogUserDelete(actor, targetUser, ctx.OrganizationId, ctx.ProjectId, ctx.IsAdminZone, ctx.IpAddress, ctx.UserAgent); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (DELETE): %v\n", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+func NewSourceHandlerUser(repo *repositories.DBconn, roleRepo repositories.IRoleRepository, roleHandler *RoleHandler, adminAuditHandler IAdminAuditLogHandler) IHandlerUser {
+	return &resourceUser{repo: repo, roleRepo: roleRepo, roleHandler: roleHandler, adminAuditHandler: adminAuditHandler}
 }
