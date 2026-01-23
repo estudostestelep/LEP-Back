@@ -30,5 +30,6 @@ func SetupPackageRoutes(r gin.IRouter) {
 		pkg.POST("/subscription/:orgId", resource.ServersControllers.SourceRole.CreateOrganizationSubscription)
 		pkg.PUT("/subscription/:orgId", resource.ServersControllers.SourceRole.UpdateOrganizationSubscription)
 		pkg.DELETE("/subscription/:orgId", resource.ServersControllers.SourceRole.CancelOrganizationSubscription)
+		pkg.DELETE("/subscription/:orgId/delete", resource.ServersControllers.SourceRole.DeleteOrganizationSubscription)
 	}
 }

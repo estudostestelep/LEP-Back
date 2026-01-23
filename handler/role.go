@@ -225,6 +225,11 @@ func (h *RoleHandler) GetUserRolesWithDetails(userId, orgId string) ([]models.Ro
 	return h.roleRepo.GetUserRolesWithDetails(userId, orgId)
 }
 
+// GetRoleByName busca um cargo pelo nome
+func (h *RoleHandler) GetRoleByName(name string) (*models.Role, error) {
+	return h.roleRepo.GetByName(name)
+}
+
 // ==================== Permission Level Management ====================
 
 // SetRolePermissionLevel define o nível de uma permissão para um cargo
@@ -232,6 +237,15 @@ func (h *RoleHandler) SetRolePermissionLevel(roleId, permissionId string, level 
 	// Validar nível (0, 1, 2)
 	if level < 0 || level > 2 {
 		return fmt.Errorf("nível de permissão inválido: deve ser 0, 1 ou 2")
+	}
+
+	// Verificar se a permissão existe no banco
+	permission, err := h.permissionRepo.GetById(permissionId)
+	if err != nil {
+		return fmt.Errorf("permissão não encontrada: %s", permissionId)
+	}
+	if permission == nil || !permission.Active {
+		return fmt.Errorf("permissão inválida ou inativa")
 	}
 
 	// Validar se o ator pode gerenciar este cargo
@@ -547,6 +561,11 @@ func (h *RoleHandler) UpdateOrganizationSubscription(orgId, packageId, billingCy
 // CancelOrganizationSubscription cancela a assinatura de uma organização
 func (h *RoleHandler) CancelOrganizationSubscription(orgId string) error {
 	return h.packageRepo.CancelOrganizationPackage(orgId)
+}
+
+// DeleteOrganizationSubscription exclui permanentemente a assinatura de uma organização
+func (h *RoleHandler) DeleteOrganizationSubscription(orgId string) error {
+	return h.packageRepo.DeleteOrganizationPackage(orgId)
 }
 
 // ListAllSubscriptions lista todas as assinaturas ativas

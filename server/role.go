@@ -1,9 +1,12 @@
 package server
 
 import (
+	"fmt"
+	"lep/constants"
 	"lep/handler"
 	"lep/repositories/models"
 	"net/http"
+	"reflect"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -408,8 +411,54 @@ func (s *RoleServer) GetMyPermissions(c *gin.Context) {
 	userId := c.GetString("user_id")
 	orgId := c.GetString("organization_id")
 
+	// Verificar se é Master Admin - precisa lidar com pq.StringArray e []string
+	userPermissions, _ := c.Get("user_permissions")
+	var permList []string
+
+	// Tentar conversão direta para []string
+	if strArr, ok := userPermissions.([]string); ok {
+		permList = strArr
+	} else {
+		// Usar reflection para lidar com pq.StringArray
+		val := reflect.ValueOf(userPermissions)
+		if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
+			for i := 0; i < val.Len(); i++ {
+				elem := val.Index(i)
+				if elem.Kind() == reflect.String {
+					permList = append(permList, elem.String())
+				}
+			}
+		}
+	}
+
+	isMasterAdmin := constants.IsMasterAdmin(permList)
+
+	// DEBUG: Log para diagnóstico
+	fmt.Printf("[DEBUG GetMyPermissions] userId=%s, orgId=%s, isMasterAdmin=%v, permList=%v\n", userId, orgId, isMasterAdmin, permList)
+
 	// Buscar cargos com detalhes
 	roles, err := s.handler.GetUserRolesWithDetails(userId, orgId)
+	fmt.Printf("[DEBUG GetMyPermissions] Initial roles count=%d, err=%v\n", len(roles), err)
+
+	// Se é Master Admin e não tem cargos na org, simular cargo "owner"
+	if isMasterAdmin && (err != nil || len(roles) == 0) {
+		fmt.Printf("[DEBUG GetMyPermissions] Master Admin without roles, simulating owner...\n")
+		ownerRole, roleErr := s.handler.GetRoleByName("owner")
+		fmt.Printf("[DEBUG GetMyPermissions] GetRoleByName owner: role=%+v, err=%v\n", ownerRole, roleErr)
+		if roleErr == nil && ownerRole != nil {
+			levels, levelsErr := s.handler.GetRolePermissionLevels(ownerRole.Id.String())
+			fmt.Printf("[DEBUG GetMyPermissions] GetRolePermissionLevels: count=%d, err=%v\n", len(levels), levelsErr)
+			if len(levels) > 0 {
+				fmt.Printf("[DEBUG GetMyPermissions] Sample permission: %+v\n", levels[0])
+			}
+			roles = []models.RoleWithPermissionLevels{{
+				Role:             *ownerRole,
+				PermissionLevels: levels,
+			}}
+			err = nil // Reset error since we have simulated roles
+		}
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar permissões"})
 		return
@@ -417,10 +466,15 @@ func (s *RoleServer) GetMyPermissions(c *gin.Context) {
 
 	// Buscar nível de hierarquia
 	hierarchyLevel, _ := s.handler.GetUserMaxHierarchyLevel(userId, orgId)
+	if isMasterAdmin && hierarchyLevel == 0 {
+		hierarchyLevel = 10 // Owner level
+	}
 
 	// Agregar permissões efetivas
 	effectivePermissions := make(map[string]int)
+	fmt.Printf("[DEBUG GetMyPermissions] Processing %d roles\n", len(roles))
 	for _, role := range roles {
+		fmt.Printf("[DEBUG GetMyPermissions] Role: %s, PermissionLevels count: %d\n", role.Name, len(role.PermissionLevels))
 		for _, pl := range role.PermissionLevels {
 			if pl.Permission != nil {
 				codeName := pl.Permission.CodeName
@@ -430,6 +484,7 @@ func (s *RoleServer) GetMyPermissions(c *gin.Context) {
 			}
 		}
 	}
+	fmt.Printf("[DEBUG GetMyPermissions] Final effective_permissions count: %d\n", len(effectivePermissions))
 
 	// Buscar módulos disponíveis
 	modules, _ := s.handler.GetOrganizationModules(orgId)
@@ -439,6 +494,7 @@ func (s *RoleServer) GetMyPermissions(c *gin.Context) {
 		"effective_permissions": effectivePermissions,
 		"hierarchy_level":       hierarchyLevel,
 		"available_modules":     modules,
+		"is_master_admin":       isMasterAdmin,
 	})
 }
 
@@ -895,6 +951,24 @@ func (s *RoleServer) CancelOrganizationSubscription(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Assinatura cancelada com sucesso"})
+}
+
+// DeleteOrganizationSubscription godoc
+// @Summary Exclui permanentemente a assinatura de uma organização (Master Admin)
+// @Tags Packages
+// @Produce json
+// @Param orgId path string true "ID da organização"
+// @Success 200 {object} map[string]string
+// @Router /package/subscription/{orgId}/delete [delete]
+func (s *RoleServer) DeleteOrganizationSubscription(c *gin.Context) {
+	orgId := c.Param("orgId")
+
+	if err := s.handler.DeleteOrganizationSubscription(orgId); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao excluir assinatura", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Assinatura excluída com sucesso"})
 }
 
 // ListAllSubscriptions godoc

@@ -232,8 +232,10 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 	}
 
 	// Verificar módulos habilitados
-	modules, _ := h.packageRepo.GetPackageModules(orgPackage.PackageId.String())
+	modules, modulesErr := h.packageRepo.GetPackageModules(orgPackage.PackageId.String())
+	fmt.Printf("[DEBUG GetUsageAndLimits] packageId=%s, modules count=%d, err=%v\n", orgPackage.PackageId.String(), len(modules), modulesErr)
 	for _, m := range modules {
+		fmt.Printf("[DEBUG GetUsageAndLimits] Module: code=%s, name=%s\n", m.CodeName, m.DisplayName)
 		switch m.CodeName {
 		case "client_notifications":
 			response.Limits.NotificationsEnabled = true
@@ -247,6 +249,9 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 			response.Limits.AuditLogsEnabled = true
 		}
 	}
+	fmt.Printf("[DEBUG GetUsageAndLimits] Features: notifications=%v, reports=%v, reservations=%v, waitlist=%v, audit_logs=%v\n",
+		response.Limits.NotificationsEnabled, response.Limits.ReportsEnabled, response.Limits.ReservationsEnabled,
+		response.Limits.WaitlistEnabled, response.Limits.AuditLogsEnabled)
 
 	// Contar uso atual
 	orgUUID, _ := uuid.Parse(orgId)

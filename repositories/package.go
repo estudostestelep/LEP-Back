@@ -36,6 +36,7 @@ type IPackageRepository interface {
 	GetOrganizationPackage(orgId string) (*models.OrganizationPackage, error)
 	UpdateOrganizationPackage(orgPackage *models.OrganizationPackage) error
 	CancelOrganizationPackage(orgId string) error
+	DeleteOrganizationPackage(orgId string) error
 	ListAllSubscriptions() ([]models.OrganizationPackage, error)
 
 	// Bundles
@@ -248,6 +249,13 @@ func (r *resourcePackage) CancelOrganizationPackage(orgId string) error {
 	return r.db.Model(&models.OrganizationPackage{}).
 		Where("organization_id = ? AND active = true AND deleted_at IS NULL", orgId).
 		Update("active", false).Error
+}
+
+// DeleteOrganizationPackage exclui permanentemente a assinatura de uma organização
+func (r *resourcePackage) DeleteOrganizationPackage(orgId string) error {
+	return r.db.Unscoped().
+		Where("organization_id = ?", orgId).
+		Delete(&models.OrganizationPackage{}).Error
 }
 
 // ListAllSubscriptions lista todas as assinaturas ativas

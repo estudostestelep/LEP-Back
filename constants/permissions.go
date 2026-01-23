@@ -1,5 +1,7 @@
 package constants
 
+import "fmt"
+
 // Permission constants for user permissions
 type Permission string
 
@@ -229,4 +231,61 @@ func ConvertPermissions(permissions []Permission) []string {
 		result[i] = string(p)
 	}
 	return result
+}
+
+// AllValidPermissions lista todas as permissões válidas do sistema
+var AllValidPermissions = []Permission{
+	PermissionMasterAdmin,
+	PermissionManageUsers,
+	PermissionViewUsers,
+	PermissionManageOrganizations,
+	PermissionViewOrganizations,
+	PermissionManageProjects,
+	PermissionViewProjects,
+	PermissionManageProducts,
+	PermissionViewProducts,
+	PermissionManageMenus,
+	PermissionViewMenus,
+	PermissionManageOrders,
+	PermissionViewOrders,
+	PermissionManageCustomers,
+	PermissionViewCustomers,
+	PermissionManageTables,
+	PermissionViewTables,
+	PermissionManageReservations,
+	PermissionViewReservations,
+	PermissionManageWaitlists,
+	PermissionViewWaitlists,
+	PermissionViewReports,
+	PermissionExportData,
+	PermissionManageSettings,
+	PermissionViewSettings,
+	PermissionManageNotifications,
+	PermissionViewNotifications,
+	PermissionManageTags,
+	PermissionManageCategories,
+}
+
+// IsValidPermission verifica se uma string é uma permissão válida
+func IsValidPermission(perm string) bool {
+	for _, valid := range AllValidPermissions {
+		if string(valid) == perm {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidatePermissions valida uma lista de permissões
+// Retorna erro se alguma permissão for inválida ou vazia
+func ValidatePermissions(permissions []string) error {
+	for _, perm := range permissions {
+		if perm == "" {
+			return fmt.Errorf("permissão não pode ser vazia")
+		}
+		if !IsValidPermission(perm) {
+			return fmt.Errorf("permissão inválida: %s", perm)
+		}
+	}
+	return nil
 }
