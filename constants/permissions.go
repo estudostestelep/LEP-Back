@@ -67,7 +67,7 @@ const (
 	PermissionManageCategories Permission = "manage_categories"
 )
 
-// Organization-Level Roles (stored in UserOrganization.Role)
+// Organization-Level Roles (stored in Role.name via UserRole)
 type OrganizationRole string
 
 const (
@@ -84,7 +84,7 @@ const (
 	OrgRoleMember OrganizationRole = "member"
 )
 
-// Project-Level Roles (stored in UserProject.Role)
+// Project-Level Roles (stored in Role.name via UserRole)
 type ProjectRole string
 
 const (

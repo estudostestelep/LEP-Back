@@ -216,13 +216,15 @@ func (h *RoleHandler) RemoveRoleFromUser(userId, roleId, orgId, actorUserId stri
 }
 
 // GetUserRoles retorna todos os cargos de um usuário
-func (h *RoleHandler) GetUserRoles(userId, orgId string) ([]models.UserRole, error) {
-	return h.roleRepo.GetUserRoles(userId, orgId)
+// Se scope for fornecido, filtra apenas roles daquele escopo (admin/client)
+func (h *RoleHandler) GetUserRoles(userId, orgId, scope string) ([]models.UserRole, error) {
+	return h.roleRepo.GetUserRoles(userId, orgId, scope)
 }
 
 // GetUserRolesWithDetails retorna cargos com detalhes de permissões
-func (h *RoleHandler) GetUserRolesWithDetails(userId, orgId string) ([]models.RoleWithPermissionLevels, error) {
-	return h.roleRepo.GetUserRolesWithDetails(userId, orgId)
+// Se scope for fornecido, filtra apenas roles daquele escopo (admin/client)
+func (h *RoleHandler) GetUserRolesWithDetails(userId, orgId, scope string) ([]models.RoleWithPermissionLevels, error) {
+	return h.roleRepo.GetUserRolesWithDetails(userId, orgId, scope)
 }
 
 // GetRoleByName busca um cargo pelo nome
@@ -277,8 +279,8 @@ func (h *RoleHandler) UserEffectivePermissionLevel(userId, orgId, permissionCode
 		return 0, fmt.Errorf("permissão não encontrada: %s", permissionCodeName)
 	}
 
-	// Buscar todos os cargos do usuário com detalhes
-	rolesWithLevels, err := h.roleRepo.GetUserRolesWithDetails(userId, orgId)
+	// Buscar todos os cargos do usuário com detalhes (todos os scopes para permissões efetivas)
+	rolesWithLevels, err := h.roleRepo.GetUserRolesWithDetails(userId, orgId, "")
 	if err != nil {
 		return 0, err
 	}

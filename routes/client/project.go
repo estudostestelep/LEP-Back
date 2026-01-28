@@ -18,14 +18,4 @@ func SetupProjectRoutes(r gin.IRouter) {
 		project.DELETE("/:id", resource.ServersControllers.SourceProject.SoftDeleteProject)
 		project.DELETE("/:id/permanent", resource.ServersControllers.SourceProject.HardDeleteProject)
 	}
-
-	// User-Project routes
-	userProj := r.Group("/user-project")
-	{
-		userProj.DELETE("/user/:userId/proj/:projectId", resource.ServersControllers.SourceUserProject.ServiceRemoveUserFromProject)
-		userProj.PUT("/:id", resource.ServersControllers.SourceUserProject.ServiceUpdateUserProject)
-		userProj.GET("/user/:userId", resource.ServersControllers.SourceUserProject.ServiceGetUserProjects)
-		userProj.GET("/user/:userId/org/:orgId", resource.ServersControllers.SourceUserProject.ServiceGetUserProjectsByOrganization)
-		userProj.GET("/proj/:projectId", resource.ServersControllers.SourceUserProject.ServiceGetProjectUsers)
-	}
 }

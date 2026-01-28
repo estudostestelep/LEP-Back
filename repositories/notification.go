@@ -53,6 +53,14 @@ type INotificationRepository interface {
 	GetPendingReviewItems(orgId, projectId uuid.UUID) ([]models.ResponseReviewQueue, error)
 	GetReviewQueueItemById(id uuid.UUID) (*models.ResponseReviewQueue, error)
 	UpdateReviewQueueItem(item *models.ResponseReviewQueue) error
+
+	// NotificationReminder - Lembretes customizados
+	CreateNotificationReminder(reminder *models.NotificationReminder) error
+	UpdateNotificationReminder(reminder *models.NotificationReminder) error
+	DeleteNotificationReminder(id uuid.UUID) error
+	GetNotificationReminders(orgId, projectId uuid.UUID) ([]models.NotificationReminder, error)
+	GetNotificationReminderById(id uuid.UUID) (*models.NotificationReminder, error)
+	GetEnabledNotificationReminders(orgId, projectId uuid.UUID) ([]models.NotificationReminder, error)
 }
 
 func NewNotificationRepository(db *gorm.DB) INotificationRepository {
@@ -297,4 +305,45 @@ func (r *NotificationRepository) GetReviewQueueItemById(id uuid.UUID) (*models.R
 func (r *NotificationRepository) UpdateReviewQueueItem(item *models.ResponseReviewQueue) error {
 	item.UpdatedAt = time.Now()
 	return r.db.Save(item).Error
+}
+
+// === NotificationReminder ===
+
+func (r *NotificationRepository) CreateNotificationReminder(reminder *models.NotificationReminder) error {
+	reminder.Id = uuid.New()
+	reminder.CreatedAt = time.Now()
+	reminder.UpdatedAt = time.Now()
+	return r.db.Create(reminder).Error
+}
+
+func (r *NotificationRepository) UpdateNotificationReminder(reminder *models.NotificationReminder) error {
+	reminder.UpdatedAt = time.Now()
+	return r.db.Save(reminder).Error
+}
+
+func (r *NotificationRepository) DeleteNotificationReminder(id uuid.UUID) error {
+	return r.db.Delete(&models.NotificationReminder{}, "id = ?", id).Error
+}
+
+func (r *NotificationRepository) GetNotificationReminders(orgId, projectId uuid.UUID) ([]models.NotificationReminder, error) {
+	var reminders []models.NotificationReminder
+	err := r.db.Where("organization_id = ? AND project_id = ?", orgId, projectId).
+		Order("hours_before ASC").Find(&reminders).Error
+	return reminders, err
+}
+
+func (r *NotificationRepository) GetNotificationReminderById(id uuid.UUID) (*models.NotificationReminder, error) {
+	var reminder models.NotificationReminder
+	err := r.db.First(&reminder, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &reminder, nil
+}
+
+func (r *NotificationRepository) GetEnabledNotificationReminders(orgId, projectId uuid.UUID) ([]models.NotificationReminder, error) {
+	var reminders []models.NotificationReminder
+	err := r.db.Where("organization_id = ? AND project_id = ? AND enabled = true", orgId, projectId).
+		Order("hours_before ASC").Find(&reminders).Error
+	return reminders, err
 }

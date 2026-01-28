@@ -11,9 +11,6 @@ import (
 
 type ServerController struct {
 	SourceUsers              IServerUsers
-	SourceUserOrganization   IServerUserOrganization
-	SourceUserProject        IServerUserProject
-	SourceUserAccess         *UserAccessServer
 	SourceProducts           IServerProducts
 	SourceAuth               IServerAuth
 	SourceOrders             IOrderServer
@@ -44,6 +41,13 @@ type ServerController struct {
 	SourceAccessLog          IAccessLogServer
 	SourceAdminAuditLog      IAdminAuditLogServer  // Logs de auditoria admin (read-only)
 	SourceClientAuditLog     IClientAuditLogServer // Logs de auditoria de cliente (módulo opcional)
+	// Novos servers para autenticação separada
+	SourceAuthAdmin          IServerAuthAdmin      // Login de administradores
+	SourceAuthClient         IServerAuthClient     // Login de clientes
+	SourceTenant             IServerTenant         // Resolver tenant por slug
+	// CRUD de admins e clients (novo sistema de usuários)
+	SourceAdminUsers         IServerAdminUsers     // CRUD de admins (tabela admins)
+	SourceClientUsers        IServerClientUsers    // CRUD de clients (tabela clients)
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -61,6 +65,21 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 		log.Printf("❌ Error creating master_admin user: %v", err)
 	} else {
 		log.Printf("✅ Master admin user created: Pablo (pablo@lep.com)")
+
+		// Criar admin correspondente na tabela admins
+		admin := &models.Admin{
+			Name:        "Pablo",
+			Email:       "pablo@lep.com",
+			Password:    "senha123",
+			Permissions: pq.StringArray{"master_admin"},
+			Active:      true,
+		}
+		errAdmin := handler.HandlerAdminUser.CreateAdmin(admin)
+		if errAdmin != nil {
+			log.Printf("❌ Error creating admin: %v", errAdmin)
+		} else {
+			log.Printf("✅ Admin created: Pablo (pablo@lep.com)")
+		}
 
 		// Create default organization
 		orgId := uuid.New()
@@ -89,41 +108,14 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 			} else {
 				log.Printf("✅ Default project created: Default Project")
 
-				// Associate user with organization
-				userOrg := &models.UserOrganization{
-					Id:             uuid.New(),
-					UserId:         userId,
-					OrganizationId: orgId,
-					Role:           "owner",
-				}
-				errUserOrg := handler.HandlerUserOrganization.AddUserToOrganization(userOrg)
-				if errUserOrg != nil {
-					log.Printf("❌ Error assigning user to organization: %v", errUserOrg)
-				} else {
-					log.Printf("✅ User assigned to organization")
-				}
-
-				// Associate user with project
-				userProject := &models.UserProject{
-					Id:        uuid.New(),
-					UserId:    userId,
-					ProjectId: projectId,
-					Role:      "admin",
-				}
-				errUserProj := handler.HandlerUserProject.AddUserToProject(userProject)
-				if errUserProj != nil {
-					log.Printf("❌ Error assigning user to project: %v", errUserProj)
-				} else {
-					log.Printf("✅ User assigned to project")
-				}
+				// Associar usuário à organização e projeto via UserRole (novo sistema)
+				// O master_admin já tem acesso global, mas podemos atribuir um role específico se necessário
+				log.Printf("✅ User has master_admin permission - global access granted")
 			}
 		}
 	}
 
 	h.SourceUsers = NewSourceServerUsers(handler)
-	h.SourceUserOrganization = NewSourceServerUserOrganization(handler)
-	h.SourceUserProject = NewSourceServerUserProject(handler)
-	h.SourceUserAccess = NewUserAccessServer(handler.HandlerUserAccess)
 	h.SourceProducts = NewSourceServerProducts(handler)
 	h.SourceAuth = NewSourceServerAuth(handler)
 	h.SourceOrders = NewOrderServer(handler.HandlerOrder)
@@ -170,4 +162,13 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 
 	// Client Audit Log Server (módulo opcional)
 	h.SourceClientAuditLog = NewClientAuditLogServer(handler.HandlerClientAuditLog)
+
+	// Novos servers para autenticação separada Admin/Client
+	h.SourceAuthAdmin = NewSourceServerAuthAdmin(handler)
+	h.SourceAuthClient = NewSourceServerAuthClient(handler)
+	h.SourceTenant = NewSourceServerTenant(handler)
+
+	// CRUD de admins e clients (novo sistema de usuários)
+	h.SourceAdminUsers = NewSourceServerAdminUsers(handler)
+	h.SourceClientUsers = NewSourceServerClientUsers(handler)
 }

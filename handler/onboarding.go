@@ -51,10 +51,10 @@ func (h *OnboardingHandler) GetOnboardingStatus(orgId, projectId string) (*Onboa
 
 	status := &OnboardingStatus{}
 
-	// Count users in the project
-	users, err := h.repo.UserProjects.ListByProject(projectId)
+	// Count users in the project via user_roles
+	usersCount, err := h.repo.Roles.CountUsersByOrganization(orgId)
 	if err == nil {
-		status.UsersCount = len(users)
+		status.UsersCount = usersCount
 	}
 
 	// Count tables

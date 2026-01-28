@@ -20,27 +20,3 @@ type User struct {
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    *time.Time     `json:"deleted_at,omitempty"`
 }
-
-// --- UserOrganization (relacionamento usuário-organização) ---
-type UserOrganization struct {
-	Id             uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserId         uuid.UUID  `json:"user_id" gorm:"not null"`
-	OrganizationId uuid.UUID  `json:"organization_id" gorm:"not null"`
-	Role           string     `json:"role"`                       // ex: "owner", "admin", "member"
-	Active         bool       `json:"active" gorm:"default:true"` // permite desativar sem deletar
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
-}
-
-// --- UserProject (relacionamento usuário-projeto) ---
-type UserProject struct {
-	Id        uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserId    uuid.UUID  `json:"user_id" gorm:"not null"`
-	ProjectId uuid.UUID  `json:"project_id" gorm:"not null"`
-	Role      string     `json:"role"`                       // ex: "manager", "waiter", "admin"
-	Active    bool       `json:"active" gorm:"default:true"` // permite desativar sem deletar
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty"`
-}

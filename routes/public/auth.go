@@ -8,8 +8,15 @@ import (
 
 // SetupAuthRoutes configura rotas de autenticação públicas
 func SetupAuthRoutes(r *gin.Engine) {
-	// Login
+	// Login legado (mantido para compatibilidade)
 	r.POST("/login", resource.ServersControllers.SourceAuth.ServiceLogin)
+
+	// ========== NOVOS ENDPOINTS DE LOGIN SEPARADOS ==========
+	// Login de administradores
+	r.POST("/admin/login", resource.ServersControllers.SourceAuthAdmin.ServiceAdminLogin)
+
+	// Login de clientes (requer org_slug no body)
+	r.POST("/client/login", resource.ServersControllers.SourceAuthClient.ServiceClientLogin)
 
 	// Cadastro público
 	r.POST("/user", resource.ServersControllers.SourceUsers.ServiceCreateUser)

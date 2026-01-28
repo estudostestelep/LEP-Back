@@ -2,6 +2,7 @@ package server
 
 import (
 	"lep/handler"
+	"lep/repositories"
 	"lep/repositories/models"
 	"lep/utils"
 	"net/http"
@@ -14,12 +15,18 @@ import (
 
 type NotificationServer struct {
 	notificationHandler *handler.NotificationHandler
+	repo                *repositories.DBconn
 }
 
 func NewNotificationServer(notificationHandler *handler.NotificationHandler) *NotificationServer {
 	return &NotificationServer{
 		notificationHandler: notificationHandler,
 	}
+}
+
+// SetRepo sets the repository connection for the notification server
+func (s *NotificationServer) SetRepo(repo *repositories.DBconn) {
+	s.repo = repo
 }
 
 // === WEBHOOK ENDPOINTS ===
@@ -403,4 +410,136 @@ func (s *NotificationServer) ExecuteCustomAction(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Custom action executed"})
+}
+
+// === NOTIFICATION REMINDER ENDPOINTS ===
+
+// GetNotificationReminders - Lista lembretes customizados
+func (s *NotificationServer) GetNotificationReminders(c *gin.Context) {
+	orgIdStr := c.Param("orgId")
+	projectIdStr := c.Param("projectId")
+
+	orgId, err := uuid.Parse(orgIdStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization ID"})
+		return
+	}
+
+	projectId, err := uuid.Parse(projectIdStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
+
+	reminders, err := s.notificationHandler.GetNotificationReminders(orgId, projectId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"reminders": reminders})
+}
+
+// CreateNotificationReminder - Criar lembrete customizado
+func (s *NotificationServer) CreateNotificationReminder(c *gin.Context) {
+	var reminder models.NotificationReminder
+	if err := c.ShouldBindJSON(&reminder); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Extrair organization_id do header se não vier no body
+	if reminder.OrganizationId == uuid.Nil {
+		orgIdStr := c.GetHeader("X-Lpe-Organization-Id")
+		if orgId, err := uuid.Parse(orgIdStr); err == nil {
+			reminder.OrganizationId = orgId
+		}
+	}
+
+	// Extrair project_id do header se não vier no body
+	if reminder.ProjectId == uuid.Nil {
+		projIdStr := c.GetHeader("X-Lpe-Project-Id")
+		if projId, err := uuid.Parse(projIdStr); err == nil {
+			reminder.ProjectId = projId
+		}
+	}
+
+	err := s.notificationHandler.CreateNotificationReminder(&reminder)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	utils.SendCreatedSuccess(c, "Reminder created successfully", reminder)
+}
+
+// UpdateNotificationReminder - Atualizar lembrete customizado
+func (s *NotificationServer) UpdateNotificationReminder(c *gin.Context) {
+	var reminder models.NotificationReminder
+	if err := c.ShouldBindJSON(&reminder); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := s.notificationHandler.UpdateNotificationReminder(&reminder)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, reminder)
+}
+
+// DeleteNotificationReminder - Deletar lembrete customizado
+func (s *NotificationServer) DeleteNotificationReminder(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid reminder ID"})
+		return
+	}
+
+	err = s.notificationHandler.DeleteNotificationReminder(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Reminder deleted successfully"})
+}
+
+// === DEBUG/ADMIN ENDPOINTS ===
+
+// TriggerScheduledNotifications - Executa manualmente o job de notificações agendadas (apenas para debug)
+func (s *NotificationServer) TriggerScheduledNotifications(c *gin.Context) {
+	// Verificar se o repo está configurado
+	if s.repo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Repository not configured"})
+		return
+	}
+
+	// Criar o schedule service
+	scheduleService := utils.NewNotificationScheduleService(
+		s.repo.Notifications,
+		s.repo.Reservations,
+		s.repo.Customers,
+		s.repo.Tables,
+		s.repo.Settings,
+		s.repo.Projects,
+	)
+
+	// Executar o processamento de schedules pendentes
+	err := scheduleService.ProcessDueSchedules()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to process scheduled notifications",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Scheduled notifications processed successfully",
+		"time":    time.Now().Format("2006-01-02 15:04:05"),
+	})
 }

@@ -11,6 +11,4 @@ func SetupSeedingRoutes(r *gin.Engine) {
 	// Rotas para seeding
 	r.POST("/organization", resource.ServersControllers.SourceOrganization.CreateOrganization)
 	r.POST("/project", resource.ServersControllers.SourceProject.CreateProject)
-	r.POST("/user-organization/user/:userId", resource.ServersControllers.SourceUserOrganization.ServiceAddUserToOrganization)
-	r.POST("/user-project/user/:userId", resource.ServersControllers.SourceUserProject.ServiceAddUserToProject)
 }

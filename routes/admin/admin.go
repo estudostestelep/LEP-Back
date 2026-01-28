@@ -1,16 +1,17 @@
 package admin
 
 import (
+	"lep/handler"
 	"lep/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 // SetupAdminRoutes configura todas as rotas administrativas
-// Todas as rotas neste grupo requerem MasterAdmin
-func SetupAdminRoutes(r gin.IRouter) {
+// Todas as rotas neste grupo requerem escopo admin (master_admin ou cargos admin como admin_support)
+func SetupAdminRoutes(r gin.IRouter, authHandler handler.IHandlerAuth) {
 	admin := r.Group("/admin")
-	admin.Use(middleware.MasterAdminOnlyMiddleware())
+	admin.Use(middleware.AdminScopeMiddleware(authHandler))
 
 	SetupMenuRoutes(admin)
 	SetupCategoryRoutes(admin)
@@ -24,4 +25,8 @@ func SetupAdminRoutes(r gin.IRouter) {
 	SetupAuditLogRoutes(admin)
 	SetupImagesRoutes(admin)
 	SetupSidebarConfigRoutes(admin)
+
+	// Novo sistema de usuários (admins e clients separados)
+	SetupAdminUserRoutes(admin)
+	SetupClientUserRoutes(admin)
 }

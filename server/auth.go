@@ -94,11 +94,19 @@ func (r *ResourceAuth) ServiceLogin(c *gin.Context) {
 		return
 	}
 
+	// Buscar cargos admin do usuário (escopo "admin" com organization_id IS NULL)
+	adminRoles, err := r.handler.HandlerAuth.GetUserAdminRoles(user.Id.String())
+	if err != nil {
+		// Não bloqueia o login se falhar, apenas retorna array vazio
+		adminRoles = []handler.UserAdminRoleInfo{}
+	}
+
 	c.JSON(200, gin.H{
 		"user":          user,
 		"token":         tokenString,
 		"organizations": userOrganizations,
 		"projects":      userProjects,
+		"admin_roles":   adminRoles,
 	})
 }
 

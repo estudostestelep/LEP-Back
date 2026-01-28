@@ -232,3 +232,25 @@ func (h *NotificationHandler) RejectReviewItem(itemId, reviewedBy uuid.UUID, not
 func (h *NotificationHandler) ExecuteCustomAction(itemId, reviewedBy uuid.UUID, action, notes string) error {
 	return h.inboundProcessor.ExecuteCustomAction(itemId, reviewedBy, action, notes)
 }
+
+// === Notification Reminder Methods ===
+
+// GetNotificationReminders retorna lembretes customizados do projeto
+func (h *NotificationHandler) GetNotificationReminders(orgId, projectId uuid.UUID) ([]models.NotificationReminder, error) {
+	return h.notificationRepo.GetNotificationReminders(orgId, projectId)
+}
+
+// CreateNotificationReminder cria um novo lembrete customizado
+func (h *NotificationHandler) CreateNotificationReminder(reminder *models.NotificationReminder) error {
+	return h.notificationRepo.CreateNotificationReminder(reminder)
+}
+
+// UpdateNotificationReminder atualiza um lembrete existente
+func (h *NotificationHandler) UpdateNotificationReminder(reminder *models.NotificationReminder) error {
+	return h.notificationRepo.UpdateNotificationReminder(reminder)
+}
+
+// DeleteNotificationReminder remove um lembrete
+func (h *NotificationHandler) DeleteNotificationReminder(id uuid.UUID) error {
+	return h.notificationRepo.DeleteNotificationReminder(id)
+}

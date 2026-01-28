@@ -24,9 +24,9 @@ func SetupRoutes(r *gin.Engine) {
 	protected.POST("/logout", resource.ServersControllers.SourceAuth.ServiceLogout)
 	protected.POST("/checkToken", resource.ServersControllers.SourceAuth.ServiceValidateToken)
 
-	// 3. Rotas admin (/admin/*) - MasterAdmin only
-	// Middleware MasterAdminOnlyMiddleware aplicado no grupo admin
-	admin.SetupAdminRoutes(protected)
+	// 3. Rotas admin (/admin/*) - Admin scope (master_admin ou cargos admin como admin_support)
+	// Middleware AdminScopeMiddleware aplicado no grupo admin
+	admin.SetupAdminRoutes(protected, resource.Handlers.HandlerAuth)
 
 	// 4. Rotas client - Role-based permissions
 	// Middleware RolePermissionMiddleware aplicado em cada rota individualmente

@@ -15,12 +15,15 @@ type resourceOrganization struct {
 type IOrganizationRepository interface {
 	GetOrganizationById(id uuid.UUID) (*models.Organization, error)
 	GetOrganizationByEmail(email string) (*models.Organization, error)
+	GetOrganizationBySlug(slug string) (*models.Organization, error)
+	SlugExists(slug string) (bool, error)
 	ListOrganizations() ([]models.Organization, error)
 	ListActiveOrganizations() ([]models.Organization, error)
 	CreateOrganization(organization *models.Organization) error
 	UpdateOrganization(organization *models.Organization) error
 	SoftDeleteOrganization(id uuid.UUID) error
 	HardDeleteOrganization(id uuid.UUID) error
+	FindSoftDeletedBySlugOrEmail(slug, email string) ([]models.Organization, error)
 }
 
 func NewConnOrganization(db *gorm.DB) IOrganizationRepository {
@@ -43,6 +46,21 @@ func (r *resourceOrganization) GetOrganizationByEmail(email string) (*models.Org
 		return nil, err
 	}
 	return &organization, nil
+}
+
+func (r *resourceOrganization) GetOrganizationBySlug(slug string) (*models.Organization, error) {
+	var organization models.Organization
+	err := r.db.First(&organization, "slug = ? AND deleted_at IS NULL", slug).Error
+	if err != nil {
+		return nil, err
+	}
+	return &organization, nil
+}
+
+func (r *resourceOrganization) SlugExists(slug string) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.Organization{}).Where("slug = ? AND deleted_at IS NULL", slug).Count(&count).Error
+	return count > 0, err
 }
 
 func (r *resourceOrganization) ListOrganizations() ([]models.Organization, error) {
@@ -82,4 +100,10 @@ func (r *resourceOrganization) SoftDeleteOrganization(id uuid.UUID) error {
 
 func (r *resourceOrganization) HardDeleteOrganization(id uuid.UUID) error {
 	return r.db.Unscoped().Delete(&models.Organization{}, "id = ?", id).Error
+}
+
+func (r *resourceOrganization) FindSoftDeletedBySlugOrEmail(slug, email string) ([]models.Organization, error) {
+	var orgs []models.Organization
+	err := r.db.Unscoped().Where("(slug = ? OR email = ?) AND deleted_at IS NOT NULL", slug, email).Find(&orgs).Error
+	return orgs, err
 }

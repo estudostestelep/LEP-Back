@@ -8,6 +8,7 @@ import (
 // Nenhuma autenticação necessária
 func SetupPublicRoutes(r *gin.Engine) {
 	SetupAuthRoutes(r)
+	SetupTenantRoutes(r)
 	SetupMenuRoutes(r)
 	SetupWebhookRoutes(r)
 	SetupUploadRoutes(r)

@@ -38,6 +38,7 @@ type OrganizationBootstrapResponse struct {
 type IHandlerOrganization interface {
 	GetOrganizationById(id string) (*models.Organization, error)
 	GetOrganizationByEmail(email string) (*models.Organization, error)
+	GetOrganizationBySlug(slug string) (*models.Organization, error)
 	ListOrganizations() ([]models.Organization, error)
 	ListActiveOrganizations() ([]models.Organization, error)
 	CreateOrganization(organization *models.Organization) error
@@ -63,6 +64,14 @@ func (r *resourceOrganization) GetOrganizationById(id string) (*models.Organizat
 
 func (r *resourceOrganization) GetOrganizationByEmail(email string) (*models.Organization, error) {
 	resp, err := r.repo.Organizations.GetOrganizationByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (r *resourceOrganization) GetOrganizationBySlug(slug string) (*models.Organization, error) {
+	resp, err := r.repo.Organizations.GetOrganizationBySlug(slug)
 	if err != nil {
 		return nil, err
 	}
@@ -157,18 +166,24 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 
 	// Normalizar nome para gerar email válido (sem espaços, lowercase)
 	normalizedName := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+	slug := normalizedName
+	email := fmt.Sprintf("%s@lep.com", normalizedName)
 
-	// Verificar se já existe organização com esse nome
-	existingOrg, _ := r.repo.Organizations.GetOrganizationByEmail(fmt.Sprintf("%s@lep.com", normalizedName))
+	// Verificar se já existe organização com esse nome (ativa)
+	existingOrg, _ := r.repo.Organizations.GetOrganizationByEmail(email)
 	if existingOrg != nil {
 		return nil, errors.New("já existe uma organização com esse nome")
 	}
+
+	// Remover organizações soft-deleted que bloqueiam slug/email (para permitir recriação)
+	r.removeSoftDeletedOrgBySlugOrEmail(slug, email)
 
 	// Criar organização
 	org := &models.Organization{
 		Id:          uuid.New(),
 		Name:        name,
-		Email:       fmt.Sprintf("%s@lep.com", normalizedName),
+		Slug:        slug,
+		Email:       email,
 		Description: fmt.Sprintf("Organização %s", name),
 		Active:      true,
 		CreatedAt:   time.Now(),
@@ -218,36 +233,29 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 		return nil, fmt.Errorf("erro ao criar usuário: %v", err)
 	}
 
-	// Criar relacionamento usuário-organização
-	userOrg := &models.UserOrganization{
+	// Buscar o role de "org_owner" para atribuir ao criador
+	ownerRole, err := r.repo.Roles.GetByName("org_owner")
+	if err != nil {
+		// Se não encontrar org_owner, tentar org_admin
+		ownerRole, err = r.repo.Roles.GetByName("org_admin")
+		if err != nil {
+			return nil, fmt.Errorf("erro ao buscar cargo de owner: %v", err)
+		}
+	}
+
+	// Criar UserRole para o owner da organização
+	userRole := &models.UserRole{
 		Id:             uuid.New(),
 		UserId:         user.Id,
-		OrganizationId: org.Id,
-		Role:           "owner",
+		RoleId:         ownerRole.Id,
+		OrganizationId: &org.Id,
+		ProjectId:      &project.Id,
 		Active:         true,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
 	}
 
-	err = r.repo.UserOrganizations.Create(userOrg)
+	err = r.repo.Roles.AssignRoleToUser(userRole)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao criar relacionamento usuário-organização: %v", err)
-	}
-
-	// Criar relacionamento usuário-projeto
-	userProj := &models.UserProject{
-		Id:        uuid.New(),
-		UserId:    user.Id,
-		ProjectId: project.Id,
-		Role:      "admin",
-		Active:    true,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	err = r.repo.UserProjects.Create(userProj)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao criar relacionamento usuário-projeto: %v", err)
+		return nil, fmt.Errorf("erro ao atribuir cargo ao usuário: %v", err)
 	}
 
 	// 🔑 REGRA DE NEGÓCIO: Adicionar master admins automaticamente à nova org
@@ -298,58 +306,28 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 	return response, nil
 }
 
+// removeSoftDeletedOrgBySlugOrEmail remove organizações soft-deleted que bloqueiam slug ou email
+func (r *resourceOrganization) removeSoftDeletedOrgBySlugOrEmail(slug, email string) {
+	softDeletedOrgs, err := r.repo.Organizations.FindSoftDeletedBySlugOrEmail(slug, email)
+	if err != nil || len(softDeletedOrgs) == 0 {
+		return
+	}
+	for _, org := range softDeletedOrgs {
+		fmt.Printf("🗑️ Removendo organização soft-deleted bloqueante: %s (slug=%s, email=%s)\n", org.Name, org.Slug, org.Email)
+		_ = r.repo.CascadeDelete.HardDeleteOrganizationCascade(org.Id)
+	}
+}
+
 // addMasterAdminsToOrganization adiciona automaticamente todos os master admins
 // à nova organização criada (REGRA DE NEGÓCIO)
+// NOTA: Master admins têm acesso global via permissão master_admin, não precisam de UserRole por org
 func (r *resourceOrganization) addMasterAdminsToOrganization(
 	organizationId, projectId uuid.UUID,
 ) error {
-	// Master admin IDs (definidos no seed_data.go)
-	masterAdminEmails := []string{
-		"pablo@lep.com",
-		"luan@lep.com",
-		"eduardo@lep.com",
-	}
-
-	now := time.Now()
-
-	// Buscar cada master admin e criar relacionamentos
-	for _, email := range masterAdminEmails {
-		// Buscar usuário por email
-		user, err := r.repo.User.GetUserByEmail(email)
-		if err != nil {
-			// Se não encontrar, pular (pode não estar cadastrado ainda)
-			continue
-		}
-
-		// Criar relacionamento usuário-organização (se não existir)
-		userOrg := &models.UserOrganization{
-			Id:             uuid.New(),
-			UserId:         user.Id,
-			OrganizationId: organizationId,
-			Role:           "admin", // Master admins são admins da org
-			Active:         true,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-		}
-
-		// Ignorar erro se já existe (idempotente)
-		_ = r.repo.UserOrganizations.Create(userOrg)
-
-		// Criar relacionamento usuário-projeto (se não existir)
-		userProj := &models.UserProject{
-			Id:        uuid.New(),
-			UserId:    user.Id,
-			ProjectId: projectId,
-			Role:      "admin",
-			Active:    true,
-			CreatedAt: now,
-			UpdatedAt: now,
-		}
-
-		// Ignorar erro se já existe (idempotente)
-		_ = r.repo.UserProjects.Create(userProj)
-	}
-
+	// Master admins têm acesso global via a permissão "master_admin" no array de permissions do User
+	// O middleware de autorização verifica essa permissão e concede acesso total
+	// Não é mais necessário criar UserRole para cada organização
+	fmt.Printf("ℹ️ Master admins têm acesso global via permissão master_admin\n")
 	return nil
 }
 

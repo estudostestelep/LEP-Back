@@ -62,7 +62,7 @@ type ILimitHandler interface {
 type LimitHandler struct {
 	packageRepo     repositories.IPackageRepository
 	tableRepo       repositories.ITableRepository
-	userOrgRepo     repositories.IUserOrganizationRepository
+	roleRepo        repositories.IRoleRepository
 	productRepo     repositories.IProductRepository
 	reservationRepo repositories.IReservationRepository
 	moduleRepo      repositories.IModuleRepository
@@ -72,7 +72,7 @@ type LimitHandler struct {
 func NewLimitHandler(
 	packageRepo repositories.IPackageRepository,
 	tableRepo repositories.ITableRepository,
-	userOrgRepo repositories.IUserOrganizationRepository,
+	roleRepo repositories.IRoleRepository,
 	productRepo repositories.IProductRepository,
 	reservationRepo repositories.IReservationRepository,
 	moduleRepo repositories.IModuleRepository,
@@ -80,7 +80,7 @@ func NewLimitHandler(
 	return &LimitHandler{
 		packageRepo:     packageRepo,
 		tableRepo:       tableRepo,
-		userOrgRepo:     userOrgRepo,
+		roleRepo:        roleRepo,
 		productRepo:     productRepo,
 		reservationRepo: reservationRepo,
 		moduleRepo:      moduleRepo,
@@ -150,11 +150,11 @@ func (h *LimitHandler) countResource(orgId, projectId string, limitType LimitTyp
 		return len(tables), nil
 
 	case LimitUsers:
-		users, err := h.userOrgRepo.ListByOrganization(orgId)
+		count, err := h.roleRepo.CountUsersByOrganization(orgId)
 		if err != nil {
 			return 0, err
 		}
-		return len(users), nil
+		return count, nil
 
 	case LimitProducts:
 		products, err := h.productRepo.ListProducts(orgUUID, projUUID)
@@ -263,8 +263,8 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 	}
 
 	// Contar usuários
-	if users, err := h.userOrgRepo.ListByOrganization(orgId); err == nil {
-		response.Usage.UsersCount = len(users)
+	if count, err := h.roleRepo.CountUsersByOrganization(orgId); err == nil {
+		response.Usage.UsersCount = count
 	}
 
 	// Contar produtos

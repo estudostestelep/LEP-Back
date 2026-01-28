@@ -18,13 +18,4 @@ func SetupOrganizationRoutes(r gin.IRouter) {
 		organization.DELETE("/:id", resource.ServersControllers.SourceOrganization.SoftDeleteOrganization)
 		organization.DELETE("/:id/permanent", resource.ServersControllers.SourceOrganization.HardDeleteOrganization)
 	}
-
-	// User-Organization routes
-	userOrg := r.Group("/user-organization")
-	{
-		userOrg.DELETE("/user/:userId/org/:orgId", resource.ServersControllers.SourceUserOrganization.ServiceRemoveUserFromOrganization)
-		userOrg.PUT("/:id", resource.ServersControllers.SourceUserOrganization.ServiceUpdateUserOrganization)
-		userOrg.GET("/user/:userId", resource.ServersControllers.SourceUserOrganization.ServiceGetUserOrganizations)
-		userOrg.GET("/org/:orgId", resource.ServersControllers.SourceUserOrganization.ServiceGetOrganizationUsers)
-	}
 }

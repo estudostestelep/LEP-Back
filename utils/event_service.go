@@ -255,10 +255,10 @@ func (e *EventService) ProcessEvent(event *models.NotificationEvent) error {
 			Variables: variables,
 		}
 
-		// Enviar notificação
+		// Enviar notificação para o cliente
 		result, err := notificationService.SendNotification(notificationReq, project)
 
-		// Criar log
+		// Criar log para cliente
 		logEntry := &models.NotificationLog{
 			Id:             uuid.New(),
 			OrganizationId: event.OrganizationId,
@@ -281,6 +281,46 @@ func (e *EventService) ProcessEvent(event *models.NotificationEvent) error {
 
 		if err != nil {
 			log.Printf("Failed to send notification via %s: %v", channel, err)
+		}
+
+		// Enviar cópia para o responsável (apenas para reserva criada e canais SMS/WhatsApp)
+		if event.EventType == "reservation_create" && (channel == "sms" || channel == "whatsapp") {
+			if project.NotificationResponsiblePhone != nil && *project.NotificationResponsiblePhone != "" {
+				responsibleReq := NotificationRequest{
+					Channel:   channel,
+					Recipient: *project.NotificationResponsiblePhone,
+					Subject:   template.Subject,
+					Message:   template.Body,
+					Variables: variables,
+				}
+
+				responsibleResult, responsibleErr := notificationService.SendNotification(responsibleReq, project)
+
+				// Criar log para o responsável
+				responsibleLog := &models.NotificationLog{
+					Id:             uuid.New(),
+					OrganizationId: event.OrganizationId,
+					ProjectId:      event.ProjectId,
+					EventType:      event.EventType + "_responsible",
+					Channel:        channel,
+					Recipient:      *project.NotificationResponsiblePhone,
+					Subject:        template.Subject,
+					Message:        template.Body,
+					Status:         responsibleResult.Status,
+					ExternalId:     responsibleResult.ExternalId,
+					ErrorMessage:   responsibleResult.ErrorMessage,
+					CreatedAt:      time.Now(),
+					UpdatedAt:      time.Now(),
+				}
+
+				if logErr := e.notificationRepo.CreateNotificationLog(responsibleLog); logErr != nil {
+					log.Printf("Error creating responsible notification log: %v", logErr)
+				}
+
+				if responsibleErr != nil {
+					log.Printf("Failed to send notification to responsible via %s: %v", channel, responsibleErr)
+				}
+			}
 		}
 	}
 

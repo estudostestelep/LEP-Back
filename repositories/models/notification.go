@@ -110,6 +110,18 @@ type NotificationSchedule struct {
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
+// NotificationReminder - Lembretes customizados de reserva
+type NotificationReminder struct {
+	Id             uuid.UUID  `gorm:"primaryKey" json:"id"`
+	OrganizationId uuid.UUID  `json:"organization_id"`
+	ProjectId      uuid.UUID  `json:"project_id"`
+	Name           string     `json:"name"`                           // Ex: "Lembrete 3 horas antes"
+	HoursBefore    int        `json:"hours_before"`                   // Tempo em horas antes da reserva
+	Enabled        bool       `json:"enabled" gorm:"default:true"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
 // ResponseReviewQueue - Fila de revisão de respostas de clientes
 type ResponseReviewQueue struct {
 	Id              uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`

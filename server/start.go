@@ -23,8 +23,6 @@ func Start(db *gorm.DB) {
 
 		// Core models
 		&models.User{},
-		&models.UserOrganization{}, // Relacionamento usuário-organização
-		&models.UserProject{},      // Relacionamento usuário-projeto
 		&models.Customer{},
 		&models.Table{},
 		&models.Product{},
@@ -49,6 +47,7 @@ func Start(db *gorm.DB) {
 		&models.NotificationInbound{},
 		&models.NotificationSchedule{},
 		&models.ResponseReviewQueue{},
+		&models.NotificationReminder{},
 
 		// SPRINT 4 models (Advanced Validations)
 		&models.BlockedPeriod{},
@@ -93,6 +92,10 @@ func Start(db *gorm.DB) {
 		// Client Audit Log System (optional module for client-side logging)
 		&models.ClientAuditLog{},
 		&models.ClientAuditConfig{},
+
+		// Admin & Client user models
+		&models.Admin{},
+		&models.Client{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product

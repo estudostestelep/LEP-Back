@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"fmt"
+	"lep/handler"
 	"net/http"
 	"reflect"
 
@@ -140,13 +142,62 @@ func IsMasterAdmin(c *gin.Context) bool {
 // MasterAdminOnlyMiddleware middleware que permite apenas Master Admins
 func MasterAdminOnlyMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Log para diagnóstico
+		userId := c.GetString("user_id")
+		userPermissions, _ := c.Get("user_permissions")
+		fmt.Printf("[DEBUG MasterAdminOnlyMiddleware] Path=%s, Method=%s, UserId=%s, Permissions=%v\n",
+			c.Request.URL.Path, c.Request.Method, userId, userPermissions)
+
 		if !IsMasterAdmin(c) {
+			fmt.Printf("[DEBUG MasterAdminOnlyMiddleware] BLOCKED - User %s is not Master Admin\n", userId)
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Access denied: Master Admin only",
 			})
 			c.Abort()
 			return
 		}
+		fmt.Printf("[DEBUG MasterAdminOnlyMiddleware] ALLOWED - User %s is Master Admin\n", userId)
+		c.Next()
+	}
+}
+
+// AdminScopeMiddleware middleware que permite acesso a usuários com cargos de escopo "admin"
+// Isso inclui master_admin (via permissions) e cargos como admin_support, admin_sales
+func AdminScopeMiddleware(authHandler handler.IHandlerAuth) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userId := c.GetString("user_id")
+		userPermissions, _ := c.Get("user_permissions")
+		fmt.Printf("[DEBUG AdminScopeMiddleware] Path=%s, Method=%s, UserId=%s, Permissions=%v\n",
+			c.Request.URL.Path, c.Request.Method, userId, userPermissions)
+
+		// 1. Master admin tem bypass total (verificação pelo array de permissions legado)
+		if IsMasterAdmin(c) {
+			fmt.Printf("[DEBUG AdminScopeMiddleware] ALLOWED - User %s is Master Admin (bypass)\n", userId)
+			c.Next()
+			return
+		}
+
+		// 2. Verificar se tem cargo de escopo admin (via tabela user_roles)
+		hasAdminScope, err := authHandler.UserHasAdminScopeRole(userId)
+		if err != nil {
+			fmt.Printf("[DEBUG AdminScopeMiddleware] ERROR checking admin scope for user %s: %v\n", userId, err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Error checking admin permissions",
+			})
+			c.Abort()
+			return
+		}
+
+		if !hasAdminScope {
+			fmt.Printf("[DEBUG AdminScopeMiddleware] BLOCKED - User %s has no admin scope role\n", userId)
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Access denied: Admin scope required",
+			})
+			c.Abort()
+			return
+		}
+
+		fmt.Printf("[DEBUG AdminScopeMiddleware] ALLOWED - User %s has admin scope role\n", userId)
 		c.Next()
 	}
 }

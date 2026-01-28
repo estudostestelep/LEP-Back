@@ -77,8 +77,39 @@ func SeedRolesAndPermissions(db *gorm.DB) error {
 	// 6. Configurar limites e módulos dos pacotes
 	configurePackageLimitsAndModules(packageRepo, moduleRepo)
 
+	// 7. Corrigir user_roles de cargos admin que têm organization_id definido
+	// Cargos admin devem ter organization_id = NULL para serem reconhecidos corretamente
+	fixAdminScopeUserRoles(db)
+
 	fmt.Println("🌱 Seed de roles e permissões concluído!")
 	return nil
+}
+
+// fixAdminScopeUserRoles corrige registros de user_roles onde o cargo é de escopo admin
+// mas o organization_id não é NULL (deve ser NULL para cargos admin globais)
+func fixAdminScopeUserRoles(db *gorm.DB) {
+	fmt.Println("🔧 Verificando e corrigindo user_roles de cargos admin...")
+
+	// Query para encontrar user_roles onde:
+	// - O cargo associado tem scope = 'admin'
+	// - Mas organization_id não é NULL
+	result := db.Exec(`
+		UPDATE user_roles
+		SET organization_id = NULL, updated_at = NOW()
+		WHERE organization_id IS NOT NULL
+		AND role_id IN (
+			SELECT id FROM roles WHERE scope = 'admin' AND deleted_at IS NULL
+		)
+		AND deleted_at IS NULL
+	`)
+
+	if result.Error != nil {
+		fmt.Printf("⚠️ Erro ao corrigir user_roles de cargos admin: %v\n", result.Error)
+	} else if result.RowsAffected > 0 {
+		fmt.Printf("✅ Corrigidos %d registros de user_roles (organization_id → NULL para cargos admin)\n", result.RowsAffected)
+	} else {
+		fmt.Println("✅ Nenhum registro de user_roles precisou ser corrigido")
+	}
 }
 
 func createModules() []models.Module {

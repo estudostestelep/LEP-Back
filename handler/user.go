@@ -1,13 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"lep/constants"
 	"lep/repositories"
 	"lep/repositories/models"
-	"time"
-
-	"errors"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -24,6 +22,7 @@ type IHandlerUser interface {
 	GetUser(id string) (*models.User, error)
 	GetUserByGroup(id string) ([]models.User, error)
 	ListUsers(orgId, projectId string) ([]models.User, error)
+	ListUsersWithRoles(orgId, projectId string) ([]models.UserWithRole, error)
 	CreateUser(user *models.User, orgId, projectId, roleId string) error
 	UpdateUser(updatedUser *models.User) error
 	UpdateLastAccess(userId string) error
@@ -59,6 +58,10 @@ func (r *resourceUser) ListUsers(orgId, projectId string) ([]models.User, error)
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (r *resourceUser) ListUsersWithRoles(orgId, projectId string) ([]models.UserWithRole, error) {
+	return r.repo.User.ListUsersWithRoles(orgId, projectId)
 }
 
 func (r *resourceUser) CreateUser(user *models.User, orgId, projectId, roleId string) error {
@@ -133,8 +136,12 @@ func (r *resourceUser) UpdateUser(updatedUser *models.User) error {
 }
 
 func (r *resourceUser) DeleteUser(id string) error {
-	err := r.repo.User.DeleteUser(id)
-	if err != nil {
+	// Deletar user_roles associados antes de deletar o user (foreign key constraint)
+	if err := r.roleRepo.DeleteUserRolesByUserId(id); err != nil {
+		return fmt.Errorf("erro ao remover cargos do usuário: %w", err)
+	}
+
+	if err := r.repo.User.DeleteUser(id); err != nil {
 		return err
 	}
 	return nil
@@ -160,70 +167,15 @@ func (r *resourceUser) GetUserWithRelations(id string) (*models.UserWithRelation
 	return resp, nil
 }
 
-// linkUserToOrgAndProject vincula um usuário a uma organização e projeto específicos
+// linkUserToOrgAndProject vincula um usuário a uma organização e projeto via UserRole
+// NOTA: Esta função requer que um roleId seja atribuído posteriormente via assignRoleToUser
+// O acesso é gerenciado exclusivamente via user_roles no novo sistema
 func (r *resourceUser) linkUserToOrgAndProject(userId uuid.UUID, orgId, projectId string) error {
-	now := time.Now()
-
 	fmt.Printf("🔗 linkUserToOrgAndProject: userId=%s, orgId=%s, projectId=%s\n", userId, orgId, projectId)
-
-	// Vincular à organização se fornecido
-	if orgId != "" {
-		orgUUID, err := uuid.Parse(orgId)
-		if err != nil {
-			fmt.Printf("❌ Erro ao parsear orgId: %v\n", err)
-			return fmt.Errorf("ID de organização inválido: %v", err)
-		}
-
-		userOrg := &models.UserOrganization{
-			Id:             uuid.New(),
-			UserId:         userId,
-			OrganizationId: orgUUID,
-			Role:           "member",
-			Active:         true,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-		}
-
-		fmt.Printf("📝 Criando UserOrganization: %+v\n", userOrg)
-
-		if err := r.repo.UserOrganizations.Create(userOrg); err != nil {
-			fmt.Printf("❌ Erro ao criar UserOrganization: %v\n", err)
-			return fmt.Errorf("erro ao vincular usuário à organização: %v", err)
-		}
-		fmt.Printf("✅ UserOrganization criado com sucesso\n")
-	} else {
-		fmt.Printf("⚠️ orgId vazio, pulando criação de UserOrganization\n")
-	}
-
-	// Vincular ao projeto se fornecido
-	if projectId != "" {
-		projUUID, err := uuid.Parse(projectId)
-		if err != nil {
-			fmt.Printf("❌ Erro ao parsear projectId: %v\n", err)
-			return fmt.Errorf("ID de projeto inválido: %v", err)
-		}
-
-		userProj := &models.UserProject{
-			Id:        uuid.New(),
-			UserId:    userId,
-			ProjectId: projUUID,
-			Role:      "member",
-			Active:    true,
-			CreatedAt: now,
-			UpdatedAt: now,
-		}
-
-		fmt.Printf("📝 Criando UserProject: %+v\n", userProj)
-
-		if err := r.repo.UserProjects.Create(userProj); err != nil {
-			fmt.Printf("❌ Erro ao criar UserProject: %v\n", err)
-			return fmt.Errorf("erro ao vincular usuário ao projeto: %v", err)
-		}
-		fmt.Printf("✅ UserProject criado com sucesso\n")
-	} else {
-		fmt.Printf("⚠️ projectId vazio, pulando criação de UserProject\n")
-	}
-
+	fmt.Printf("ℹ️ No novo sistema, o acesso é gerenciado via UserRole com assignRoleToUser\n")
+	// O acesso agora é gerenciado exclusivamente via user_roles
+	// Esta função é mantida por compatibilidade mas não faz nada
+	// O roleId deve ser fornecido na criação do usuário
 	return nil
 }
 
@@ -305,57 +257,14 @@ func (r *resourceUser) assignRoleToUser(userId uuid.UUID, roleId, orgId, project
 }
 
 // addMasterAdminToAllOrganizations adiciona um novo master admin a todas as organizações existentes
-// REGRA DE NEGÓCIO: Master admins devem ter acesso automático a todas as orgs
+// REGRA DE NEGÓCIO: Master admins têm acesso global via permissão master_admin, não precisam de UserRole por org
+// O sistema verifica a permissão master_admin diretamente no middleware de autorização
 func (r *resourceUser) addMasterAdminToAllOrganizations(userId uuid.UUID) error {
-	// Buscar todas as organizações ativas
-	orgs, err := r.repo.Organizations.ListActiveOrganizations()
-	if err != nil {
-		return fmt.Errorf("erro ao buscar organizações: %v", err)
-	}
-
-	now := time.Now()
-
-	// Adicionar master admin a cada organização e seus projetos
-	for _, org := range orgs {
-		// Criar relacionamento usuário-organização (se não existir)
-		userOrg := &models.UserOrganization{
-			Id:             uuid.New(),
-			UserId:         userId,
-			OrganizationId: org.Id,
-			Role:           "admin", // Master admins são admins da organização
-			Active:         true,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-		}
-
-		// Ignorar erro se já existe (idempotente)
-		_ = r.repo.UserOrganizations.Create(userOrg)
-
-		// Buscar todos os projetos da organização
-		projects, err := r.repo.Projects.GetProjectByOrganization(org.Id)
-		if err != nil {
-			// Log error but continue
-			fmt.Printf("Aviso: erro ao buscar projetos da org %s: %v\n", org.Id, err)
-			continue
-		}
-
-		// Adicionar master admin a cada projeto
-		for _, proj := range projects {
-			userProj := &models.UserProject{
-				Id:        uuid.New(),
-				UserId:    userId,
-				ProjectId: proj.Id,
-				Role:      "admin",
-				Active:    true,
-				CreatedAt: now,
-				UpdatedAt: now,
-			}
-
-			// Ignorar erro se já existe (idempotente)
-			_ = r.repo.UserProjects.Create(userProj)
-		}
-	}
-
+	fmt.Printf("ℹ️ Master admins têm acesso global via permissão master_admin no array de permissions\n")
+	fmt.Printf("ℹ️ Não é necessário criar UserRole para cada organização\n")
+	// Master admins têm acesso global via a permissão "master_admin" no array de permissions do User
+	// O middleware de autorização verifica essa permissão e concede acesso total
+	// Não é mais necessário criar UserOrganization/UserProject para cada org
 	return nil
 }
 

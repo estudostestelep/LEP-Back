@@ -16,8 +16,9 @@ type DBconn struct {
 	Reservations        IReservationRepository
 	Tables              ITableRepository
 	User                IUserRepository
-	UserOrganizations   IUserOrganizationRepository
-	UserProjects        IUserProjectRepository
+	// Novos repositórios para Admin e Client
+	Admins              IAdminRepository
+	Clients             IClientRepository
 	Waitlists           WaitlistRepositoryInterface
 	KitchenQueue        IKitchenQueueRepository
 	Projects            IProjectRepository
@@ -52,8 +53,9 @@ type DBconn struct {
 func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.Organizations = NewConnOrganization(db)
 	r.User = NewUserRepository(db)
-	r.UserOrganizations = NewUserOrganizationRepository(db)
-	r.UserProjects = NewUserProjectRepository(db)
+	// Novos repositórios para Admin e Client
+	r.Admins = NewAdminRepository(db)
+	r.Clients = NewClientRepository(db)
 	r.BannedLists = NewConnBannedLists(db)
 	r.LoggedLists = NewConnLoggedLists(db)
 	r.Products = NewConnProduct(db)

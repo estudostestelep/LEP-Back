@@ -21,6 +21,9 @@ type IHandlerAuth interface {
 	GetUserProjectsWithNames(userId string) ([]UserProjectWithName, error)
 	RecordAccessLog(userId, ip, userAgent string) error
 	GetAccessLogs(userId string, page, perPage int) (*models.AccessLogPaginatedResponse, error)
+	// Admin Roles - para acesso à área administrativa
+	GetUserAdminRoles(userId string) ([]UserAdminRoleInfo, error)
+	UserHasAdminScopeRole(userId string) (bool, error)
 }
 
 func (r *resourceAuth) PostToken(user *models.User, token string) error {
@@ -96,56 +99,84 @@ func (r *resourceAuth) VerificationToken(token string) (*models.User, error) {
 	return user, nil
 }
 
-// GetUserOrganizationsWithNames busca organizações do usuário com seus nomes
+// GetUserOrganizationsWithNames busca organizações do usuário com seus nomes via user_roles
 func (r *resourceAuth) GetUserOrganizationsWithNames(userId string) ([]UserOrganizationWithName, error) {
-	// Buscar relacionamentos user-organization
-	userOrgs, err := r.repo.UserOrganizations.ListByUser(userId)
+	// Buscar todos os user_roles do usuário
+	userRoles, err := r.repo.Roles.GetAllUserRoles(userId)
 	if err != nil {
 		return nil, err
 	}
 
-	// Criar slice de resposta enriquecida
-	result := make([]UserOrganizationWithName, 0, len(userOrgs))
+	// Agrupar por organização (evitar duplicatas)
+	orgMap := make(map[uuid.UUID]UserOrganizationWithName)
 
-	// Para cada organização, buscar o nome
-	for _, userOrg := range userOrgs {
-		org, err := r.repo.Organizations.GetOrganizationById(userOrg.OrganizationId)
-		if err != nil {
-			// Se organização não for encontrada, pular
+	for _, ur := range userRoles {
+		if ur.OrganizationId == nil {
 			continue
 		}
-		result = append(result, UserOrganizationWithName{
-			Id:               userOrg.Id,
-			UserId:           userOrg.UserId,
-			OrganizationId:   userOrg.OrganizationId,
+
+		// Se já temos essa organização, pular
+		if _, exists := orgMap[*ur.OrganizationId]; exists {
+			continue
+		}
+
+		// Buscar nome da organização
+		org, err := r.repo.Organizations.GetOrganizationById(*ur.OrganizationId)
+		if err != nil {
+			continue
+		}
+
+		roleName := ""
+		if ur.Role != nil {
+			roleName = ur.Role.DisplayName
+		}
+
+		orgMap[*ur.OrganizationId] = UserOrganizationWithName{
+			Id:               ur.Id,
+			UserId:           ur.UserId,
+			OrganizationId:   *ur.OrganizationId,
 			OrganizationName: org.Name,
-			Role:             userOrg.Role,
-			Active:           userOrg.Active,
-			CreatedAt:        userOrg.CreatedAt,
-			UpdatedAt:        userOrg.UpdatedAt,
-			DeletedAt:        userOrg.DeletedAt,
-		})
+			Role:             roleName,
+			Active:           ur.Active,
+			CreatedAt:        ur.CreatedAt,
+			UpdatedAt:        ur.UpdatedAt,
+			DeletedAt:        ur.DeletedAt,
+		}
+	}
+
+	// Converter map para slice
+	result := make([]UserOrganizationWithName, 0, len(orgMap))
+	for _, org := range orgMap {
+		result = append(result, org)
 	}
 
 	return result, nil
 }
 
-// GetUserProjectsWithNames busca projetos do usuário com seus nomes
+// GetUserProjectsWithNames busca projetos do usuário com seus nomes via user_roles
 func (r *resourceAuth) GetUserProjectsWithNames(userId string) ([]UserProjectWithName, error) {
-	// Buscar relacionamentos user-project
-	userProjs, err := r.repo.UserProjects.ListByUser(userId)
+	// Buscar todos os user_roles do usuário
+	userRoles, err := r.repo.Roles.GetAllUserRoles(userId)
 	if err != nil {
 		return nil, err
 	}
 
-	// Criar slice de resposta enriquecida
-	result := make([]UserProjectWithName, 0, len(userProjs))
+	// Agrupar por projeto (evitar duplicatas)
+	projMap := make(map[uuid.UUID]UserProjectWithName)
 
-	// Para cada projeto, buscar o nome e também o nome da organização
-	for _, userProj := range userProjs {
-		proj, err := r.repo.Projects.GetProjectById(userProj.ProjectId)
+	for _, ur := range userRoles {
+		if ur.ProjectId == nil {
+			continue
+		}
+
+		// Se já temos esse projeto, pular
+		if _, exists := projMap[*ur.ProjectId]; exists {
+			continue
+		}
+
+		// Buscar nome do projeto
+		proj, err := r.repo.Projects.GetProjectById(*ur.ProjectId)
 		if err != nil {
-			// Se projeto não for encontrado, pular
 			continue
 		}
 
@@ -155,19 +186,30 @@ func (r *resourceAuth) GetUserProjectsWithNames(userId string) ([]UserProjectWit
 			orgName = org.Name
 		}
 
-		result = append(result, UserProjectWithName{
-			Id:               userProj.Id,
-			UserId:           userProj.UserId,
-			ProjectId:        userProj.ProjectId,
+		roleName := ""
+		if ur.Role != nil {
+			roleName = ur.Role.DisplayName
+		}
+
+		projMap[*ur.ProjectId] = UserProjectWithName{
+			Id:               ur.Id,
+			UserId:           ur.UserId,
+			ProjectId:        *ur.ProjectId,
 			ProjectName:      proj.Name,
 			OrganizationId:   proj.OrganizationId,
-			OrganizationName: orgName, // Nome da organização pai
-			Role:             userProj.Role,
-			Active:           userProj.Active,
-			CreatedAt:        userProj.CreatedAt,
-			UpdatedAt:        userProj.UpdatedAt,
-			DeletedAt:        userProj.DeletedAt,
-		})
+			OrganizationName: orgName,
+			Role:             roleName,
+			Active:           ur.Active,
+			CreatedAt:        ur.CreatedAt,
+			UpdatedAt:        ur.UpdatedAt,
+			DeletedAt:        ur.DeletedAt,
+		}
+	}
+
+	// Converter map para slice
+	result := make([]UserProjectWithName, 0, len(projMap))
+	for _, proj := range projMap {
+		result = append(result, proj)
 	}
 
 	return result, nil
@@ -196,6 +238,56 @@ func (r *resourceAuth) RecordAccessLog(userId, ip, userAgent string) error {
 // GetAccessLogs retorna logs de acesso paginados de um usuário
 func (r *resourceAuth) GetAccessLogs(userId string, page, perPage int) (*models.AccessLogPaginatedResponse, error) {
 	return r.repo.AccessLogs.GetByUserId(userId, page, perPage)
+}
+
+// GetUserAdminRoles busca todos os cargos de escopo "admin" atribuídos ao usuário
+// Esses são cargos com organization_id IS NULL (globais/administrativos)
+func (r *resourceAuth) GetUserAdminRoles(userId string) ([]UserAdminRoleInfo, error) {
+	// Buscar user_roles onde organization_id IS NULL (cargos admin globais)
+	// e o role tem scope = 'admin'
+	fmt.Printf("[DEBUG] GetUserAdminRoles - Buscando cargos admin para userId: %s\n", userId)
+
+	userRoles, err := r.repo.Roles.GetUserRoles(userId, "", "admin")
+	if err != nil {
+		fmt.Printf("[DEBUG] GetUserAdminRoles - Erro ao buscar: %v\n", err)
+		return nil, err
+	}
+
+	fmt.Printf("[DEBUG] GetUserAdminRoles - Encontrados %d user_roles (organization_id IS NULL + scope='admin')\n", len(userRoles))
+
+	result := make([]UserAdminRoleInfo, 0, len(userRoles))
+	for _, ur := range userRoles {
+		if ur.Role == nil {
+			fmt.Printf("[DEBUG] GetUserAdminRoles - UserRole %s tem Role nil, pulando\n", ur.Id)
+			continue
+		}
+
+		fmt.Printf("[DEBUG] GetUserAdminRoles - UserRole encontrado: id=%s, role_name=%s, scope=%s, active=%v\n",
+			ur.Id, ur.Role.Name, ur.Role.Scope, ur.Active)
+
+		result = append(result, UserAdminRoleInfo{
+			Id:              ur.Id,
+			RoleId:          ur.RoleId,
+			RoleName:        ur.Role.Name,
+			RoleDisplayName: ur.Role.DisplayName,
+			Scope:           ur.Role.Scope,
+			HierarchyLevel:  ur.Role.HierarchyLevel,
+			Active:          ur.Active,
+		})
+	}
+
+	fmt.Printf("[DEBUG] GetUserAdminRoles - Retornando %d cargos admin\n", len(result))
+	return result, nil
+}
+
+// UserHasAdminScopeRole verifica se o usuário possui pelo menos um cargo de escopo "admin"
+func (r *resourceAuth) UserHasAdminScopeRole(userId string) (bool, error) {
+	adminRoles, err := r.GetUserAdminRoles(userId)
+	if err != nil {
+		return false, err
+	}
+
+	return len(adminRoles) > 0, nil
 }
 
 func NewAuthHandler(repo *repositories.DBconn) IHandlerAuth {

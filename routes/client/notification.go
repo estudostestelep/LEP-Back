@@ -28,5 +28,14 @@ func SetupNotificationRoutes(r gin.IRouter) {
 		notification.POST("/review-queue/:id/approve", resource.ServersControllers.SourceNotification.ApproveReviewItem)
 		notification.POST("/review-queue/:id/reject", resource.ServersControllers.SourceNotification.RejectReviewItem)
 		notification.POST("/review-queue/:id/custom", resource.ServersControllers.SourceNotification.ExecuteCustomAction)
+
+		// Lembretes customizados
+		notification.GET("/reminders/:orgId/:projectId", resource.ServersControllers.SourceNotification.GetNotificationReminders)
+		notification.POST("/reminder", resource.ServersControllers.SourceNotification.CreateNotificationReminder)
+		notification.PUT("/reminder", resource.ServersControllers.SourceNotification.UpdateNotificationReminder)
+		notification.DELETE("/reminder/:id", resource.ServersControllers.SourceNotification.DeleteNotificationReminder)
+
+		// Debug/Admin - Executar job de notificações manualmente
+		notification.POST("/trigger-scheduled", resource.ServersControllers.SourceNotification.TriggerScheduledNotifications)
 	}
 }

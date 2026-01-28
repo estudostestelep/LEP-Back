@@ -7,7 +7,7 @@ import (
 )
 
 // SetupUserRoutes configura rotas de usuário para admin
-// CRUD de usuários administrativos + Gerenciamento de acesso
+// CRUD de usuários administrativos
 func SetupUserRoutes(r gin.IRouter) {
 	user := r.Group("/user")
 	{
@@ -17,9 +17,6 @@ func SetupUserRoutes(r gin.IRouter) {
 		user.POST("", resource.ServersControllers.SourceUsers.ServiceCreateUser)
 		user.PUT("/:id", resource.ServersControllers.SourceUsers.ServiceUpdateUser)
 		user.DELETE("/:id", resource.ServersControllers.SourceUsers.ServiceDeleteUser)
-
-		// User Access Management (organizações e projetos)
-		user.GET("/:id/organizations-projects", resource.ServersControllers.SourceUserAccess.ServiceGetUserOrganizationsAndProjects)
-		user.POST("/:id/organizations-projects", resource.ServersControllers.SourceUserAccess.ServiceUpdateUserOrganizationsAndProjects)
+		user.GET("/:id/organizations-projects", resource.ServersControllers.SourceUsers.ServiceGetUserAccess)
 	}
 }

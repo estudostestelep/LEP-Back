@@ -213,14 +213,22 @@ func (s *RoleServer) AssignRoleToUser(c *gin.Context) {
 		return
 	}
 
+	// Buscar o cargo para verificar seu escopo
+	role, err := s.handler.GetRole(req.RoleId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Cargo não encontrado"})
+		return
+	}
+
 	userRole := &models.UserRole{
 		UserId: userUUID,
 		RoleId: roleUUID,
 		Active: true,
 	}
 
-	// Se orgId foi fornecido, adicionar ao contexto
-	if orgId != "" {
+	// Se cargo é de escopo "admin", OrganizationId deve ser NULL (cargo global)
+	// Caso contrário, usar orgId do contexto se fornecido
+	if role.Scope != "admin" && orgId != "" {
 		parsed, err := uuid.Parse(orgId)
 		if err == nil {
 			userRole.OrganizationId = &parsed
@@ -281,13 +289,15 @@ func (s *RoleServer) RemoveRoleFromUser(c *gin.Context) {
 // @Tags Roles
 // @Produce json
 // @Param userId path string true "ID do usuário"
+// @Param scope query string false "Filtrar por escopo (admin/client)"
 // @Success 200 {array} models.UserRole
 // @Router /role/user/{userId} [get]
 func (s *RoleServer) GetUserRoles(c *gin.Context) {
 	userId := c.Param("userId")
 	orgId := c.GetString("organization_id")
+	scope := c.Query("scope")
 
-	roles, err := s.handler.GetUserRoles(userId, orgId)
+	roles, err := s.handler.GetUserRoles(userId, orgId, scope)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar cargos do usuário"})
 		return
@@ -301,13 +311,15 @@ func (s *RoleServer) GetUserRoles(c *gin.Context) {
 // @Tags Roles
 // @Produce json
 // @Param userId path string true "ID do usuário"
+// @Param scope query string false "Filtrar por escopo (admin/client)"
 // @Success 200 {array} models.RoleWithPermissionLevels
 // @Router /role/user/{userId}/details [get]
 func (s *RoleServer) GetUserRolesWithDetails(c *gin.Context) {
 	userId := c.Param("userId")
 	orgId := c.GetString("organization_id")
+	scope := c.Query("scope")
 
-	roles, err := s.handler.GetUserRolesWithDetails(userId, orgId)
+	roles, err := s.handler.GetUserRolesWithDetails(userId, orgId, scope)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar detalhes dos cargos"})
 		return
@@ -436,8 +448,8 @@ func (s *RoleServer) GetMyPermissions(c *gin.Context) {
 	// DEBUG: Log para diagnóstico
 	fmt.Printf("[DEBUG GetMyPermissions] userId=%s, orgId=%s, isMasterAdmin=%v, permList=%v\n", userId, orgId, isMasterAdmin, permList)
 
-	// Buscar cargos com detalhes
-	roles, err := s.handler.GetUserRolesWithDetails(userId, orgId)
+	// Buscar cargos com detalhes (todos os scopes para permissões efetivas)
+	roles, err := s.handler.GetUserRolesWithDetails(userId, orgId, "")
 	fmt.Printf("[DEBUG GetMyPermissions] Initial roles count=%d, err=%v\n", len(roles), err)
 
 	// Se é Master Admin e não tem cargos na org, simular cargo "owner"

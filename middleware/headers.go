@@ -27,6 +27,50 @@ func HeaderValidationMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Admin users don't need org/project headers - check JWT early
+		tokenString := c.GetHeader("Authorization")
+		if tokenString != "" {
+			cleanToken := strings.TrimPrefix(tokenString, "Bearer ")
+			parsedToken, parseErr := jwt.Parse(cleanToken, func(t *jwt.Token) (interface{}, error) {
+				return []byte(config.JWT_SECRET_PRIVATE_KEY), nil
+			})
+			if parseErr == nil && parsedToken.Valid {
+				if claims, ok := parsedToken.Claims.(jwt.MapClaims); ok {
+					isAdmin := false
+
+					// Verificar user_type == "admin" (admin login)
+					if userType, _ := claims["user_type"].(string); userType == "admin" {
+						isAdmin = true
+					}
+
+					// Verificar se o user tem permissão master_admin (legacy login)
+					if !isAdmin {
+						if userId, ok := claims["user_id"].(string); ok && userId != "" {
+							user, userErr := resource.Repository.User.GetUserById(userId)
+							if userErr == nil && user != nil {
+								for _, perm := range user.Permissions {
+									if perm == "master_admin" {
+										isAdmin = true
+										break
+									}
+								}
+							}
+						}
+					}
+
+					if isAdmin {
+						userId, _ := claims["user_id"].(string)
+						c.Set("user_id", userId)
+						c.Set("organization_id", c.GetHeader("X-Lpe-Organization-Id"))
+						c.Set("project_id", c.GetHeader("X-Lpe-Project-Id"))
+						fmt.Printf("⏭️ Admin user bypass: userId=%s\n", userId)
+						c.Next()
+						return
+					}
+				}
+			}
+		}
+
 		// POST /user: Capturar headers mas não validar acesso (usuário está sendo criado)
 		if path == "/user" && method == "POST" {
 			organizationId := c.GetHeader("X-Lpe-Organization-Id")
@@ -166,23 +210,59 @@ func validateUserAccess(c *gin.Context, orgId, projId string) error {
 	// Armazenar user_id no contexto para uso posterior
 	c.Set("user_id", userId)
 
-	// Validar no banco se o usuário tem acesso à org e projeto
-	// Usar o Repository global que foi inicializado em resource.Inject()
+	// ========== NOVO: Verificar tipo de usuário ==========
+	userType, _ := claims["user_type"].(string)
 
-	// Validar que o usuário tem acesso à organização
-	hasOrgAccess, err := resource.Repository.UserOrganizations.UserBelongsToOrganization(userId, orgId)
+	// ADMIN: tem acesso a todas as organizações e projetos
+	if userType == "admin" {
+		return nil
+	}
+
+	// CLIENT: verificar acesso direto via campos do cliente
+	if userType == "client" {
+		// Buscar cliente pelo ID
+		client, err := resource.Repository.Clients.GetClientById(userId)
+		if err != nil || client == nil {
+			return fmt.Errorf("cliente não encontrado")
+		}
+
+		// Verificar se a org do header é a org do cliente
+		if client.OrgId.String() != orgId {
+			return fmt.Errorf("usuário não tem acesso à organização: %s", orgId)
+		}
+
+		// Verificar se o projeto está na lista de projetos do cliente
+		if projId != "" && !client.HasProjectAccess(projId) {
+			return fmt.Errorf("usuário não tem acesso ao projeto: %s", projId)
+		}
+
+		return nil
+	}
+
+	// ========== Validar via user_roles ==========
+	// Validar que o usuário tem acesso à organização via user_roles
+	userRoles, err := resource.Repository.Roles.GetUserRoles(userId, orgId, "")
 	if err != nil {
 		return fmt.Errorf("erro ao validar acesso à organização: %v", err)
 	}
-	if !hasOrgAccess {
+	if len(userRoles) == 0 {
 		return fmt.Errorf("usuário não tem acesso à organização: %s", orgId)
 	}
 
 	// Validar que o usuário tem acesso ao projeto (se projId foi fornecido)
 	if projId != "" {
-		hasProjectAccess, err := resource.Repository.UserProjects.UserBelongsToProject(userId, projId)
-		if err != nil {
-			return fmt.Errorf("erro ao validar acesso ao projeto: %v", err)
+		hasProjectAccess := false
+		for _, role := range userRoles {
+			// Se a role não tem project_id, o usuário tem acesso a todos os projetos da org
+			if role.ProjectId == nil {
+				hasProjectAccess = true
+				break
+			}
+			// Se a role tem project_id e é igual ao projeto solicitado
+			if role.ProjectId != nil && role.ProjectId.String() == projId {
+				hasProjectAccess = true
+				break
+			}
 		}
 		if !hasProjectAccess {
 			return fmt.Errorf("usuário não tem acesso ao projeto: %s", projId)
@@ -197,6 +277,9 @@ func isFullyExemptRoute(path, method string) bool {
 	// Routes that don't require any organization/project headers
 	exemptRoutes := []RoutePattern{
 		{"/login", "POST"},
+		{"/admin/login", "POST"},   // Login de admin
+		{"/client/login", "POST"},  // Login de cliente
+		{"/tenant/resolve", "GET"}, // Resolver tenant
 		// {"/user", "POST"} - Removido: agora é tratado no middleware para capturar headers
 		{"/organization", "POST"}, // Organization creation (bootstrap)
 		{"/ping", "GET"},
@@ -214,10 +297,6 @@ func isFullyExemptRoute(path, method string) bool {
 		// Public upload/static routes (no auth required)
 		{"/uploads/*", "GET"},
 		{"/static/*", "GET"},
-
-		// User organizational access (has its own validation)
-		{"/user/*/organizations-projects", "GET"},  // Get user access - does its own validation
-		{"/user/*/organizations-projects", "POST"}, // Update user access - does its own validation
 	}
 
 	for _, route := range exemptRoutes {

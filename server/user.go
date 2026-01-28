@@ -14,7 +14,8 @@ import (
 )
 
 type ResourceUsers struct {
-	handler handler.IHandlerUser
+	handler     handler.IHandlerUser
+	authHandler handler.IHandlerAuth
 }
 
 type IServerUsers interface {
@@ -24,6 +25,7 @@ type IServerUsers interface {
 	ServiceCreateUser(c *gin.Context)
 	ServiceUpdateUser(c *gin.Context)
 	ServiceDeleteUser(c *gin.Context)
+	ServiceGetUserAccess(c *gin.Context)
 }
 
 func (r *ResourceUsers) ServiceGetUser(c *gin.Context) {
@@ -89,6 +91,12 @@ func (r *ResourceUsers) ServiceCreateUser(c *gin.Context) {
 	// Pegar roleId do request para atribuir cargo ao usuário
 	roleId := request.RoleId
 
+	// Validação: cargo é obrigatório para criar usuário
+	if roleId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "É necessário selecionar um cargo para o usuário"})
+		return
+	}
+
 	fmt.Printf("📦 ServiceCreateUser - Contexto recebido: orgId='%s', projectId='%s', userId='%s', roleId='%s'\n", organizationId, projectId, newUser.Id, roleId)
 
 	// Construir contexto da requisição para auditoria
@@ -141,7 +149,7 @@ func (r *ResourceUsers) ServiceListUsers(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
-	resp, err := r.handler.ListUsers(organizationId, projectId)
+	resp, err := r.handler.ListUsersWithRoles(organizationId, projectId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing users"})
 		return
@@ -173,8 +181,35 @@ func (r *ResourceUsers) ServiceDeleteUser(c *gin.Context) {
 	utils.SendOKSuccess(c, "User deleted successfully", nil)
 }
 
+func (r *ResourceUsers) ServiceGetUserAccess(c *gin.Context) {
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "user")
+	if !ok {
+		return
+	}
+
+	orgs, err := r.authHandler.GetUserOrganizationsWithNames(id.String())
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting user organizations", err)
+		return
+	}
+
+	projects, err := r.authHandler.GetUserProjectsWithNames(id.String())
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting user projects", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"organizations": orgs,
+			"projects":      projects,
+		},
+	})
+}
+
 func NewSourceServerUsers(handler *handler.Handlers) IServerUsers {
 	return &ResourceUsers{
-		handler: handler.HandlerUser,
+		handler:     handler.HandlerUser,
+		authHandler: handler.HandlerAuth,
 	}
 }

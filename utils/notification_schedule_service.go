@@ -54,12 +54,6 @@ func NewNotificationScheduleService(
 
 // ScheduleReservationNotifications cria agendamentos para uma nova reserva
 func (s *NotificationScheduleService) ScheduleReservationNotifications(reservation *models.Reservation, customer *models.Customer, table *models.Table) error {
-	settings, err := s.settingsRepo.GetSettingsByProject(reservation.OrganizationId, reservation.ProjectId)
-	if err != nil {
-		log.Printf("Erro ao buscar settings para agendamento: %v", err)
-		return err
-	}
-
 	// Parse datetime da reserva
 	reservationTime, err := time.Parse(time.RFC3339, reservation.Datetime)
 	if err != nil {
@@ -78,35 +72,18 @@ func (s *NotificationScheduleService) ScheduleReservationNotifications(reservati
 	}
 	metadataJSON, _ := json.Marshal(metadata)
 
-	// Agenda confirmação (se habilitado e horas > 0)
-	if settings.NotifyConfirmation24h && settings.ConfirmationHoursBefore > 0 {
-		confirmTime := reservationTime.Add(-time.Duration(settings.ConfirmationHoursBefore) * time.Hour)
-
-		// Só agenda se for no futuro
-		if confirmTime.After(time.Now()) {
-			schedule := &models.NotificationSchedule{
-				OrganizationId: reservation.OrganizationId,
-				ProjectId:      reservation.ProjectId,
-				EventType:      "confirmation_request",
-				EntityType:     "reservation",
-				EntityId:       reservation.Id,
-				ScheduledFor:   confirmTime,
-				Status:         "pending",
-				Metadata:       string(metadataJSON),
-			}
-
-			if err := s.notificationRepo.CreateNotificationSchedule(schedule); err != nil {
-				log.Printf("Erro ao agendar confirmação: %v", err)
-			} else {
-				log.Printf("Agendamento de confirmação criado para %s", confirmTime.Format("02/01/2006 15:04"))
-			}
-		}
+	// Buscar lembretes customizados ativos
+	reminders, err := s.notificationRepo.GetEnabledNotificationReminders(reservation.OrganizationId, reservation.ProjectId)
+	if err != nil {
+		log.Printf("Erro ao buscar lembretes customizados: %v", err)
+		// Continua mesmo sem lembretes customizados
 	}
 
-	// Agenda lembrete (se configurado e horas > 0)
-	if settings.ReminderHoursBefore > 0 {
-		reminderTime := reservationTime.Add(-time.Duration(settings.ReminderHoursBefore) * time.Hour)
+	// Agenda lembretes customizados
+	for _, reminder := range reminders {
+		reminderTime := reservationTime.Add(-time.Duration(reminder.HoursBefore) * time.Hour)
 
+		// Só agenda se for no futuro
 		if reminderTime.After(time.Now()) {
 			schedule := &models.NotificationSchedule{
 				OrganizationId: reservation.OrganizationId,
@@ -120,9 +97,9 @@ func (s *NotificationScheduleService) ScheduleReservationNotifications(reservati
 			}
 
 			if err := s.notificationRepo.CreateNotificationSchedule(schedule); err != nil {
-				log.Printf("Erro ao agendar lembrete: %v", err)
+				log.Printf("Erro ao agendar lembrete '%s': %v", reminder.Name, err)
 			} else {
-				log.Printf("Agendamento de lembrete criado para %s", reminderTime.Format("02/01/2006 15:04"))
+				log.Printf("Agendamento de lembrete '%s' criado para %s", reminder.Name, reminderTime.Format("02/01/2006 15:04"))
 			}
 		}
 	}

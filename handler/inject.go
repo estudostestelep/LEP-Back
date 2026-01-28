@@ -9,9 +9,6 @@ import (
 
 type Handlers struct {
 	HandlerUser               IHandlerUser
-	HandlerUserOrganization   IHandlerUserOrganization
-	HandlerUserProject        IHandlerUserProject
-	HandlerUserAccess         UserAccessHandler
 	HandlerProducts           IHandlerProducts
 	HandlerAuth               IHandlerAuth
 	HandlerOrder              IOrderHandler
@@ -40,6 +37,9 @@ type Handlers struct {
 	HandlerSidebarConfig      ISidebarConfigHandler
 	HandlerAdminAuditLog      IAdminAuditLogHandler       // Logs de auditoria administrativa (read-only)
 	HandlerClientAuditLog     IClientAuditLogHandler      // Logs de auditoria de cliente (módulo opcional)
+	// Novos handlers para Admin e Client separados
+	HandlerAdminUser          IHandlerAdminUser           // Gestão de usuários admin
+	HandlerClientUser         IHandlerClientUser          // Gestão de usuários cliente
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
@@ -57,9 +57,6 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerRole.SetAdminAuditHandler(h.HandlerAdminAuditLog)
 
 	h.HandlerUser = NewSourceHandlerUser(repo, repo.Roles, h.HandlerRole, h.HandlerAdminAuditLog)
-	h.HandlerUserOrganization = NewSourceHandlerUserOrganization(repo)
-	h.HandlerUserProject = NewSourceHandlerUserProject(repo)
-	h.HandlerUserAccess = NewUserAccessHandler(db)
 	h.HandlerProducts = NewSourceHandlerProducts(repo)
 	h.HandlerAuth = NewAuthHandler(repo)
 	h.HandlerOrder = NewOrderHandler(repo.Orders, repo.Products, repo.KitchenQueue)
@@ -104,7 +101,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerLimits = NewLimitHandler(
 		repo.Packages,
 		repo.Tables,
-		repo.UserOrganizations,
+		repo.Roles,
 		repo.Products,
 		repo.Reservations,
 		repo.Modules,
@@ -115,4 +112,8 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 
 	// Client Audit Log Handler (módulo opcional)
 	h.HandlerClientAuditLog = NewClientAuditLogHandler(repo.ClientAuditLogs)
+
+	// Novos handlers para Admin e Client separados
+	h.HandlerAdminUser = NewAdminUserHandler(repo)
+	h.HandlerClientUser = NewClientUserHandler(repo)
 }
