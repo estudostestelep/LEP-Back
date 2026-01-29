@@ -13,20 +13,20 @@ type SidebarConfigRepository struct {
 }
 
 type ISidebarConfigRepository interface {
-	GetByOrganization(orgId uuid.UUID) (*models.SidebarConfig, error)
+	GetGlobal() (*models.SidebarConfig, error)
 	Create(config *models.SidebarConfig) error
 	Update(config *models.SidebarConfig) error
-	GetOrCreate(orgId uuid.UUID, defaultItemsJSON string) (*models.SidebarConfig, error)
+	GetOrCreate(defaultItemsJSON string) (*models.SidebarConfig, error)
 }
 
 func NewSidebarConfigRepository(db *gorm.DB) ISidebarConfigRepository {
 	return &SidebarConfigRepository{db: db}
 }
 
-// GetByOrganization busca a configuração da sidebar por organização
-func (r *SidebarConfigRepository) GetByOrganization(orgId uuid.UUID) (*models.SidebarConfig, error) {
+// GetGlobal busca a configuração global da sidebar
+func (r *SidebarConfigRepository) GetGlobal() (*models.SidebarConfig, error) {
 	var config models.SidebarConfig
-	err := r.db.Where("organization_id = ?", orgId).First(&config).Error
+	err := r.db.First(&config).Error
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +44,10 @@ func (r *SidebarConfigRepository) Update(config *models.SidebarConfig) error {
 	return r.db.Save(config).Error
 }
 
-// GetOrCreate busca ou cria configuração padrão para a organização
-func (r *SidebarConfigRepository) GetOrCreate(orgId uuid.UUID, defaultItemsJSON string) (*models.SidebarConfig, error) {
+// GetOrCreate busca ou cria configuração global padrão
+func (r *SidebarConfigRepository) GetOrCreate(defaultItemsJSON string) (*models.SidebarConfig, error) {
 	// Tenta buscar configuração existente
-	config, err := r.GetByOrganization(orgId)
+	config, err := r.GetGlobal()
 	if err == nil {
 		return config, nil
 	}
@@ -55,11 +55,10 @@ func (r *SidebarConfigRepository) GetOrCreate(orgId uuid.UUID, defaultItemsJSON 
 	// Se não encontrou, cria configuração padrão
 	if err == gorm.ErrRecordNotFound {
 		newConfig := &models.SidebarConfig{
-			Id:             uuid.New(),
-			OrganizationId: orgId,
-			ItemConfigs:    defaultItemsJSON,
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
+			Id:          uuid.New(),
+			ItemConfigs: defaultItemsJSON,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		}
 
 		err = r.Create(newConfig)

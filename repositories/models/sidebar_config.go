@@ -21,10 +21,9 @@ type SidebarItemConfig struct {
 	Behavior   SidebarItemBehavior `json:"behavior"`
 }
 
-// SidebarConfig armazena a configuração da sidebar por organização
+// SidebarConfig armazena a configuração global da sidebar (única para todas organizações)
 type SidebarConfig struct {
-	Id             uuid.UUID `gorm:"primaryKey" json:"id"`
-	OrganizationId uuid.UUID `gorm:"not null;uniqueIndex" json:"organization_id"`
+	Id uuid.UUID `gorm:"primaryKey" json:"id"`
 
 	// ItemConfigs armazena as configurações em formato JSON
 	ItemConfigs string `gorm:"type:jsonb;default:'[]'" json:"item_configs"`
@@ -35,11 +34,10 @@ type SidebarConfig struct {
 
 // SidebarConfigResponse é a estrutura de resposta da API
 type SidebarConfigResponse struct {
-	Id             uuid.UUID           `json:"id"`
-	OrganizationId uuid.UUID           `json:"organization_id"`
-	Items          []SidebarItemConfig `json:"items"`
-	CreatedAt      time.Time           `json:"created_at"`
-	UpdatedAt      time.Time           `json:"updated_at"`
+	Id        uuid.UUID           `json:"id"`
+	Items     []SidebarItemConfig `json:"items"`
+	CreatedAt time.Time           `json:"created_at"`
+	UpdatedAt time.Time           `json:"updated_at"`
 }
 
 // SidebarConfigUpdateRequest é a estrutura de requisição para atualizar a configuração

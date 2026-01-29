@@ -5,7 +5,6 @@ import (
 	"lep/repositories/models"
 	"net/http"
 	"reflect"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -55,17 +54,9 @@ func isMasterAdminCheck(c *gin.Context) bool {
 	return false
 }
 
-// GetConfig busca a configuração da sidebar para a organização atual
+// GetConfig busca a configuração global da sidebar
 func (s *SidebarConfigServer) GetConfig(c *gin.Context) {
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
-		})
-		return
-	}
-
-	config, err := s.handler.GetByOrganization(organizationId)
+	config, err := s.handler.GetGlobal()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching sidebar config"})
 		return
@@ -77,20 +68,12 @@ func (s *SidebarConfigServer) GetConfig(c *gin.Context) {
 	})
 }
 
-// UpdateConfig atualiza a configuração da sidebar (apenas Master Admin)
+// UpdateConfig atualiza a configuração global da sidebar (apenas Master Admin)
 func (s *SidebarConfigServer) UpdateConfig(c *gin.Context) {
 	// Verificar permissão de Master Admin
 	if !isMasterAdminCheck(c) {
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": "Access denied: Master Admin only",
-		})
-		return
-	}
-
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
 		})
 		return
 	}
@@ -113,7 +96,7 @@ func (s *SidebarConfigServer) UpdateConfig(c *gin.Context) {
 		}
 	}
 
-	config, err := s.handler.UpdateConfig(organizationId, request.Items)
+	config, err := s.handler.UpdateConfig(request.Items)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating sidebar config"})
 		return
@@ -125,7 +108,7 @@ func (s *SidebarConfigServer) UpdateConfig(c *gin.Context) {
 	})
 }
 
-// ResetConfig reseta a configuração da sidebar para os valores padrão (apenas Master Admin)
+// ResetConfig reseta a configuração global da sidebar para os valores padrão (apenas Master Admin)
 func (s *SidebarConfigServer) ResetConfig(c *gin.Context) {
 	// Verificar permissão de Master Admin
 	if !isMasterAdminCheck(c) {
@@ -135,15 +118,7 @@ func (s *SidebarConfigServer) ResetConfig(c *gin.Context) {
 		return
 	}
 
-	organizationId := c.GetHeader("X-Lpe-Organization-Id")
-	if strings.TrimSpace(organizationId) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
-		})
-		return
-	}
-
-	config, err := s.handler.ResetToDefaults(organizationId)
+	config, err := s.handler.ResetToDefaults()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error resetting sidebar config"})
 		return

@@ -5,8 +5,6 @@ import (
 	"lep/repositories"
 	"lep/repositories/models"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type SidebarConfigHandler struct {
@@ -14,9 +12,9 @@ type SidebarConfigHandler struct {
 }
 
 type ISidebarConfigHandler interface {
-	GetByOrganization(orgId string) (*models.SidebarConfigResponse, error)
-	UpdateConfig(orgId string, items []models.SidebarItemConfig) (*models.SidebarConfigResponse, error)
-	ResetToDefaults(orgId string) (*models.SidebarConfigResponse, error)
+	GetGlobal() (*models.SidebarConfigResponse, error)
+	UpdateConfig(items []models.SidebarItemConfig) (*models.SidebarConfigResponse, error)
+	ResetToDefaults() (*models.SidebarConfigResponse, error)
 }
 
 func NewSidebarConfigHandler(repo repositories.ISidebarConfigRepository) ISidebarConfigHandler {
@@ -52,14 +50,9 @@ func getDefaultItemsJSON() string {
 	return string(jsonBytes)
 }
 
-// GetByOrganization busca a configuração da sidebar por organização
-func (h *SidebarConfigHandler) GetByOrganization(orgId string) (*models.SidebarConfigResponse, error) {
-	orgUUID, err := uuid.Parse(orgId)
-	if err != nil {
-		return nil, err
-	}
-
-	config, err := h.repo.GetOrCreate(orgUUID, getDefaultItemsJSON())
+// GetGlobal busca a configuração global da sidebar
+func (h *SidebarConfigHandler) GetGlobal() (*models.SidebarConfigResponse, error) {
+	config, err := h.repo.GetOrCreate(getDefaultItemsJSON())
 	if err != nil {
 		return nil, err
 	}
@@ -70,23 +63,17 @@ func (h *SidebarConfigHandler) GetByOrganization(orgId string) (*models.SidebarC
 	}
 
 	return &models.SidebarConfigResponse{
-		Id:             config.Id,
-		OrganizationId: config.OrganizationId,
-		Items:          items,
-		CreatedAt:      config.CreatedAt,
-		UpdatedAt:      config.UpdatedAt,
+		Id:        config.Id,
+		Items:     items,
+		CreatedAt: config.CreatedAt,
+		UpdatedAt: config.UpdatedAt,
 	}, nil
 }
 
-// UpdateConfig atualiza a configuração da sidebar
-func (h *SidebarConfigHandler) UpdateConfig(orgId string, items []models.SidebarItemConfig) (*models.SidebarConfigResponse, error) {
-	orgUUID, err := uuid.Parse(orgId)
-	if err != nil {
-		return nil, err
-	}
-
+// UpdateConfig atualiza a configuração global da sidebar
+func (h *SidebarConfigHandler) UpdateConfig(items []models.SidebarItemConfig) (*models.SidebarConfigResponse, error) {
 	// Buscar ou criar configuração
-	config, err := h.repo.GetOrCreate(orgUUID, getDefaultItemsJSON())
+	config, err := h.repo.GetOrCreate(getDefaultItemsJSON())
 	if err != nil {
 		return nil, err
 	}
@@ -105,15 +92,14 @@ func (h *SidebarConfigHandler) UpdateConfig(orgId string, items []models.Sidebar
 	}
 
 	return &models.SidebarConfigResponse{
-		Id:             config.Id,
-		OrganizationId: config.OrganizationId,
-		Items:          items,
-		CreatedAt:      config.CreatedAt,
-		UpdatedAt:      config.UpdatedAt,
+		Id:        config.Id,
+		Items:     items,
+		CreatedAt: config.CreatedAt,
+		UpdatedAt: config.UpdatedAt,
 	}, nil
 }
 
 // ResetToDefaults reseta a configuração para os valores padrão
-func (h *SidebarConfigHandler) ResetToDefaults(orgId string) (*models.SidebarConfigResponse, error) {
-	return h.UpdateConfig(orgId, getDefaultSidebarItems())
+func (h *SidebarConfigHandler) ResetToDefaults() (*models.SidebarConfigResponse, error) {
+	return h.UpdateConfig(getDefaultSidebarItems())
 }
