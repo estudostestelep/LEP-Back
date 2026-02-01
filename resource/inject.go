@@ -30,4 +30,11 @@ func Inject() {
 	if err := handler.SeedRolesAndPermissions(db); err != nil {
 		fmt.Printf("⚠️ Erro no seed de roles: %v\n", err)
 	}
+
+	// Seed da organização demo (criada automaticamente se não existir)
+	if err := handler.SeedDemoOrganization(db); err != nil {
+		fmt.Printf("⚠️ Erro no seed demo: %v\n", err)
+	} else {
+		fmt.Printf("Executado seed demo: %v\n", err)
+	}
 }

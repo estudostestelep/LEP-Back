@@ -53,7 +53,7 @@ func (r *resourcePermission) GetById(id string) (*models.Permission, error) {
 // GetByCodeName busca permissão pelo código técnico
 func (r *resourcePermission) GetByCodeName(codeName string) (*models.Permission, error) {
 	var permission models.Permission
-	err := r.db.Where("code_name = ? AND deleted_at IS NULL", codeName).
+	err := r.db.Where("code = ? AND deleted_at IS NULL", codeName).
 		Preload("Module").
 		First(&permission).Error
 	if err != nil {
@@ -77,7 +77,7 @@ func (r *resourcePermission) List() ([]models.Permission, error) {
 	var permissions []models.Permission
 	err := r.db.Where("deleted_at IS NULL AND active = true").
 		Preload("Module").
-		Order("module_id, code_name ASC").
+		Order("module, code ASC").
 		Find(&permissions).Error
 	return permissions, err
 }
@@ -85,9 +85,9 @@ func (r *resourcePermission) List() ([]models.Permission, error) {
 // ListByModule lista permissões de um módulo específico
 func (r *resourcePermission) ListByModule(moduleId string) ([]models.Permission, error) {
 	var permissions []models.Permission
-	err := r.db.Where("module_id = ? AND deleted_at IS NULL AND active = true", moduleId).
+	err := r.db.Where("module = ? AND deleted_at IS NULL AND active = true", moduleId).
 		Preload("Module").
-		Order("code_name ASC").
+		Order("code ASC").
 		Find(&permissions).Error
 	return permissions, err
 }
@@ -105,7 +105,7 @@ func (r *resourcePermission) CreateBulk(permissions []models.Permission) error {
 // GetByCodeNames busca permissões por lista de códigos
 func (r *resourcePermission) GetByCodeNames(codeNames []string) ([]models.Permission, error) {
 	var permissions []models.Permission
-	err := r.db.Where("code_name IN ? AND deleted_at IS NULL", codeNames).
+	err := r.db.Where("code IN ? AND deleted_at IS NULL", codeNames).
 		Preload("Module").
 		Find(&permissions).Error
 	return permissions, err

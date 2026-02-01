@@ -55,7 +55,7 @@ func (r *resourceModule) GetById(id string) (*models.Module, error) {
 // GetByCodeName busca módulo pelo código técnico
 func (r *resourceModule) GetByCodeName(codeName string) (*models.Module, error) {
 	var module models.Module
-	err := r.db.Where("code_name = ? AND deleted_at IS NULL", codeName).First(&module).Error
+	err := r.db.Where("code = ? AND deleted_at IS NULL", codeName).First(&module).Error
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (r *resourceModule) Delete(id string) error {
 func (r *resourceModule) List() ([]models.Module, error) {
 	var modules []models.Module
 	err := r.db.Where("deleted_at IS NULL AND active = true").
-		Order("display_order ASC, code_name ASC").
+		Order("display_order ASC, code ASC").
 		Find(&modules).Error
 	return modules, err
 }
@@ -85,7 +85,7 @@ func (r *resourceModule) List() ([]models.Module, error) {
 func (r *resourceModule) ListByScope(scope string) ([]models.Module, error) {
 	var modules []models.Module
 	err := r.db.Where("scope = ? AND deleted_at IS NULL AND active = true", scope).
-		Order("display_order ASC, code_name ASC").
+		Order("display_order ASC, code ASC").
 		Find(&modules).Error
 	return modules, err
 }
@@ -107,7 +107,7 @@ func (r *resourceModule) ListWithPermissions() ([]models.Module, error) {
 	var modules []models.Module
 	err := r.db.Where("deleted_at IS NULL AND active = true").
 		Preload("Permissions", "deleted_at IS NULL AND active = true").
-		Order("display_order ASC, code_name ASC").
+		Order("display_order ASC, code ASC").
 		Find(&modules).Error
 	return modules, err
 }

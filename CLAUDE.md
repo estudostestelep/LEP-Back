@@ -27,28 +27,19 @@ go build -o lep-system .
 ./lep-system
 ```
 
-### Sistema de Dados (Seeding)
-```bash
-# Popular banco de dados com dados de exemplo
-bash ./scripts/run_seed.sh
+### Dados de Demonstração (Seed Automático)
 
-# Executar seeder diretamente
-go run cmd/seed/main.go
+O sistema cria automaticamente uma organização demo ao iniciar, incluindo:
+- Organização "LEP Demo" com projeto "Restaurante Demo"
+- 3 usuários com diferentes roles
+- 10 mesas em 2 ambientes (Salão e Varanda)
+- Menu completo com 14 produtos
+- 3 clientes exemplo
 
-# Limpar dados antes de popular
-bash ./scripts/run_seed.sh --clear-first
-
-# Com log detalhado
-bash ./scripts/run_seed.sh --verbose
-
-# Especificar ambiente
-bash ./scripts/run_seed.sh --environment=test
-```
-
-**Credenciais de Login após Seeding:**
-- admin@lep-demo.com / password (Admin)
-- garcom@lep-demo.com / password (Garçom)
-- gerente@lep-demo.com / password (Gerente)
+**Credenciais de Login (criadas automaticamente):**
+- admin@lep-demo.com / password (Owner)
+- gerente@lep-demo.com / password (Manager)
+- garcom@lep-demo.com / password (Waiter)
 
 ### Testes
 ```bash

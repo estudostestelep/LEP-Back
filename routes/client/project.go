@@ -15,6 +15,7 @@ func SetupProjectRoutes(r gin.IRouter) {
 		project.GET("/organization/:orgId", resource.ServersControllers.SourceProject.GetProjectsByOrganizationId)
 		project.GET("/active", resource.ServersControllers.SourceProject.GetActiveProjects)
 		project.PUT("/:id", resource.ServersControllers.SourceProject.UpdateProject)
+		project.PUT("/:id/set-default", resource.ServersControllers.SourceProject.SetDefaultProject)
 		project.DELETE("/:id", resource.ServersControllers.SourceProject.SoftDeleteProject)
 		project.DELETE("/:id/permanent", resource.ServersControllers.SourceProject.HardDeleteProject)
 	}
