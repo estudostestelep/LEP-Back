@@ -99,20 +99,25 @@ func (r *ResourceClientUsers) ServiceCreateClient(c *gin.Context) {
 		return
 	}
 
-	// Converter para modelo
+	// Converter para modelo (permissões vêm via roles, não diretamente no client)
 	client := &models.Client{
-		Id:          uuid.New(),
-		Name:        request.Name,
-		Email:       request.Email,
-		Password:    request.Password,
-		OrgId:       orgUUID,
-		ProjIds:     pq.StringArray(request.ProjIds),
-		Permissions: pq.StringArray(request.Permissions),
-		Active:      true,
+		Id:       uuid.New(),
+		Name:     request.Name,
+		Email:    request.Email,
+		Password: request.Password,
+		OrgId:    orgUUID,
+		ProjIds:  pq.StringArray(request.ProjIds),
+		Active:   true,
 	}
 
 	if request.Active != nil {
 		client.Active = *request.Active
+	}
+
+	// Validação estruturada do modelo
+	if err := validation.CreateClientValidation(client); err != nil {
+		utils.SendValidationError(c, "Validation failed", err)
+		return
 	}
 
 	if err := r.handler.CreateClient(client); err != nil {
@@ -164,11 +169,15 @@ func (r *ResourceClientUsers) ServiceUpdateClient(c *gin.Context) {
 	if len(request.ProjIds) > 0 {
 		existing.ProjIds = pq.StringArray(request.ProjIds)
 	}
-	if len(request.Permissions) > 0 {
-		existing.Permissions = pq.StringArray(request.Permissions)
-	}
+	// Nota: Permissões agora são gerenciadas via roles, não diretamente no client
 	if request.Active != nil {
 		existing.Active = *request.Active
+	}
+
+	// Validação estruturada do modelo
+	if err := validation.UpdateClientValidation(existing); err != nil {
+		utils.SendValidationError(c, "Validation failed", err)
+		return
 	}
 
 	if err := r.handler.UpdateClient(existing); err != nil {

@@ -18,9 +18,6 @@ func SetupAuthRoutes(r *gin.Engine) {
 	// Login de clientes (requer org_slug no body)
 	r.POST("/client/login", resource.ServersControllers.SourceAuthClient.ServiceClientLogin)
 
-	// Cadastro público
-	r.POST("/user", resource.ServersControllers.SourceUsers.ServiceCreateUser)
-
 	// Criar organização (bootstrap)
 	r.POST("/create-organization", resource.ServersControllers.SourceOrganization.ServiceCreateOrganizationBootstrap)
 

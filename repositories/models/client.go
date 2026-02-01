@@ -9,19 +9,22 @@ import (
 
 // Client representa um usuário cliente do sistema
 // Clientes pertencem a UMA organização e podem ter acesso a múltiplos projetos
+// Suas permissões são definidas via Roles na tabela client_roles
 type Client struct {
 	Id           uuid.UUID      `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	Name         string         `json:"name" gorm:"not null"`
 	Email        string         `gorm:"unique;not null" json:"email"`
-	Password     string         `json:"password,omitempty" gorm:"not null"` // hash bcrypt
+	Password     string         `json:"-" gorm:"not null"` // hash bcrypt, nunca serializado
 	OrgId        uuid.UUID      `json:"org_id" gorm:"type:uuid;not null;index"`
 	ProjIds      pq.StringArray `json:"proj_ids" gorm:"type:text[]"` // Array de UUIDs dos projetos
-	Permissions  pq.StringArray `gorm:"type:text[]" json:"permissions"`
 	Active       bool           `gorm:"default:true" json:"active"`
 	LastAccessAt *time.Time     `json:"last_access_at,omitempty"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    *time.Time     `json:"deleted_at,omitempty" gorm:"index"`
+
+	// Relacionamentos - permissões são via roles
+	Roles []Role `json:"roles,omitempty" gorm:"many2many:client_roles;joinForeignKey:ClientId;joinReferences:RoleId"`
 }
 
 // TableName define o nome da tabela no banco de dados
@@ -38,16 +41,6 @@ func (c *Client) IsActive() bool {
 func (c *Client) HasProjectAccess(projectId string) bool {
 	for _, pid := range c.ProjIds {
 		if pid == projectId {
-			return true
-		}
-	}
-	return false
-}
-
-// HasPermission verifica se o cliente tem uma permissão específica
-func (c *Client) HasPermission(permission string) bool {
-	for _, p := range c.Permissions {
-		if p == permission {
 			return true
 		}
 	}
@@ -71,6 +64,31 @@ func (c *Client) RemoveProject(projectId string) {
 	}
 	c.ProjIds = newProjIds
 }
+
+// GetMaxHierarchyLevel retorna o maior nível de hierarquia entre os roles
+// Requer que Roles esteja preloaded
+func (c *Client) GetMaxHierarchyLevel() int {
+	maxLevel := 0
+	for _, role := range c.Roles {
+		if role.HierarchyLevel > maxLevel {
+			maxLevel = role.HierarchyLevel
+		}
+	}
+	return maxLevel
+}
+
+// HasRole verifica se o cliente tem um role específico
+// Requer que Roles esteja preloaded
+func (c *Client) HasRole(roleName string) bool {
+	for _, role := range c.Roles {
+		if role.Name == roleName {
+			return true
+		}
+	}
+	return false
+}
+
+// ==================== DTOs ====================
 
 // ClientWithOrganization é um DTO que inclui informações da organização
 type ClientWithOrganization struct {

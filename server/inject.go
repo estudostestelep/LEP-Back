@@ -6,11 +6,9 @@ import (
 	"log"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 type ServerController struct {
-	SourceUsers              IServerUsers
 	SourceProducts           IServerProducts
 	SourceAuth               IServerAuth
 	SourceOrders             IOrderServer
@@ -42,80 +40,63 @@ type ServerController struct {
 	SourceAdminAuditLog      IAdminAuditLogServer  // Logs de auditoria admin (read-only)
 	SourceClientAuditLog     IClientAuditLogServer // Logs de auditoria de cliente (módulo opcional)
 	// Novos servers para autenticação separada
-	SourceAuthAdmin          IServerAuthAdmin      // Login de administradores
-	SourceAuthClient         IServerAuthClient     // Login de clientes
-	SourceTenant             IServerTenant         // Resolver tenant por slug
+	SourceAuthAdmin  IServerAuthAdmin  // Login de administradores
+	SourceAuthClient IServerAuthClient // Login de clientes
+	SourceTenant     IServerTenant     // Resolver tenant por slug
 	// CRUD de admins e clients (novo sistema de usuários)
-	SourceAdminUsers         IServerAdminUsers     // CRUD de admins (tabela admins)
-	SourceClientUsers        IServerClientUsers    // CRUD de clients (tabela clients)
+	SourceAdminUsers  IServerAdminUsers  // CRUD de admins (tabela admins)
+	SourceClientUsers IServerClientUsers // CRUD de clients (tabela clients)
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
-	// Create default user with master_admin permission
-	userId := uuid.New()
-	var user models.User
-	user.Id = userId
-	user.Email = "pablo@lep.com"
-	user.Password = "senha123"
-	user.Name = "Pablo"
-	user.Permissions = pq.StringArray{"master_admin"}
-	// Para master_admin, não precisa passar orgId/projectId/roleId pois a função adiciona automaticamente a todas as orgs
-	err := handler.HandlerUser.CreateUser(&user, "", "", "")
-	if err != nil {
-		log.Printf("❌ Error creating master_admin user: %v", err)
+
+	// Nota: Permissões são gerenciadas via roles, não diretamente no admin
+	admin := &models.Admin{
+		Name:     "Pablo",
+		Email:    "pablo@lep.com",
+		Password: "senha123",
+		Active:   true,
+	}
+	errAdmin := handler.HandlerAdminUser.CreateAdmin(admin)
+	if errAdmin != nil {
+		log.Printf("❌ Error creating admin: %v", errAdmin)
 	} else {
-		log.Printf("✅ Master admin user created: Pablo (pablo@lep.com)")
+		log.Printf("✅ Admin created: Pablo (pablo@lep.com)")
+	}
 
-		// Criar admin correspondente na tabela admins
-		admin := &models.Admin{
-			Name:        "Pablo",
-			Email:       "pablo@lep.com",
-			Password:    "senha123",
-			Permissions: pq.StringArray{"master_admin"},
-			Active:      true,
+	// Create default organization
+	orgId := uuid.New()
+	org := &models.Organization{
+		Id:    orgId,
+		Name:  "Default Organization",
+		Email: "admin@default.com",
+		Phone: "+5511999999999",
+	}
+	errOrg := handler.HandlerOrganization.CreateOrganization(org)
+	if errOrg != nil {
+		log.Printf("❌ Error creating default organization: %v", errOrg)
+	} else {
+		log.Printf("✅ Default organization created: Default Organization")
+
+		// Create default project
+		projectId := uuid.New()
+		project := &models.Project{
+			Id:             projectId,
+			Name:           "Default Project",
+			OrganizationId: orgId,
 		}
-		errAdmin := handler.HandlerAdminUser.CreateAdmin(admin)
-		if errAdmin != nil {
-			log.Printf("❌ Error creating admin: %v", errAdmin)
+		errProj := handler.HandlerProject.CreateProject(project)
+		if errProj != nil {
+			log.Printf("❌ Error creating default project: %v", errProj)
 		} else {
-			log.Printf("✅ Admin created: Pablo (pablo@lep.com)")
-		}
+			log.Printf("✅ Default project created: Default Project")
 
-		// Create default organization
-		orgId := uuid.New()
-		org := &models.Organization{
-			Id:    orgId,
-			Name:  "Default Organization",
-			Email: "admin@default.com",
-			Phone: "+5511999999999",
-		}
-		errOrg := handler.HandlerOrganization.CreateOrganization(org)
-		if errOrg != nil {
-			log.Printf("❌ Error creating default organization: %v", errOrg)
-		} else {
-			log.Printf("✅ Default organization created: Default Organization")
-
-			// Create default project
-			projectId := uuid.New()
-			project := &models.Project{
-				Id:             projectId,
-				Name:           "Default Project",
-				OrganizationId: orgId,
-			}
-			errProj := handler.HandlerProject.CreateProject(project)
-			if errProj != nil {
-				log.Printf("❌ Error creating default project: %v", errProj)
-			} else {
-				log.Printf("✅ Default project created: Default Project")
-
-				// Associar usuário à organização e projeto via UserRole (novo sistema)
-				// O master_admin já tem acesso global, mas podemos atribuir um role específico se necessário
-				log.Printf("✅ User has master_admin permission - global access granted")
-			}
+			// Associar usuário à organização e projeto via UserRole (novo sistema)
+			// O master_admin já tem acesso global, mas podemos atribuir um role específico se necessário
+			log.Printf("✅ User has master_admin permission - global access granted")
 		}
 	}
 
-	h.SourceUsers = NewSourceServerUsers(handler)
 	h.SourceProducts = NewSourceServerProducts(handler)
 	h.SourceAuth = NewSourceServerAuth(handler)
 	h.SourceOrders = NewOrderServer(handler.HandlerOrder)

@@ -22,8 +22,8 @@ func SetupRoleClientRoutes(r gin.IRouter) {
 		role.GET("/user/:userId", resource.ServersControllers.SourceRole.GetUserRoles)
 		role.GET("/user/:userId/details", resource.ServersControllers.SourceRole.GetUserRolesWithDetails)
 
-		// Níveis de permissão por cargo
-		role.POST("/permission-level", resource.ServersControllers.SourceRole.SetPermissionLevel)
+		// Gerenciamento de permissões por cargo
+		role.POST("/permission", resource.ServersControllers.SourceRole.AddPermissionToRole)
 
 		// Leitura de cargos
 		role.GET("", resource.ServersControllers.SourceRole.ListRoles)

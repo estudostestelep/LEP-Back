@@ -23,6 +23,14 @@ type IHandlerAdminUser interface {
 	DeleteAdmin(id string) error
 	UpdateLastAccess(adminId string) error
 	ValidateAdminCredentials(email, password string) (*models.Admin, error)
+	ValidatePermissions(permissions []string) error
+	ListAvailablePermissions() ([]models.Permission, error)
+	// Role management
+	GetRole(roleId string) (*models.Role, error)
+	GetPermissionsFromRole(roleId string) ([]string, error)
+	GetUserMaxHierarchyLevel(userId string) (int, error)
+	AssignRoleToAdmin(adminRole *models.AdminRole) error
+	GetAdminRoles(adminId string) ([]models.AdminRole, error)
 }
 
 func (r *resourceAdminUser) GetAdminById(id string) (*models.Admin, error) {
@@ -78,7 +86,7 @@ func (r *resourceAdminUser) UpdateAdmin(admin *models.Admin) error {
 }
 
 func (r *resourceAdminUser) DeleteAdmin(id string) error {
-	return r.repo.Admins.SoftDeleteAdmin(id)
+	return r.repo.Admins.DeleteAdmin(id) // Hard delete - remove permanentemente
 }
 
 func (r *resourceAdminUser) UpdateLastAccess(adminId string) error {
@@ -100,6 +108,93 @@ func (r *resourceAdminUser) ValidateAdminCredentials(email, password string) (*m
 	}
 
 	return admin, nil
+}
+
+// ValidatePermissions valida se as permissões existem no banco
+// master_admin é sempre válido (permissão especial de admin)
+func (r *resourceAdminUser) ValidatePermissions(permissions []string) error {
+	if len(permissions) == 0 {
+		return errors.New("pelo menos uma permissão é obrigatória")
+	}
+
+	// Buscar permissões que não são master_admin
+	var permissionsToValidate []string
+	for _, p := range permissions {
+		if p == "" {
+			return errors.New("permissão não pode ser vazia")
+		}
+		// master_admin é sempre válido (permissão especial)
+		if p != "master_admin" {
+			permissionsToValidate = append(permissionsToValidate, p)
+		}
+	}
+
+	// Se só tem master_admin, não precisa validar no banco
+	if len(permissionsToValidate) == 0 {
+		return nil
+	}
+
+	// Buscar permissões no banco
+	dbPermissions, err := r.repo.Permissions.GetByCodeNames(permissionsToValidate)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar permissões: %v", err)
+	}
+
+	// Criar mapa de permissões encontradas
+	found := make(map[string]bool)
+	for _, p := range dbPermissions {
+		found[p.Code] = true
+	}
+
+	// Verificar se todas as permissões existem
+	for _, p := range permissionsToValidate {
+		if !found[p] {
+			return fmt.Errorf("permissão inválida: %s", p)
+		}
+	}
+
+	return nil
+}
+
+// ListAvailablePermissions lista todas as permissões disponíveis no sistema
+func (r *resourceAdminUser) ListAvailablePermissions() ([]models.Permission, error) {
+	return r.repo.Permissions.List()
+}
+
+// GetRole busca role por ID
+func (r *resourceAdminUser) GetRole(roleId string) (*models.Role, error) {
+	return r.repo.Roles.GetById(roleId)
+}
+
+// GetPermissionsFromRole extrai permissões de um role
+func (r *resourceAdminUser) GetPermissionsFromRole(roleId string) ([]string, error) {
+	codes, err := r.repo.Roles.GetRolePermissionCodes(roleId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Se role tem HierarchyLevel >= 10, adicionar indicação de master_admin
+	role, _ := r.repo.Roles.GetById(roleId)
+	if role != nil && role.HierarchyLevel >= 10 {
+		codes = append(codes, "master_admin")
+	}
+
+	return codes, nil
+}
+
+// GetUserMaxHierarchyLevel retorna o nível máximo de hierarquia do admin
+func (r *resourceAdminUser) GetUserMaxHierarchyLevel(userId string) (int, error) {
+	return r.repo.Roles.GetAdminMaxHierarchyLevel(userId)
+}
+
+// AssignRoleToAdmin cria AdminRole para admin
+func (r *resourceAdminUser) AssignRoleToAdmin(adminRole *models.AdminRole) error {
+	return r.repo.Roles.AssignRoleToAdmin(adminRole)
+}
+
+// GetAdminRoles busca todos os roles de um admin
+func (r *resourceAdminUser) GetAdminRoles(adminId string) ([]models.AdminRole, error) {
+	return r.repo.Roles.GetAdminRoles(adminId)
 }
 
 func NewAdminUserHandler(repo *repositories.DBconn) IHandlerAdminUser {

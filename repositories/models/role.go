@@ -4,126 +4,146 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
+// ==================== Role ====================
+
 // Role representa um cargo no sistema
-// Cargos são atribuídos a usuários e definem suas permissões
+// Cargos são atribuídos a usuários e definem suas permissões via tabela pivot role_permissions
 type Role struct {
-	Id             uuid.UUID      `json:"id" gorm:"type:uuid;primary_key"`
-	Name           string         `json:"name" gorm:"size:100;not null"`                    // Nome técnico (ex: "admin", "manager")
-	DisplayName    string         `json:"display_name" gorm:"size:100"`                     // Nome amigável (ex: "Administrador", "Gerente")
-	Description    string         `json:"description" gorm:"size:500"`                      // Descrição do cargo
-	HierarchyLevel int            `json:"hierarchy_level" gorm:"default:1"`                 // Nível de hierarquia (1-10)
-	Scope          string         `json:"scope" gorm:"size:20;default:'client'"`            // "admin" ou "client"
-	Permissions    pq.StringArray `json:"permissions" gorm:"type:text[]"`                   // Array de permissões (legacy)
-	OrganizationId *uuid.UUID     `json:"organization_id,omitempty" gorm:"type:uuid;index"` // NULL = cargo global do sistema
-	ProjectId      *uuid.UUID     `json:"project_id,omitempty" gorm:"type:uuid;index"`      // NULL = cargo da organização
-	IsSystem       bool           `json:"is_system" gorm:"default:false"`                   // Cargo do sistema (não pode ser deletado)
-	Active         bool           `json:"active" gorm:"default:true"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      *time.Time     `json:"deleted_at,omitempty" gorm:"index"`
+	Id             uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
+	Name           string     `json:"name" gorm:"size:100;not null;uniqueIndex"` // Nome técnico (ex: "owner", "manager")
+	DisplayName    string     `json:"display_name" gorm:"size:100"`              // Nome amigável (ex: "Proprietário", "Gerente")
+	Description    string     `json:"description" gorm:"size:500"`               // Descrição do cargo
+	HierarchyLevel int        `json:"hierarchy_level" gorm:"default:1"`          // Nível de hierarquia (1-10, 10=master_admin)
+	Scope          string     `json:"scope" gorm:"size:20;default:'client'"`     // "admin" ou "client"
+	OrganizationId *uuid.UUID `json:"organization_id,omitempty" gorm:"type:uuid;index"`
+	IsSystem       bool       `json:"is_system" gorm:"default:false"` // Cargo do sistema (não pode ser deletado)
+	Active         bool       `json:"active" gorm:"default:true"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty" gorm:"index"`
+
+	// Relacionamentos
+	Permissions []Permission `json:"permissions,omitempty" gorm:"many2many:role_permissions;"`
 }
 
 func (Role) TableName() string {
 	return "roles"
 }
 
-// UserRole representa a associação entre usuário e cargo (muitos para muitos)
-type UserRole struct {
+// IsMasterAdmin verifica se o cargo é de master admin baseado na hierarquia
+func (r *Role) IsMasterAdmin() bool {
+	return r.HierarchyLevel >= 10
+}
+
+// ==================== RolePermission (Pivot) ====================
+
+// RolePermission representa a associação entre cargo e permissão
+type RolePermission struct {
+	RoleId       uuid.UUID `json:"role_id" gorm:"type:uuid;primaryKey"`
+	PermissionId uuid.UUID `json:"permission_id" gorm:"type:uuid;primaryKey"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+func (RolePermission) TableName() string {
+	return "role_permissions"
+}
+
+// ==================== AdminRole (Pivot Admin-Role) ====================
+
+// AdminRole representa a associação entre admin e cargo
+type AdminRole struct {
 	Id             uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	UserId         uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
+	AdminId        uuid.UUID  `json:"admin_id" gorm:"type:uuid;not null;index"`
 	RoleId         uuid.UUID  `json:"role_id" gorm:"type:uuid;not null;index"`
-	OrganizationId *uuid.UUID `json:"organization_id,omitempty" gorm:"type:uuid;index"` // NULL = cargo admin global (zona administrativa)
-	ProjectId      *uuid.UUID `json:"project_id,omitempty" gorm:"type:uuid;index"`      // Contexto do projeto (opcional)
+	OrganizationId *uuid.UUID `json:"organization_id,omitempty" gorm:"type:uuid;index"` // NULL = cargo admin global
 	Active         bool       `json:"active" gorm:"default:true"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 	DeletedAt      *time.Time `json:"deleted_at,omitempty" gorm:"index"`
 
 	// Relacionamentos para preload
-	User *User `json:"user,omitempty" gorm:"foreignKey:UserId"`
-	Role *Role `json:"role,omitempty" gorm:"foreignKey:RoleId"`
+	Admin *Admin `json:"admin,omitempty" gorm:"foreignKey:AdminId"`
+	Role  *Role  `json:"role,omitempty" gorm:"foreignKey:RoleId"`
 }
 
-func (UserRole) TableName() string {
-	return "user_roles"
+func (AdminRole) TableName() string {
+	return "admin_roles"
 }
 
-// RoleWithPermissionLevels representa um cargo com níveis de permissão detalhados
-type RoleWithPermissionLevels struct {
-	Role
-	PermissionLevels []RolePermissionLevel `json:"permission_levels,omitempty"`
+// ==================== ClientRole (Pivot Client-Role) ====================
+
+// ClientRole representa a associação entre client e cargo
+type ClientRole struct {
+	Id             uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
+	ClientId       uuid.UUID  `json:"client_id" gorm:"type:uuid;not null;index"`
+	RoleId         uuid.UUID  `json:"role_id" gorm:"type:uuid;not null;index"`
+	OrganizationId uuid.UUID  `json:"organization_id" gorm:"type:uuid;not null;index"`
+	ProjectId      *uuid.UUID `json:"project_id,omitempty" gorm:"type:uuid;index"` // Contexto do projeto (opcional)
+	Active         bool       `json:"active" gorm:"default:true"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty" gorm:"index"`
+
+	// Relacionamentos para preload
+	Client *Client `json:"client,omitempty" gorm:"foreignKey:ClientId"`
+	Role   *Role   `json:"role,omitempty" gorm:"foreignKey:RoleId"`
 }
 
-// RolePermissionLevel define o nível de acesso (0, 1, 2) para cada permissão
-type RolePermissionLevel struct {
-	Id           uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	RoleId       uuid.UUID  `json:"role_id" gorm:"type:uuid;not null;index"`
-	PermissionId uuid.UUID  `json:"permission_id" gorm:"type:uuid;not null;index"`
-	Level        int        `json:"level" gorm:"default:0"` // 0=sem acesso, 1=leitura, 2=escrita
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	DeletedAt    *time.Time `json:"deleted_at,omitempty" gorm:"index"`
-
-	// Relacionamentos
-	Role       *Role       `json:"role,omitempty" gorm:"foreignKey:RoleId"`
-	Permission *Permission `json:"permission,omitempty" gorm:"foreignKey:PermissionId"`
+func (ClientRole) TableName() string {
+	return "client_roles"
 }
 
-func (RolePermissionLevel) TableName() string {
-	return "role_permission_levels"
-}
+// ==================== Permission ====================
 
-// Permission representa uma permissão no sistema (tabela separada para flexibilidade)
+// Permission representa uma permissão no sistema no formato module:action
 type Permission struct {
 	Id          uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	CodeName    string     `json:"code_name" gorm:"size:100;not null;uniqueIndex"` // Nome técnico (ex: "client_menu_view")
-	DisplayName string     `json:"display_name" gorm:"size:100"`                   // Nome amigável (ex: "Visualizar Cardápio")
-	Description string     `json:"description" gorm:"size:500"`
-	ModuleId    uuid.UUID  `json:"module_id" gorm:"type:uuid;not null;index"` // Módulo ao qual pertence
+	Code        string     `json:"code" gorm:"size:100;not null;uniqueIndex"`  // Código completo (ex: "orders:read")
+	Module      string     `json:"module" gorm:"size:50;not null;index"`       // Módulo (ex: "orders")
+	Action      string     `json:"action" gorm:"size:20;not null"`             // Ação (ex: "read")
+	DisplayName string     `json:"display_name" gorm:"size:100"`               // Nome amigável
+	Description string     `json:"description" gorm:"size:500"`                // Descrição
 	Active      bool       `json:"active" gorm:"default:true"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty" gorm:"index"`
-
-	// Relacionamentos
-	Module *Module `json:"module,omitempty" gorm:"foreignKey:ModuleId"`
 }
 
 func (Permission) TableName() string {
 	return "permissions"
 }
 
+// ==================== Module ====================
+
 // Module representa um módulo do sistema (agrupamento de permissões)
 type Module struct {
 	Id           uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	CodeName     string     `json:"code_name" gorm:"size:100;not null;uniqueIndex"` // Nome técnico (ex: "menu", "orders")
-	DisplayName  string     `json:"display_name" gorm:"size:100"`                   // Nome amigável (ex: "Cardápio", "Pedidos")
+	Code         string     `json:"code" gorm:"size:100;not null;uniqueIndex"` // Código (ex: "orders")
+	Name         string     `json:"name" gorm:"size:100"`                      // Nome amigável (ex: "Pedidos")
 	Description  string     `json:"description" gorm:"size:500"`
-	Icon         string     `json:"icon" gorm:"size:50"`                       // Ícone do módulo (lucide icon name)
-	Scope        string     `json:"scope" gorm:"size:20;default:'client'"`     // "admin" ou "client"
-	DisplayOrder int        `json:"display_order" gorm:"default:0"`            // Ordem de exibição
-	IsFree       bool       `json:"is_free" gorm:"default:false"`              // Módulo gratuito (disponível para todos)
-	Active       bool       `json:"active" gorm:"default:true"`                // Se o módulo está disponível
+	Icon         string     `json:"icon" gorm:"size:50"`                   // Ícone do módulo (lucide icon name)
+	Scope        string     `json:"scope" gorm:"size:20;default:'client'"` // "admin" ou "client"
+	DisplayOrder int        `json:"display_order" gorm:"default:0"`        // Ordem de exibição
+	IsFree       bool       `json:"is_free" gorm:"default:false"`          // Módulo gratuito (disponível para todos)
+	Active       bool       `json:"active" gorm:"default:true"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	DeletedAt    *time.Time `json:"deleted_at,omitempty" gorm:"index"`
-
-	// Relacionamentos
-	Permissions []Permission `json:"permissions,omitempty" gorm:"foreignKey:ModuleId"`
 }
 
 func (Module) TableName() string {
 	return "modules"
 }
 
-// Package representa um pacote/plano de assinatura
-type Package struct {
+// ==================== Plan (anteriormente Package) ====================
+
+// Plan representa um plano de assinatura
+type Plan struct {
 	Id           uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	CodeName     string     `json:"code_name" gorm:"size:100;not null;uniqueIndex"`
-	DisplayName  string     `json:"display_name" gorm:"size:100"`   // Nome amigável (ex: "Plano Básico")
+	Code         string     `json:"code" gorm:"size:100;not null;uniqueIndex"` // Código do plano
+	Name         string     `json:"name" gorm:"size:100"`                      // Nome amigável (ex: "Plano Básico")
 	Description  string     `json:"description" gorm:"size:500"`
 	PriceMonthly float64    `json:"price_monthly" gorm:"type:decimal(10,2);default:0"`
 	PriceYearly  float64    `json:"price_yearly" gorm:"type:decimal(10,2);default:0"`
@@ -134,53 +154,34 @@ type Package struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 	DeletedAt    *time.Time `json:"deleted_at,omitempty" gorm:"index"`
 
-	// Relacionamentos (não mapeados diretamente pelo GORM para evitar ciclos)
-	Modules []Module `json:"modules,omitempty" gorm:"-"` // Preenchido manualmente
-}
-
-func (Package) TableName() string {
-	return "packages"
-}
-
-// PackageModule associa módulos a pacotes
-type PackageModule struct {
-	Id        uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	PackageId uuid.UUID  `json:"package_id" gorm:"type:uuid;not null;index"`
-	ModuleId  uuid.UUID  `json:"module_id" gorm:"type:uuid;not null;index"`
-	CreatedAt time.Time  `json:"created_at"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty" gorm:"index"`
-
 	// Relacionamentos
-	Package *Package `json:"package,omitempty" gorm:"foreignKey:PackageId"`
-	Module  *Module  `json:"module,omitempty" gorm:"foreignKey:ModuleId"`
+	Modules []Module    `json:"modules,omitempty" gorm:"many2many:plan_modules;"`
+	Limits  []PlanLimit `json:"limits,omitempty" gorm:"foreignKey:PlanId"`
 }
 
-func (PackageModule) TableName() string {
-	return "package_modules"
+func (Plan) TableName() string {
+	return "plans"
 }
 
-// PackageBundle associa pacotes a bundles
-type PackageBundle struct {
-	Id              uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	BundleId        uuid.UUID  `json:"bundle_id" gorm:"type:uuid;not null;index"`  // ID do bundle (Package com IsBundle=true)
-	PackageId       uuid.UUID  `json:"package_id" gorm:"type:uuid;not null;index"` // ID do pacote incluído
-	DiscountPercent float64    `json:"discount_percent" gorm:"type:decimal(5,2);default:0"`
-	CreatedAt       time.Time  `json:"created_at"`
-	DeletedAt       *time.Time `json:"deleted_at,omitempty" gorm:"index"`
+// ==================== PlanModule (Pivot Plan-Module) ====================
 
-	// Relacionamentos
-	Bundle  *Package `json:"bundle,omitempty" gorm:"foreignKey:BundleId"`
-	Package *Package `json:"package,omitempty" gorm:"foreignKey:PackageId"`
+// PlanModule associa módulos a planos
+type PlanModule struct {
+	PlanId    uuid.UUID `json:"plan_id" gorm:"type:uuid;primaryKey"`
+	ModuleId  uuid.UUID `json:"module_id" gorm:"type:uuid;primaryKey"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-func (PackageBundle) TableName() string {
-	return "package_bundles"
+func (PlanModule) TableName() string {
+	return "plan_modules"
 }
 
-// PackageLimit define limites de recursos por pacote
-type PackageLimit struct {
+// ==================== PlanLimit ====================
+
+// PlanLimit define limites de recursos por plano
+type PlanLimit struct {
 	Id         uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	PackageId  uuid.UUID  `json:"package_id" gorm:"type:uuid;not null;index"`
+	PlanId     uuid.UUID  `json:"plan_id" gorm:"type:uuid;not null;index"`
 	LimitType  string     `json:"limit_type" gorm:"size:50;not null"` // "users", "tables", "products", "reservations_per_day"
 	LimitValue int        `json:"limit_value" gorm:"default:-1"`      // -1 = ilimitado
 	CreatedAt  time.Time  `json:"created_at"`
@@ -188,21 +189,23 @@ type PackageLimit struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty" gorm:"index"`
 
 	// Relacionamentos
-	Package *Package `json:"package,omitempty" gorm:"foreignKey:PackageId"`
+	Plan *Plan `json:"plan,omitempty" gorm:"foreignKey:PlanId"`
 }
 
-func (PackageLimit) TableName() string {
-	return "package_limits"
+func (PlanLimit) TableName() string {
+	return "plan_limits"
 }
 
-// OrganizationPackage associa pacotes a organizações (assinatura)
-type OrganizationPackage struct {
+// ==================== OrganizationPlan ====================
+
+// OrganizationPlan associa planos a organizações (assinatura)
+type OrganizationPlan struct {
 	Id             uuid.UUID  `json:"id" gorm:"type:uuid;primary_key"`
-	OrganizationId uuid.UUID  `json:"organization_id" gorm:"type:uuid;not null;index"`
-	PackageId      uuid.UUID  `json:"package_id" gorm:"type:uuid;not null;index"`
-	BillingCycle   string     `json:"billing_cycle" gorm:"size:20;default:'monthly'"` // "monthly", "yearly"
+	OrganizationId uuid.UUID  `json:"organization_id" gorm:"type:uuid;not null;uniqueIndex"`
+	PlanId         uuid.UUID  `json:"plan_id" gorm:"type:uuid;not null;index"`
+	BillingCycle   string     `json:"billing_cycle" gorm:"size:20;default:'monthly'"`   // "monthly", "yearly"
 	CustomPrice    *float64   `json:"custom_price,omitempty" gorm:"type:decimal(10,2)"` // Preço customizado (override)
-	StartedAt      *time.Time `json:"started_at,omitempty"`
+	StartsAt       *time.Time `json:"starts_at,omitempty"`
 	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
 	Active         bool       `json:"active" gorm:"default:true"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -211,9 +214,24 @@ type OrganizationPackage struct {
 
 	// Relacionamentos
 	Organization *Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationId"`
-	Package      *Package      `json:"package,omitempty" gorm:"foreignKey:PackageId"`
+	Plan         *Plan         `json:"plan,omitempty" gorm:"foreignKey:PlanId"`
 }
 
-func (OrganizationPackage) TableName() string {
-	return "organization_packages"
+func (OrganizationPlan) TableName() string {
+	return "organization_plans"
 }
+
+// ==================== DTOs e Views ====================
+
+// RoleWithPermissions representa um cargo com suas permissões carregadas
+type RoleWithPermissions struct {
+	Role
+	PermissionCodes []string `json:"permission_codes,omitempty" gorm:"-"`
+}
+
+// PlanWithModules representa um plano com seus módulos carregados
+type PlanWithModules struct {
+	Plan
+	ModuleCodes []string `json:"module_codes,omitempty" gorm:"-"`
+}
+

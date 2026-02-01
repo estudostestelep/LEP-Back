@@ -10,10 +10,12 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type resourceOrganization struct {
 	repo *repositories.DBconn
+	db   *gorm.DB
 }
 
 type OrganizationBootstrapResponse struct {
@@ -100,16 +102,26 @@ func (r *resourceOrganization) CreateOrganization(organization *models.Organizat
 		organization.Id = uuid.New()
 	}
 
+	// Gerar slug automaticamente se não fornecido
+	if organization.Slug == "" {
+		organization.Slug = strings.ToLower(strings.ReplaceAll(organization.Name, " ", "-"))
+	}
+
 	err := r.repo.Organizations.CreateOrganization(organization)
 	if err != nil {
 		return err
 	}
 
-	// 🎯 REGRA DE NEGÓCIO: Atribuir plano gratuito automaticamente
-	// Toda organização começa com o plano "free"
-	if err := r.assignFreePackage(organization.Id); err != nil {
-		fmt.Printf("⚠️ Aviso: erro ao atribuir plano gratuito: %v\n", err)
-		// Não falha a criação, apenas registra o aviso
+	// 🎯 REGRA DE NEGÓCIO: Atribuir plano automaticamente
+	// Organização "demo" recebe plano demo, demais recebem plano free
+	if organization.Slug == "demo" {
+		if err := r.assignPlanByCode(organization.Id, "demo"); err != nil {
+			fmt.Printf("⚠️ Aviso: erro ao atribuir plano demo: %v\n", err)
+		}
+	} else {
+		if err := r.assignFreePlan(organization.Id); err != nil {
+			fmt.Printf("⚠️ Aviso: erro ao atribuir plano gratuito: %v\n", err)
+		}
 	}
 
 	return nil
@@ -178,7 +190,22 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 	// Remover organizações soft-deleted que bloqueiam slug/email (para permitir recriação)
 	r.removeSoftDeletedOrgBySlugOrEmail(slug, email)
 
-	// Criar organização
+	// Buscar o role de "org_owner" ANTES da transação (opcional - não bloqueia criação)
+	var ownerRole *models.Role
+	ownerRole, _ = r.repo.Roles.GetByName("org_owner")
+	if ownerRole == nil {
+		// Se não encontrar org_owner, tentar org_admin
+		ownerRole, _ = r.repo.Roles.GetByName("org_admin")
+	}
+
+	// Gerar hash da senha ANTES da transação
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("senha123"), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao gerar hash da senha: %v", err)
+	}
+
+	// Preparar entidades
+	now := time.Now()
 	org := &models.Organization{
 		Id:          uuid.New(),
 		Name:        name,
@@ -186,92 +213,92 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 		Email:       email,
 		Description: fmt.Sprintf("Organização %s", name),
 		Active:      true,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
-	err := r.repo.Organizations.CreateOrganization(org)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao criar organização: %v", err)
-	}
-
-	// Criar projeto padrão
 	project := &models.Project{
 		Id:             uuid.New(),
 		OrganizationId: org.Id,
 		Name:           fmt.Sprintf("Projeto %s", name),
 		Description:    fmt.Sprintf("Projeto padrão da organização %s", name),
 		Active:         true,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
-	err = r.repo.Projects.CreateProject(project)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao criar projeto: %v", err)
+	client := &models.Client{
+		Id:       uuid.New(),
+		Name:     name,
+		Email:    email,
+		Password: string(hashedPassword),
+		OrgId:    org.Id,
+		Active:   true,
 	}
 
-	// Criar usuário admin
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("senha123"), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao gerar hash da senha: %v", err)
-	}
-
-	user := &models.User{
-		Id:          uuid.New(),
-		Name:        name,
-		Email:       fmt.Sprintf("%s@lep.com", normalizedName),
-		Password:    string(hashedPassword),
-		Permissions: []string{"admin"},
-		Active:      true,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
-
-	err = r.repo.User.CreateUser(user)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao criar usuário: %v", err)
-	}
-
-	// Buscar o role de "org_owner" para atribuir ao criador
-	ownerRole, err := r.repo.Roles.GetByName("org_owner")
-	if err != nil {
-		// Se não encontrar org_owner, tentar org_admin
-		ownerRole, err = r.repo.Roles.GetByName("org_admin")
-		if err != nil {
-			return nil, fmt.Errorf("erro ao buscar cargo de owner: %v", err)
+	// Executar tudo em uma transação atômica
+	err = r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Criar organização
+		if err := tx.Create(org).Error; err != nil {
+			return fmt.Errorf("erro ao criar organização: %v", err)
 		}
-	}
 
-	// Criar UserRole para o owner da organização
-	userRole := &models.UserRole{
-		Id:             uuid.New(),
-		UserId:         user.Id,
-		RoleId:         ownerRole.Id,
-		OrganizationId: &org.Id,
-		ProjectId:      &project.Id,
-		Active:         true,
-	}
+		// 2. Criar projeto
+		if err := tx.Create(project).Error; err != nil {
+			return fmt.Errorf("erro ao criar projeto: %v", err)
+		}
 
-	err = r.repo.Roles.AssignRoleToUser(userRole)
+		// 3. Criar cliente
+		if err := tx.Create(client).Error; err != nil {
+			return fmt.Errorf("erro ao criar cliente: %v", err)
+		}
+
+		// 4. Atribuir role ao cliente (se existir role no sistema)
+		if ownerRole != nil {
+			clientRole := &models.ClientRole{
+				Id:             uuid.New(),
+				ClientId:       client.Id,
+				RoleId:         ownerRole.Id,
+				OrganizationId: org.Id,
+				ProjectId:      &project.Id,
+				Active:         true,
+			}
+			if err := tx.Create(clientRole).Error; err != nil {
+				fmt.Printf("⚠️ Aviso: erro ao atribuir cargo ao cliente: %v\n", err)
+				// Não falha a transação, apenas registra o aviso
+			}
+		} else {
+			fmt.Printf("⚠️ Aviso: nenhum cargo org_owner ou org_admin encontrado no sistema\n")
+		}
+
+		// 5. Atribuir plano gratuito
+		freePlan := &models.Plan{}
+		if err := tx.Where("code = ?", "free").First(freePlan).Error; err != nil {
+			fmt.Printf("⚠️ Aviso: plano gratuito não encontrado: %v\n", err)
+			// Não falha a transação, apenas registra o aviso
+		} else {
+			orgPlan := &models.OrganizationPlan{
+				Id:             uuid.New(),
+				OrganizationId: org.Id,
+				PlanId:         freePlan.Id,
+				BillingCycle:   "monthly",
+				Active:         true,
+				StartsAt:       &now,
+			}
+			if err := tx.Create(orgPlan).Error; err != nil {
+				fmt.Printf("⚠️ Aviso: erro ao atribuir plano gratuito: %v\n", err)
+				// Não falha a transação, apenas registra o aviso
+			}
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("erro ao atribuir cargo ao usuário: %v", err)
+		return nil, err
 	}
 
-	// 🔑 REGRA DE NEGÓCIO: Adicionar master admins automaticamente à nova org
-	// Master admins têm acesso a todas as organizações
-	if err := r.addMasterAdminsToOrganization(org.Id, project.Id); err != nil {
-		return nil, fmt.Errorf("erro ao adicionar master admins: %v", err)
-	}
-
-	// 🎯 REGRA DE NEGÓCIO: Atribuir plano gratuito automaticamente
-	// Toda organização começa com o plano "free"
-	if err := r.assignFreePackage(org.Id); err != nil {
-		fmt.Printf("⚠️ Aviso: erro ao atribuir plano gratuito: %v\n", err)
-		// Não falha a criação, apenas registra o aviso
-	}
-
-	// Montar resposta
+	// Montar resposta (após transação bem-sucedida)
 	response := &OrganizationBootstrapResponse{
 		Organization: struct {
 			ID    string `json:"id"`
@@ -295,9 +322,9 @@ func (r *resourceOrganization) CreateOrganizationBootstrap(name, password string
 			Name     string `json:"name"`
 			Password string `json:"password"`
 		}{
-			ID:       user.Id.String(),
-			Email:    user.Email,
-			Name:     user.Name,
+			ID:       client.Id.String(),
+			Email:    client.Email,
+			Name:     client.Name,
 			Password: "senha123", // Retorna senha em texto claro para login
 		},
 		Message: "Organização criada com sucesso! Você pode fazer login com as credenciais fornecidas.",
@@ -331,31 +358,49 @@ func (r *resourceOrganization) addMasterAdminsToOrganization(
 	return nil
 }
 
-// assignFreePackage atribui o plano gratuito (free) para uma nova organização
+// assignFreePlan atribui o plano gratuito (free) para uma nova organização
 // Esta função é chamada automaticamente no bootstrap de organizações
-func (r *resourceOrganization) assignFreePackage(orgId uuid.UUID) error {
-	// Buscar o pacote gratuito pelo código
-	freePkg, err := r.repo.Packages.GetByCodeName("free")
+func (r *resourceOrganization) assignFreePlan(orgId uuid.UUID) error {
+	// Buscar o plano gratuito pelo código
+	freePlan, err := r.repo.Plans.GetByCode("free")
 	if err != nil {
 		return fmt.Errorf("plano gratuito não encontrado: %w", err)
 	}
 
 	// Criar a assinatura da organização
 	now := time.Now()
-	orgPackage := &models.OrganizationPackage{
+	orgPlan := &models.OrganizationPlan{
 		Id:             uuid.New(),
 		OrganizationId: orgId,
-		PackageId:      freePkg.Id,
+		PlanId:         freePlan.Id,
 		BillingCycle:   "monthly",
 		Active:         true,
-		StartedAt:      &now,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		StartsAt:       &now,
 	}
 
-	return r.repo.Packages.SubscribeOrganization(orgPackage)
+	return r.repo.Plans.SubscribeOrganization(orgPlan)
 }
 
-func NewSourceHandlerOrganization(repo *repositories.DBconn) IHandlerOrganization {
-	return &resourceOrganization{repo: repo}
+// assignPlanByCode atribui um plano específico para uma organização pelo código do plano
+func (r *resourceOrganization) assignPlanByCode(orgId uuid.UUID, planCode string) error {
+	plan, err := r.repo.Plans.GetByCode(planCode)
+	if err != nil {
+		return fmt.Errorf("plano '%s' não encontrado: %w", planCode, err)
+	}
+
+	now := time.Now()
+	orgPlan := &models.OrganizationPlan{
+		Id:             uuid.New(),
+		OrganizationId: orgId,
+		PlanId:         plan.Id,
+		BillingCycle:   "monthly",
+		Active:         true,
+		StartsAt:       &now,
+	}
+
+	return r.repo.Plans.SubscribeOrganization(orgPlan)
+}
+
+func NewSourceHandlerOrganization(repo *repositories.DBconn, db *gorm.DB) IHandlerOrganization {
+	return &resourceOrganization{repo: repo, db: db}
 }

@@ -10,15 +10,15 @@ import (
 	"github.com/lib/pq"
 )
 
-// RolePermissionMiddleware verifica se o usuário tem a permissão necessária (sistema de níveis)
-// permissionCode: código da permissão (ex: "client_orders_view")
-// minLevel: nível mínimo requerido (1 = visualizar, 2 = editar/CRUD completo)
+// RolePermissionMiddleware verifica se o usuário tem a permissão necessária
+// permissionCode: código da permissão no formato module:action (ex: "orders:read", "orders:create")
+// minLevel: deprecated - mantido para compatibilidade, não é mais usado
 func RolePermissionMiddleware(roleHandler *handler.RoleHandler, permissionCode string, minLevel int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userId := c.GetString("user_id")
-		orgId := c.GetString("organization_id")
+		userType := c.GetString("user_type")
 
-		if userId == "" || orgId == "" {
+		if userId == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "Usuário não autenticado",
 				"message": "É necessário estar autenticado para acessar este recurso",
@@ -33,8 +33,13 @@ func RolePermissionMiddleware(roleHandler *handler.RoleHandler, permissionCode s
 			return
 		}
 
-		// Verificação completa: módulo + permissão + hierarquia
-		hasPermission, reason, err := roleHandler.FullPermissionCheck(userId, orgId, permissionCode, minLevel, "")
+		// Se userType vazio, usar "client" como padrão
+		if userType == "" {
+			userType = "client"
+		}
+
+		// Verificação de permissão
+		hasPermission, err := roleHandler.UserHasPermission(userId, userType, permissionCode)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Erro ao verificar permissão",
@@ -46,9 +51,10 @@ func RolePermissionMiddleware(roleHandler *handler.RoleHandler, permissionCode s
 
 		if !hasPermission {
 			c.JSON(http.StatusForbidden, gin.H{
-				"error":   "Acesso negado",
-				"message": reason,
-				"code":    "PERMISSION_DENIED",
+				"error":      "Acesso negado",
+				"message":    fmt.Sprintf("Permissão '%s' não encontrada", permissionCode),
+				"code":       "PERMISSION_DENIED",
+				"permission": permissionCode,
 			})
 			c.Abort()
 			return
@@ -201,13 +207,39 @@ func isMasterAdmin(c *gin.Context) bool {
 	return strings.Contains(permStr, "master_admin")
 }
 
+// AdminScopeMiddleware verifica se o usuário tem escopo admin
+// Isso significa que é um usuário do tipo "admin" ou tem permissão master_admin
+func AdminScopeMiddleware(authHandler handler.IHandlerAuth) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userType := c.GetString("user_type")
+
+		// Verificar se é usuário admin
+		if userType == "admin" {
+			c.Next()
+			return
+		}
+
+		// Verificar se tem master_admin (super admin pode acessar rotas admin)
+		if isMasterAdmin(c) {
+			c.Next()
+			return
+		}
+
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":   "Acesso negado",
+			"message": "Esta área é restrita para administradores do sistema",
+			"code":    "ADMIN_SCOPE_REQUIRED",
+		})
+		c.Abort()
+	}
+}
+
 // GetUserHierarchyLevel retorna o nível de hierarquia do usuário atual
 func GetUserHierarchyLevel(c *gin.Context, roleHandler *handler.RoleHandler) (int, error) {
 	userId := c.GetString("user_id")
-	orgId := c.GetString("organization_id")
 
-	if userId == "" || orgId == "" {
-		return 0, fmt.Errorf("usuário ou organização não identificados")
+	if userId == "" {
+		return 0, fmt.Errorf("usuário não identificado")
 	}
 
 	// Master admin tem nível máximo
@@ -215,5 +247,9 @@ func GetUserHierarchyLevel(c *gin.Context, roleHandler *handler.RoleHandler) (in
 		return 10, nil
 	}
 
-	return roleHandler.GetUserMaxHierarchyLevel(userId, orgId)
+	userType := c.GetString("user_type")
+	if userType == "" {
+		userType = "client"
+	}
+	return roleHandler.GetUserHierarchyLevel(userId, userType)
 }

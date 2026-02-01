@@ -26,7 +26,7 @@ type IModuleRepository interface {
 	ListWithPermissions() ([]models.Module, error)
 
 	// Check access
-	IsModuleInPackage(moduleId, packageId string) (bool, error)
+	IsModuleInPlan(moduleId, planId string) (bool, error)
 	GetModulesForOrganization(orgId string) ([]models.Module, error)
 }
 
@@ -112,38 +112,38 @@ func (r *resourceModule) ListWithPermissions() ([]models.Module, error) {
 	return modules, err
 }
 
-// IsModuleInPackage verifica se um módulo está incluído em um pacote
-func (r *resourceModule) IsModuleInPackage(moduleId, packageId string) (bool, error) {
+// IsModuleInPlan verifica se um módulo está incluído em um plano
+func (r *resourceModule) IsModuleInPlan(moduleId, planId string) (bool, error) {
 	var count int64
-	err := r.db.Model(&models.PackageModule{}).
-		Where("module_id = ? AND package_id = ? AND deleted_at IS NULL", moduleId, packageId).
+	err := r.db.Model(&models.PlanModule{}).
+		Where("module_id = ? AND plan_id = ?", moduleId, planId).
 		Count(&count).Error
 	return count > 0, err
 }
 
 // GetModulesForOrganization retorna todos os módulos disponíveis para uma organização
-// baseado no pacote contratado
+// baseado no plano contratado
 func (r *resourceModule) GetModulesForOrganization(orgId string) ([]models.Module, error) {
 	var modules []models.Module
 
-	// Buscar o pacote ativo da organização
-	var orgPackage models.OrganizationPackage
+	// Buscar o plano ativo da organização
+	var orgPlan models.OrganizationPlan
 	err := r.db.Where("organization_id = ? AND active = true AND deleted_at IS NULL", orgId).
 		Order("created_at DESC").
-		First(&orgPackage).Error
+		First(&orgPlan).Error
 	if err != nil {
-		// Se não tem pacote, retornar módulos gratuitos
+		// Se não tem plano, retornar módulos gratuitos
 		err = r.db.Where("is_free = true AND deleted_at IS NULL AND active = true").
 			Order("display_order ASC").
 			Find(&modules).Error
 		return modules, err
 	}
 
-	// Buscar módulos do pacote
+	// Buscar módulos do plano
 	err = r.db.Table("modules").
 		Distinct("modules.*").
-		Joins("INNER JOIN package_modules ON modules.id = package_modules.module_id").
-		Where("package_modules.package_id = ? AND package_modules.deleted_at IS NULL", orgPackage.PackageId).
+		Joins("INNER JOIN plan_modules ON modules.id = plan_modules.module_id").
+		Where("plan_modules.plan_id = ?", orgPlan.PlanId).
 		Where("modules.deleted_at IS NULL AND modules.active = true").
 		Order("modules.display_order ASC").
 		Find(&modules).Error

@@ -55,7 +55,19 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 			c.Set("user_id", admin.Id.String())
 			c.Set("user_email", admin.Email)
-			c.Set("user_permissions", admin.Permissions)
+			// Buscar permissões via roles
+			var adminPermissions []string
+			adminRoles, _ := resource.Handlers.HandlerAdminUser.GetAdminRoles(admin.Id.String())
+			if len(adminRoles) > 0 {
+				for _, ar := range adminRoles {
+					if ar.Active {
+						perms, _ := resource.Handlers.HandlerAdminUser.GetPermissionsFromRole(ar.RoleId.String())
+						adminPermissions = append(adminPermissions, perms...)
+						break
+					}
+				}
+			}
+			c.Set("user_permissions", adminPermissions)
 			c.Set("user_type", "admin")
 			c.Set("admin", admin)
 		} else if userType == "client" {
@@ -68,7 +80,19 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 			c.Set("user_id", client.Id.String())
 			c.Set("user_email", client.Email)
-			c.Set("user_permissions", client.Permissions)
+			// Buscar permissões via roles
+			var clientPermissions []string
+			clientRoles, _ := resource.Handlers.HandlerRole.GetClientRoles(client.Id.String(), client.OrgId.String())
+			if len(clientRoles) > 0 {
+				for _, cr := range clientRoles {
+					if cr.Active {
+						perms, _ := resource.Handlers.HandlerAdminUser.GetPermissionsFromRole(cr.RoleId.String())
+						clientPermissions = append(clientPermissions, perms...)
+						break
+					}
+				}
+			}
+			c.Set("user_permissions", clientPermissions)
 			c.Set("user_type", "client")
 			c.Set("org_id", client.OrgId.String())
 			c.Set("proj_ids", client.ProjIds)
@@ -85,8 +109,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			if user != nil {
 				c.Set("user_id", user.Id.String())
 				c.Set("user_email", user.Email)
-				c.Set("user_permissions", user.Permissions)
-				c.Set("user_type", "legacy")
+				c.Set("user_type", user.UserType)
 				c.Set("user", user)
 			}
 		}

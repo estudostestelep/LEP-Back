@@ -5,6 +5,7 @@ import (
 )
 
 type DBconn struct {
+	DB                  *gorm.DB // Exposto para transações
 	AuditLogs           IAuditLogsRepository
 	AccessLogs          IAccessLogRepository
 	BannedLists         IBannedListsRepository
@@ -15,8 +16,7 @@ type DBconn struct {
 	Products            IProductRepository
 	Reservations        IReservationRepository
 	Tables              ITableRepository
-	User                IUserRepository
-	// Novos repositórios para Admin e Client
+	// Repositórios para Admin e Client
 	Admins              IAdminRepository
 	Clients             IClientRepository
 	Waitlists           WaitlistRepositoryInterface
@@ -37,7 +37,7 @@ type DBconn struct {
 	Roles       IRoleRepository
 	Permissions IPermissionRepository
 	Modules     IModuleRepository
-	Packages    IPackageRepository
+	Plans       IPlanRepository
 	// Plan Change Request
 	PlanChangeRequests IPlanChangeRequestRepository
 	// Sidebar Config
@@ -51,9 +51,9 @@ type DBconn struct {
 }
 
 func (r *DBconn) InjectPostgres(db *gorm.DB) {
+	r.DB = db // Armazena DB para uso em transações
 	r.Organizations = NewConnOrganization(db)
-	r.User = NewUserRepository(db)
-	// Novos repositórios para Admin e Client
+	// Repositórios para Admin e Client
 	r.Admins = NewAdminRepository(db)
 	r.Clients = NewClientRepository(db)
 	r.BannedLists = NewConnBannedLists(db)
@@ -83,7 +83,7 @@ func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.Roles = NewRoleRepository(db)
 	r.Permissions = NewPermissionRepository(db)
 	r.Modules = NewModuleRepository(db)
-	r.Packages = NewPackageRepository(db)
+	r.Plans = NewPlanRepository(db)
 	// Plan Change Request
 	r.PlanChangeRequests = NewPlanChangeRequestRepository(db)
 	// Sidebar Config

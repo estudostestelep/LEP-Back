@@ -8,7 +8,6 @@ import (
 )
 
 type Handlers struct {
-	HandlerUser               IHandlerUser
 	HandlerProducts           IHandlerProducts
 	HandlerAuth               IHandlerAuth
 	HandlerOrder              IOrderHandler
@@ -44,7 +43,7 @@ type Handlers struct {
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	// Role Handler precisa ser criado primeiro para ser usado pelo UserHandler
-	h.HandlerRole = NewRoleHandler(repo.Roles, repo.Permissions, repo.Modules, repo.Packages, repo.User)
+	h.HandlerRole = NewRoleHandler(repo.Roles, repo.Permissions, repo.Modules, repo.Plans, repo.Admins, repo.Clients)
 
 	// Admin Audit Log Handler (precisa ser criado antes do UserHandler para injeção)
 	h.HandlerAdminAuditLog = NewAdminAuditLogHandler(
@@ -56,11 +55,10 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	// Injetar handler de auditoria no RoleHandler
 	h.HandlerRole.SetAdminAuditHandler(h.HandlerAdminAuditLog)
 
-	h.HandlerUser = NewSourceHandlerUser(repo, repo.Roles, h.HandlerRole, h.HandlerAdminAuditLog)
 	h.HandlerProducts = NewSourceHandlerProducts(repo)
 	h.HandlerAuth = NewAuthHandler(repo)
 	h.HandlerOrder = NewOrderHandler(repo.Orders, repo.Products, repo.KitchenQueue)
-	h.HandlerOrganization = NewSourceHandlerOrganization(repo)
+	h.HandlerOrganization = NewSourceHandlerOrganization(repo, repo.DB)
 	h.HandlerTables = NewSourceHandlerTables(repo)
 	h.HandlerWaitlist = NewSourceHandlerWaitlist(repo)
 	h.HandlerReservation = NewSourceHandlerReservation(repo)
@@ -99,7 +97,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 
 	// Limits Handler - Verificação de limites de plano
 	h.HandlerLimits = NewLimitHandler(
-		repo.Packages,
+		repo.Plans,
 		repo.Tables,
 		repo.Roles,
 		repo.Products,

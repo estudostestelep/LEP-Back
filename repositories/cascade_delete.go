@@ -236,7 +236,7 @@ func (r *CascadeDeleteRepository) softDeleteProjectData(tx *gorm.DB, projectId u
 	}
 
 	// User Roles (relationship table)
-	if err := tx.Model(&models.UserRole{}).Where("project_id = ?", projectId).Update("deleted_at", now).Error; err != nil {
+	if err := tx.Model(&models.ClientRole{}).Where("project_id = ?", projectId).Update("deleted_at", now).Error; err != nil {
 		return err
 	}
 
@@ -346,7 +346,7 @@ func (r *CascadeDeleteRepository) hardDeleteProjectData(tx *gorm.DB, projectId u
 	}
 
 	// User Roles (relationship table) - delete roles linked to this project
-	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.UserRole{}).Error; err != nil {
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.ClientRole{}).Error; err != nil {
 		return err
 	}
 
@@ -356,7 +356,7 @@ func (r *CascadeDeleteRepository) hardDeleteProjectData(tx *gorm.DB, projectId u
 // softDeleteOrganizationData soft deletes organization-level data (not project-specific)
 func (r *CascadeDeleteRepository) softDeleteOrganizationData(tx *gorm.DB, orgId uuid.UUID, now time.Time) error {
 	// Organization Package (subscription)
-	if err := tx.Model(&models.OrganizationPackage{}).Where("organization_id = ?", orgId).Update("deleted_at", now).Error; err != nil {
+	if err := tx.Model(&models.OrganizationPlan{}).Where("organization_id = ?", orgId).Update("deleted_at", now).Error; err != nil {
 		return err
 	}
 
@@ -371,7 +371,7 @@ func (r *CascadeDeleteRepository) softDeleteOrganizationData(tx *gorm.DB, orgId 
 	}
 
 	// User Roles for this organization
-	if err := tx.Model(&models.UserRole{}).Where("organization_id = ?", orgId).Update("deleted_at", now).Error; err != nil {
+	if err := tx.Model(&models.ClientRole{}).Where("organization_id = ?", orgId).Update("deleted_at", now).Error; err != nil {
 		return err
 	}
 
@@ -386,7 +386,7 @@ func (r *CascadeDeleteRepository) softDeleteOrganizationData(tx *gorm.DB, orgId 
 // hardDeleteOrganizationData permanently deletes organization-level data
 func (r *CascadeDeleteRepository) hardDeleteOrganizationData(tx *gorm.DB, orgId uuid.UUID) error {
 	// Organization Package (subscription)
-	if err := tx.Unscoped().Where("organization_id = ?", orgId).Delete(&models.OrganizationPackage{}).Error; err != nil {
+	if err := tx.Unscoped().Where("organization_id = ?", orgId).Delete(&models.OrganizationPlan{}).Error; err != nil {
 		return err
 	}
 
@@ -396,7 +396,7 @@ func (r *CascadeDeleteRepository) hardDeleteOrganizationData(tx *gorm.DB, orgId 
 	}
 
 	// User Roles for this organization
-	if err := tx.Unscoped().Where("organization_id = ?", orgId).Delete(&models.UserRole{}).Error; err != nil {
+	if err := tx.Unscoped().Where("organization_id = ?", orgId).Delete(&models.ClientRole{}).Error; err != nil {
 		return err
 	}
 

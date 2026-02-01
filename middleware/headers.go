@@ -39,21 +39,20 @@ func HeaderValidationMiddleware() gin.HandlerFunc {
 					isAdmin := false
 
 					// Verificar user_type == "admin" (admin login)
-					if userType, _ := claims["user_type"].(string); userType == "admin" {
+					userType, _ := claims["user_type"].(string)
+					if userType == "admin" {
 						isAdmin = true
 					}
 
-					// Verificar se o user tem permissão master_admin (legacy login)
+					// Verificar se é master_admin via hierarquia de roles
 					if !isAdmin {
 						if userId, ok := claims["user_id"].(string); ok && userId != "" {
-							user, userErr := resource.Repository.User.GetUserById(userId)
-							if userErr == nil && user != nil {
-								for _, perm := range user.Permissions {
-									if perm == "master_admin" {
-										isAdmin = true
-										break
-									}
-								}
+							if userType == "" {
+								userType = "client" // default para tokens legados
+							}
+							isMaster, _ := resource.Repository.Roles.IsMasterAdmin(userId, userType)
+							if isMaster {
+								isAdmin = true
 							}
 						}
 					}
@@ -239,20 +238,20 @@ func validateUserAccess(c *gin.Context, orgId, projId string) error {
 		return nil
 	}
 
-	// ========== Validar via user_roles ==========
-	// Validar que o usuário tem acesso à organização via user_roles
-	userRoles, err := resource.Repository.Roles.GetUserRoles(userId, orgId, "")
+	// ========== Validar via client_roles (fallback para tokens legados) ==========
+	// Validar que o usuário tem acesso à organização via client_roles
+	clientRoles, err := resource.Repository.Roles.GetClientRoles(userId, orgId)
 	if err != nil {
 		return fmt.Errorf("erro ao validar acesso à organização: %v", err)
 	}
-	if len(userRoles) == 0 {
+	if len(clientRoles) == 0 {
 		return fmt.Errorf("usuário não tem acesso à organização: %s", orgId)
 	}
 
 	// Validar que o usuário tem acesso ao projeto (se projId foi fornecido)
 	if projId != "" {
 		hasProjectAccess := false
-		for _, role := range userRoles {
+		for _, role := range clientRoles {
 			// Se a role não tem project_id, o usuário tem acesso a todos os projetos da org
 			if role.ProjectId == nil {
 				hasProjectAccess = true

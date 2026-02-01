@@ -19,14 +19,13 @@ func SetupAdminRoutes(r gin.IRouter, authHandler handler.IHandlerAuth) {
 	SetupRoleRoutes(admin)
 	SetupModuleRoutes(admin)
 	SetupPermissionRoutes(admin)
-	SetupPackageRoutes(admin)
-	SetupUserRoutes(admin)
+	SetupPackageRoutes(admin) // Rotas de Plans (mantendo nome legacy "package")
 	SetupPlanChangeRoutes(admin)
 	SetupAuditLogRoutes(admin)
 	SetupImagesRoutes(admin)
 	SetupSidebarConfigRoutes(admin)
 
-	// Novo sistema de usuários (admins e clients separados)
+	// Sistema de usuários (admins e clients separados)
 	SetupAdminUserRoutes(admin)
 	SetupClientUserRoutes(admin)
 }

@@ -79,7 +79,8 @@ func (r *resourceAdmin) SoftDeleteAdmin(id string) error {
 }
 
 func (r *resourceAdmin) DeleteAdmin(id string) error {
-	return r.db.Where("id = ?", id).Delete(&models.Admin{}).Error
+	// Unscoped() garante hard delete (remove permanentemente do banco)
+	return r.db.Unscoped().Where("id = ?", id).Delete(&models.Admin{}).Error
 }
 
 func (r *resourceAdmin) AdminEmailExists(email string) (bool, error) {

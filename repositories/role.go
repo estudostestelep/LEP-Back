@@ -11,10 +11,12 @@ type resourceRole struct {
 	db *gorm.DB
 }
 
+// IRoleRepository interface para operações com Roles
 type IRoleRepository interface {
 	// CRUD de Roles
 	Create(role *models.Role) error
 	GetById(id string) (*models.Role, error)
+	GetByIdWithPermissions(id string) (*models.Role, error)
 	GetByName(name string) (*models.Role, error)
 	Update(role *models.Role) error
 	Delete(id string) error
@@ -23,28 +25,44 @@ type IRoleRepository interface {
 	ListByOrganization(orgId string) ([]models.Role, error)
 	ListSystemRoles() ([]models.Role, error)
 
-	// User-Role associations
-	AssignRoleToUser(userRole *models.UserRole) error
-	RemoveRoleFromUser(userId, roleId, orgId string) error
-	GetUserRoles(userId, orgId, scope string) ([]models.UserRole, error)
-	GetUserRolesWithDetails(userId, orgId, scope string) ([]models.RoleWithPermissionLevels, error)
-	GetAllUserRoles(userId string) ([]models.UserRole, error)
-	CountUsersByOrganization(orgId string) (int, error)
-	ListUsersByOrganization(orgId string) ([]models.UserRole, error)
-	DeleteUserRolesByUserId(userId string) error
+	// Role-Permission (nova pivot simplificada)
+	AddPermissionToRole(roleId, permissionId string) error
+	RemovePermissionFromRole(roleId, permissionId string) error
+	GetRolePermissions(roleId string) ([]models.Permission, error)
+	GetRolePermissionCodes(roleId string) ([]string, error)
+	SetRolePermissions(roleId string, permissionIds []string) error
 
-	// Permission Level management
-	SetPermissionLevel(roleId, permissionId string, level int) error
-	GetPermissionLevels(roleId string) ([]models.RolePermissionLevel, error)
+	// Admin-Role associations
+	AssignRoleToAdmin(adminRole *models.AdminRole) error
+	RemoveRoleFromAdmin(adminId, roleId string) error
+	GetAdminRoles(adminId string) ([]models.AdminRole, error)
+	GetAdminRolesWithPermissions(adminId string) ([]models.RoleWithPermissions, error)
+	GetAdminMaxHierarchyLevel(adminId string) (int, error)
 
-	// Hierarchy validation
-	GetUserMaxHierarchyLevel(userId, orgId string) (int, error)
-	CanManageRole(actorUserId, targetRoleId, orgId string) (bool, error)
+	// Client-Role associations
+	AssignRoleToClient(clientRole *models.ClientRole) error
+	RemoveRoleFromClient(clientId, roleId, orgId string) error
+	GetClientRoles(clientId, orgId string) ([]models.ClientRole, error)
+	GetClientRolesWithPermissions(clientId, orgId string) ([]models.RoleWithPermissions, error)
+	GetClientMaxHierarchyLevel(clientId, orgId string) (int, error)
+	DeleteClientRolesByClientId(clientId string) error
+
+	// Permission checks
+	UserHasPermission(userId, userType, permission string) (bool, error)
+	IsMasterAdmin(userId, userType string) (bool, error)
+	GetUserHierarchyLevel(userId, userType, orgId string) (int, error)
+	CanManageUser(actorId, targetId, userType, orgId string) (bool, error)
+
+	// Organization counts
+	CountClientsByOrganization(orgId string) (int, error)
+	ListClientsByOrganization(orgId string) ([]models.ClientRole, error)
 }
 
 func NewRoleRepository(db *gorm.DB) IRoleRepository {
 	return &resourceRole{db: db}
 }
+
+// ==================== CRUD de Roles ====================
 
 // Create cria um novo cargo
 func (r *resourceRole) Create(role *models.Role) error {
@@ -58,6 +76,18 @@ func (r *resourceRole) Create(role *models.Role) error {
 func (r *resourceRole) GetById(id string) (*models.Role, error) {
 	var role models.Role
 	err := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&role).Error
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+// GetByIdWithPermissions busca cargo por ID com permissões carregadas
+func (r *resourceRole) GetByIdWithPermissions(id string) (*models.Role, error) {
+	var role models.Role
+	err := r.db.Where("id = ? AND deleted_at IS NULL", id).
+		Preload("Permissions").
+		First(&role).Error
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +132,7 @@ func (r *resourceRole) ListByScope(scope string) ([]models.Role, error) {
 	return roles, err
 }
 
-// ListByOrganization lista cargos de uma organização específica + cargos globais
+// ListByOrganization lista cargos de uma organização + cargos globais
 func (r *resourceRole) ListByOrganization(orgId string) ([]models.Role, error) {
 	var roles []models.Role
 	err := r.db.Where("(organization_id = ? OR organization_id IS NULL) AND deleted_at IS NULL AND active = true", orgId).
@@ -120,114 +150,10 @@ func (r *resourceRole) ListSystemRoles() ([]models.Role, error) {
 	return roles, err
 }
 
-// AssignRoleToUser associa um cargo a um usuário
-func (r *resourceRole) AssignRoleToUser(userRole *models.UserRole) error {
-	if userRole.Id == uuid.Nil {
-		userRole.Id = uuid.New()
-	}
+// ==================== Role-Permission (nova pivot) ====================
 
-	// Verificar se já existe associação ativa
-	var existing models.UserRole
-	query := r.db.Where("user_id = ? AND role_id = ? AND deleted_at IS NULL",
-		userRole.UserId, userRole.RoleId)
-
-	// Tratar OrganizationId null (cargo admin global)
-	if userRole.OrganizationId != nil {
-		query = query.Where("organization_id = ?", userRole.OrganizationId)
-	} else {
-		query = query.Where("organization_id IS NULL")
-	}
-
-	if userRole.ProjectId != nil {
-		query = query.Where("project_id = ?", userRole.ProjectId)
-	} else {
-		query = query.Where("project_id IS NULL")
-	}
-
-	err := query.First(&existing).Error
-	if err == nil {
-		// Já existe, apenas ativar se estiver inativo
-		if !existing.Active {
-			existing.Active = true
-			return r.db.Save(&existing).Error
-		}
-		return nil // Já existe e está ativo
-	}
-
-	return r.db.Create(userRole).Error
-}
-
-// RemoveRoleFromUser remove associação de cargo do usuário
-func (r *resourceRole) RemoveRoleFromUser(userId, roleId, orgId string) error {
-	query := r.db.Where("user_id = ? AND role_id = ?", userId, roleId)
-
-	// Tratar orgId vazio (cargo admin global)
-	if orgId != "" {
-		query = query.Where("organization_id = ?", orgId)
-	} else {
-		query = query.Where("organization_id IS NULL")
-	}
-
-	return query.Delete(&models.UserRole{}).Error
-}
-
-func (r *resourceRole) DeleteUserRolesByUserId(userId string) error {
-	return r.db.Where("user_id = ?", userId).Delete(&models.UserRole{}).Error
-}
-
-// GetUserRoles busca todos os cargos de um usuário
-// Se orgId for fornecido, filtra por organização específica
-// Se orgId for vazio, retorna todos os cargos do usuário (todas as organizações)
-// Se scope for fornecido, filtra apenas roles daquele escopo (admin/client)
-func (r *resourceRole) GetUserRoles(userId, orgId, scope string) ([]models.UserRole, error) {
-	var userRoles []models.UserRole
-	query := r.db.Where("user_roles.user_id = ? AND user_roles.deleted_at IS NULL AND user_roles.active = true", userId)
-
-	// Filtrar por organização apenas se fornecido
-	if orgId != "" {
-		query = query.Where("user_roles.organization_id = ?", orgId)
-	}
-
-	// Filtrar por scope se fornecido
-	if scope != "" {
-		query = query.Joins("JOIN roles ON roles.id = user_roles.role_id").
-			Where("roles.scope = ?", scope)
-	}
-
-	err := query.Preload("Role").Find(&userRoles).Error
-	return userRoles, err
-}
-
-// GetUserRolesWithDetails busca cargos com detalhes de permissões
-// Se scope for fornecido, filtra apenas roles daquele escopo (admin/client)
-func (r *resourceRole) GetUserRolesWithDetails(userId, orgId, scope string) ([]models.RoleWithPermissionLevels, error) {
-	userRoles, err := r.GetUserRoles(userId, orgId, scope)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []models.RoleWithPermissionLevels
-	for _, ur := range userRoles {
-		if ur.Role == nil {
-			continue
-		}
-
-		levels, err := r.GetPermissionLevels(ur.RoleId.String())
-		if err != nil {
-			continue
-		}
-
-		result = append(result, models.RoleWithPermissionLevels{
-			Role:             *ur.Role,
-			PermissionLevels: levels,
-		})
-	}
-
-	return result, nil
-}
-
-// SetPermissionLevel define o nível de acesso de uma permissão para um cargo
-func (r *resourceRole) SetPermissionLevel(roleId, permissionId string, level int) error {
+// AddPermissionToRole adiciona uma permissão a um cargo
+func (r *resourceRole) AddPermissionToRole(roleId, permissionId string) error {
 	roleUUID, err := uuid.Parse(roleId)
 	if err != nil {
 		return err
@@ -237,125 +163,361 @@ func (r *resourceRole) SetPermissionLevel(roleId, permissionId string, level int
 		return err
 	}
 
-	// Buscar registro existente
-	var existing models.RolePermissionLevel
-	err = r.db.Where("role_id = ? AND permission_id = ? AND deleted_at IS NULL", roleId, permissionId).
+	// Verificar se já existe
+	var existing models.RolePermission
+	err = r.db.Where("role_id = ? AND permission_id = ?", roleId, permissionId).
 		First(&existing).Error
-
 	if err == nil {
-		// Atualizar existente
-		existing.Level = level
-		return r.db.Save(&existing).Error
+		return nil // Já existe
 	}
 
-	// Criar novo
-	newLevel := models.RolePermissionLevel{
-		Id:           uuid.New(),
+	rp := models.RolePermission{
 		RoleId:       roleUUID,
 		PermissionId: permUUID,
-		Level:        level,
 	}
-	return r.db.Create(&newLevel).Error
+	return r.db.Create(&rp).Error
 }
 
-// GetPermissionLevels busca todos os níveis de permissão de um cargo
-func (r *resourceRole) GetPermissionLevels(roleId string) ([]models.RolePermissionLevel, error) {
-	var levels []models.RolePermissionLevel
-	err := r.db.Where("role_id = ? AND deleted_at IS NULL", roleId).
-		Preload("Permission").
-		Preload("Permission.Module").
-		Find(&levels).Error
-	return levels, err
+// RemovePermissionFromRole remove uma permissão de um cargo
+func (r *resourceRole) RemovePermissionFromRole(roleId, permissionId string) error {
+	return r.db.Where("role_id = ? AND permission_id = ?", roleId, permissionId).
+		Delete(&models.RolePermission{}).Error
 }
 
-// GetUserMaxHierarchyLevel retorna o maior nível de hierarquia do usuário
-func (r *resourceRole) GetUserMaxHierarchyLevel(userId, orgId string) (int, error) {
-	// Verificar se é um admin (tabela admins) com permissão master_admin
-	var admin models.Admin
-	err := r.db.Where("id = ? AND deleted_at IS NULL", userId).First(&admin).Error
-	if err == nil {
-		for _, perm := range admin.Permissions {
-			if perm == "master_admin" {
-				return 10, nil // Admin Master tem nível máximo
-			}
+// GetRolePermissions retorna todas as permissões de um cargo
+func (r *resourceRole) GetRolePermissions(roleId string) ([]models.Permission, error) {
+	var permissions []models.Permission
+	err := r.db.Table("permissions").
+		Joins("INNER JOIN role_permissions ON permissions.id = role_permissions.permission_id").
+		Where("role_permissions.role_id = ?", roleId).
+		Where("permissions.deleted_at IS NULL AND permissions.active = true").
+		Order("permissions.module, permissions.action").
+		Find(&permissions).Error
+	return permissions, err
+}
+
+// GetRolePermissionCodes retorna os códigos das permissões de um cargo
+func (r *resourceRole) GetRolePermissionCodes(roleId string) ([]string, error) {
+	var codes []string
+	err := r.db.Table("permissions").
+		Select("permissions.code").
+		Joins("INNER JOIN role_permissions ON permissions.id = role_permissions.permission_id").
+		Where("role_permissions.role_id = ?", roleId).
+		Where("permissions.deleted_at IS NULL AND permissions.active = true").
+		Pluck("code", &codes).Error
+	return codes, err
+}
+
+// SetRolePermissions define todas as permissões de um cargo (substitui existentes)
+func (r *resourceRole) SetRolePermissions(roleId string, permissionIds []string) error {
+	// Remover permissões existentes
+	if err := r.db.Where("role_id = ?", roleId).Delete(&models.RolePermission{}).Error; err != nil {
+		return err
+	}
+
+	// Adicionar novas permissões
+	roleUUID, err := uuid.Parse(roleId)
+	if err != nil {
+		return err
+	}
+
+	for _, permId := range permissionIds {
+		permUUID, err := uuid.Parse(permId)
+		if err != nil {
+			continue
+		}
+		rp := models.RolePermission{
+			RoleId:       roleUUID,
+			PermissionId: permUUID,
+		}
+		if err := r.db.Create(&rp).Error; err != nil {
+			return err
 		}
 	}
 
-	// Verificar se o usuário é Master Admin pelo sistema legado (tabela users)
-	var user models.User
-	err = r.db.Where("id = ? AND deleted_at IS NULL", userId).First(&user).Error
-	if err == nil {
-		for _, perm := range user.Permissions {
-			if perm == "master_admin" {
-				return 10, nil // Master Admin tem nível máximo
-			}
-		}
+	return nil
+}
+
+// ==================== Admin-Role ====================
+
+// AssignRoleToAdmin associa um cargo a um admin
+func (r *resourceRole) AssignRoleToAdmin(adminRole *models.AdminRole) error {
+	if adminRole.Id == uuid.Nil {
+		adminRole.Id = uuid.New()
 	}
 
-	// Se não é Master Admin pelo sistema legado, buscar da tabela user_roles
-	var maxLevel int
-	query := r.db.Model(&models.UserRole{}).
-		Select("COALESCE(MAX(roles.hierarchy_level), 0)").
-		Joins("JOIN roles ON roles.id = user_roles.role_id").
-		Where("user_roles.user_id = ? AND user_roles.deleted_at IS NULL AND user_roles.active = true", userId).
-		Where("roles.deleted_at IS NULL AND roles.active = true")
+	// Verificar se já existe associação ativa
+	var existing models.AdminRole
+	query := r.db.Where("admin_id = ? AND role_id = ? AND deleted_at IS NULL",
+		adminRole.AdminId, adminRole.RoleId)
 
-	// Tratar orgId vazio (cargos admin globais - organization_id IS NULL)
-	if orgId != "" {
-		query = query.Where("user_roles.organization_id = ?", orgId)
+	if adminRole.OrganizationId != nil {
+		query = query.Where("organization_id = ?", adminRole.OrganizationId)
 	} else {
-		query = query.Where("user_roles.organization_id IS NULL")
+		query = query.Where("organization_id IS NULL")
 	}
 
-	err = query.Scan(&maxLevel).Error
+	err := query.First(&existing).Error
+	if err == nil {
+		if !existing.Active {
+			existing.Active = true
+			return r.db.Save(&existing).Error
+		}
+		return nil
+	}
+
+	return r.db.Create(adminRole).Error
+}
+
+// RemoveRoleFromAdmin remove associação de cargo do admin
+func (r *resourceRole) RemoveRoleFromAdmin(adminId, roleId string) error {
+	return r.db.Where("admin_id = ? AND role_id = ?", adminId, roleId).
+		Delete(&models.AdminRole{}).Error
+}
+
+// GetAdminRoles busca todos os cargos de um admin
+func (r *resourceRole) GetAdminRoles(adminId string) ([]models.AdminRole, error) {
+	var adminRoles []models.AdminRole
+	err := r.db.Where("admin_id = ? AND deleted_at IS NULL AND active = true", adminId).
+		Preload("Role").
+		Find(&adminRoles).Error
+	return adminRoles, err
+}
+
+// GetAdminRolesWithPermissions busca cargos com permissões
+func (r *resourceRole) GetAdminRolesWithPermissions(adminId string) ([]models.RoleWithPermissions, error) {
+	adminRoles, err := r.GetAdminRoles(adminId)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []models.RoleWithPermissions
+	for _, ar := range adminRoles {
+		if ar.Role == nil {
+			continue
+		}
+
+		codes, err := r.GetRolePermissionCodes(ar.RoleId.String())
+		if err != nil {
+			codes = []string{}
+		}
+
+		result = append(result, models.RoleWithPermissions{
+			Role:            *ar.Role,
+			PermissionCodes: codes,
+		})
+	}
+
+	return result, nil
+}
+
+// GetAdminMaxHierarchyLevel retorna o maior nível de hierarquia do admin
+func (r *resourceRole) GetAdminMaxHierarchyLevel(adminId string) (int, error) {
+	var maxLevel int
+	err := r.db.Model(&models.AdminRole{}).
+		Select("COALESCE(MAX(roles.hierarchy_level), 0)").
+		Joins("JOIN roles ON roles.id = admin_roles.role_id").
+		Where("admin_roles.admin_id = ? AND admin_roles.deleted_at IS NULL AND admin_roles.active = true", adminId).
+		Where("roles.deleted_at IS NULL AND roles.active = true").
+		Scan(&maxLevel).Error
 
 	return maxLevel, err
 }
 
-// CanManageRole verifica se um usuário pode gerenciar um cargo específico
-func (r *resourceRole) CanManageRole(actorUserId, targetRoleId, orgId string) (bool, error) {
-	// Buscar nível máximo do ator
-	actorLevel, err := r.GetUserMaxHierarchyLevel(actorUserId, orgId)
-	if err != nil {
-		return false, err
+// ==================== Client-Role ====================
+
+// AssignRoleToClient associa um cargo a um client
+func (r *resourceRole) AssignRoleToClient(clientRole *models.ClientRole) error {
+	if clientRole.Id == uuid.Nil {
+		clientRole.Id = uuid.New()
 	}
 
-	// Buscar nível do cargo alvo
-	targetRole, err := r.GetById(targetRoleId)
-	if err != nil {
-		return false, err
+	// Verificar se já existe associação ativa
+	var existing models.ClientRole
+	query := r.db.Where("client_id = ? AND role_id = ? AND organization_id = ? AND deleted_at IS NULL",
+		clientRole.ClientId, clientRole.RoleId, clientRole.OrganizationId)
+
+	if clientRole.ProjectId != nil {
+		query = query.Where("project_id = ?", clientRole.ProjectId)
+	} else {
+		query = query.Where("project_id IS NULL")
 	}
 
-	// Ator pode gerenciar cargos com nível menor ou igual ao seu
-	return actorLevel >= targetRole.HierarchyLevel, nil
+	err := query.First(&existing).Error
+	if err == nil {
+		if !existing.Active {
+			existing.Active = true
+			return r.db.Save(&existing).Error
+		}
+		return nil
+	}
+
+	return r.db.Create(clientRole).Error
 }
 
-// CountUsersByOrganization conta quantos usuários únicos estão associados a uma organização
-func (r *resourceRole) CountUsersByOrganization(orgId string) (int, error) {
+// RemoveRoleFromClient remove associação de cargo do client
+func (r *resourceRole) RemoveRoleFromClient(clientId, roleId, orgId string) error {
+	return r.db.Where("client_id = ? AND role_id = ? AND organization_id = ?", clientId, roleId, orgId).
+		Delete(&models.ClientRole{}).Error
+}
+
+// GetClientRoles busca todos os cargos de um client
+func (r *resourceRole) GetClientRoles(clientId, orgId string) ([]models.ClientRole, error) {
+	var clientRoles []models.ClientRole
+	query := r.db.Where("client_id = ? AND deleted_at IS NULL AND active = true", clientId)
+
+	if orgId != "" {
+		query = query.Where("organization_id = ?", orgId)
+	}
+
+	err := query.Preload("Role").Find(&clientRoles).Error
+	return clientRoles, err
+}
+
+// GetClientRolesWithPermissions busca cargos com permissões
+func (r *resourceRole) GetClientRolesWithPermissions(clientId, orgId string) ([]models.RoleWithPermissions, error) {
+	clientRoles, err := r.GetClientRoles(clientId, orgId)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []models.RoleWithPermissions
+	for _, cr := range clientRoles {
+		if cr.Role == nil {
+			continue
+		}
+
+		codes, err := r.GetRolePermissionCodes(cr.RoleId.String())
+		if err != nil {
+			codes = []string{}
+		}
+
+		result = append(result, models.RoleWithPermissions{
+			Role:            *cr.Role,
+			PermissionCodes: codes,
+		})
+	}
+
+	return result, nil
+}
+
+// GetClientMaxHierarchyLevel retorna o maior nível de hierarquia do client
+func (r *resourceRole) GetClientMaxHierarchyLevel(clientId, orgId string) (int, error) {
+	var maxLevel int
+	query := r.db.Model(&models.ClientRole{}).
+		Select("COALESCE(MAX(roles.hierarchy_level), 0)").
+		Joins("JOIN roles ON roles.id = client_roles.role_id").
+		Where("client_roles.client_id = ? AND client_roles.deleted_at IS NULL AND client_roles.active = true", clientId).
+		Where("roles.deleted_at IS NULL AND roles.active = true")
+
+	if orgId != "" {
+		query = query.Where("client_roles.organization_id = ?", orgId)
+	}
+
+	err := query.Scan(&maxLevel).Error
+	return maxLevel, err
+}
+
+// DeleteClientRolesByClientId remove todos os cargos de um client
+func (r *resourceRole) DeleteClientRolesByClientId(clientId string) error {
+	return r.db.Where("client_id = ?", clientId).Delete(&models.ClientRole{}).Error
+}
+
+// ==================== Permission Checks ====================
+
+// UserHasPermission verifica se usuário tem uma permissão específica
+func (r *resourceRole) UserHasPermission(userId, userType, permission string) (bool, error) {
+	// Master admin tem todas as permissões
+	isMaster, err := r.IsMasterAdmin(userId, userType)
+	if err == nil && isMaster {
+		return true, nil
+	}
+
 	var count int64
-	err := r.db.Model(&models.UserRole{}).
-		Select("COUNT(DISTINCT user_id)").
+
+	if userType == "admin" {
+		// Buscar permissões via admin_roles
+		err = r.db.Table("permissions").
+			Joins("INNER JOIN role_permissions ON permissions.id = role_permissions.permission_id").
+			Joins("INNER JOIN admin_roles ON role_permissions.role_id = admin_roles.role_id").
+			Where("admin_roles.admin_id = ?", userId).
+			Where("admin_roles.deleted_at IS NULL AND admin_roles.active = true").
+			Where("permissions.code = ?", permission).
+			Where("permissions.deleted_at IS NULL AND permissions.active = true").
+			Count(&count).Error
+	} else {
+		// Buscar permissões via client_roles
+		err = r.db.Table("permissions").
+			Joins("INNER JOIN role_permissions ON permissions.id = role_permissions.permission_id").
+			Joins("INNER JOIN client_roles ON role_permissions.role_id = client_roles.role_id").
+			Where("client_roles.client_id = ?", userId).
+			Where("client_roles.deleted_at IS NULL AND client_roles.active = true").
+			Where("permissions.code = ?", permission).
+			Where("permissions.deleted_at IS NULL AND permissions.active = true").
+			Count(&count).Error
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// IsMasterAdmin verifica se usuário é master admin (hierarchy >= 10)
+func (r *resourceRole) IsMasterAdmin(userId, userType string) (bool, error) {
+	var maxLevel int
+
+	if userType == "admin" {
+		maxLevel, _ = r.GetAdminMaxHierarchyLevel(userId)
+	} else {
+		maxLevel, _ = r.GetClientMaxHierarchyLevel(userId, "")
+	}
+
+	return maxLevel >= 10, nil
+}
+
+// GetUserHierarchyLevel retorna o nível de hierarquia do usuário
+func (r *resourceRole) GetUserHierarchyLevel(userId, userType, orgId string) (int, error) {
+	if userType == "admin" {
+		return r.GetAdminMaxHierarchyLevel(userId)
+	}
+	return r.GetClientMaxHierarchyLevel(userId, orgId)
+}
+
+// CanManageUser verifica se actor pode gerenciar target
+func (r *resourceRole) CanManageUser(actorId, targetId, userType, orgId string) (bool, error) {
+	actorLevel, err := r.GetUserHierarchyLevel(actorId, userType, orgId)
+	if err != nil {
+		return false, err
+	}
+
+	targetLevel, err := r.GetUserHierarchyLevel(targetId, userType, orgId)
+	if err != nil {
+		return false, err
+	}
+
+	return actorLevel >= targetLevel, nil
+}
+
+// ==================== Organization ====================
+
+// CountClientsByOrganization conta clientes de uma organização
+func (r *resourceRole) CountClientsByOrganization(orgId string) (int, error) {
+	var count int64
+	err := r.db.Model(&models.ClientRole{}).
+		Select("COUNT(DISTINCT client_id)").
 		Where("organization_id = ? AND deleted_at IS NULL AND active = true", orgId).
 		Scan(&count).Error
 	return int(count), err
 }
 
-// ListUsersByOrganization lista todos os user_roles de uma organização
-func (r *resourceRole) ListUsersByOrganization(orgId string) ([]models.UserRole, error) {
-	var userRoles []models.UserRole
+// ListClientsByOrganization lista client_roles de uma organização
+func (r *resourceRole) ListClientsByOrganization(orgId string) ([]models.ClientRole, error) {
+	var clientRoles []models.ClientRole
 	err := r.db.Where("organization_id = ? AND deleted_at IS NULL AND active = true", orgId).
-		Preload("User").
+		Preload("Client").
 		Preload("Role").
-		Find(&userRoles).Error
-	return userRoles, err
-}
-
-// GetAllUserRoles busca todos os user_roles de um usuário (todas as organizações)
-func (r *resourceRole) GetAllUserRoles(userId string) ([]models.UserRole, error) {
-	var userRoles []models.UserRole
-	err := r.db.Where("user_id = ? AND deleted_at IS NULL AND active = true", userId).
-		Preload("User").
-		Preload("Role").
-		Find(&userRoles).Error
-	return userRoles, err
+		Find(&clientRoles).Error
+	return clientRoles, err
 }

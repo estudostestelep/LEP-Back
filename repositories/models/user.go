@@ -20,3 +20,31 @@ type User struct {
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    *time.Time     `json:"deleted_at,omitempty"`
 }
+
+// type UserCliente struct {
+// 	Id            uuid.UUID      `gorm:"primaryKey;autoIncrement" json:"id"`
+// 	OrganizatioId string         `json:"organizationId"`
+// 	ProjectIds    pq.StringArray `gorm:"type:text[]" json:"projectIds"`
+// 	Name          string         `json:"name"`
+// 	Email         string         `gorm:"unique" json:"email"`
+// 	Password      string         `json:"password"` // armazenar hash!
+// 	RoleId        string         `json:"roleId"`
+// 	Active        bool           `gorm:"default:true" json:"active"`
+// 	LastAccessAt  *time.Time     `json:"last_access_at,omitempty"`
+// 	CreatedAt     time.Time      `json:"created_at"`
+// 	UpdatedAt     time.Time      `json:"updated_at"`
+// 	DeletedAt     *time.Time     `json:"deleted_at,omitempty"`
+// }
+
+// type UserAdmin struct {
+// 	Id           uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
+// 	Name         string     `json:"name"`
+// 	Email        string     `gorm:"unique" json:"email"`
+// 	Password     string     `json:"password"` // armazenar hash!
+// 	AdminRoleId  string     `json:"adminRoleId"`
+// 	Active       bool       `gorm:"default:true" json:"active"`
+// 	LastAccessAt *time.Time `json:"last_access_at,omitempty"`
+// 	CreatedAt    time.Time  `json:"created_at"`
+// 	UpdatedAt    time.Time  `json:"updated_at"`
+// 	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
+// }

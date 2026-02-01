@@ -17,7 +17,6 @@ func SetupClientRoutes(r gin.IRouter) {
 	SetupPackageClientRoutes(r)
 	SetupOrganizationRoutes(r)
 	SetupProjectRoutes(r)
-	SetupUserRoutes(r)
 	SetupSettingsRoutes(r)
 	SetupReportsRoutes(r)
 	SetupNotificationRoutes(r)
