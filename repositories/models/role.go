@@ -131,6 +131,9 @@ type Module struct {
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	DeletedAt    *time.Time `json:"deleted_at,omitempty" gorm:"index"`
+
+	// Relacionamentos
+	Permissions []Permission `json:"permissions,omitempty" gorm:"foreignKey:Module;references:Code"`
 }
 
 func (Module) TableName() string {
