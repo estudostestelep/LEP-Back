@@ -46,6 +46,7 @@ type ServerController struct {
 	// CRUD de admins e clients (novo sistema de usuários)
 	SourceAdminUsers  IServerAdminUsers  // CRUD de admins (tabela admins)
 	SourceClientUsers IServerClientUsers // CRUD de clients (tabela clients)
+	SourceUserAccess  IServerUserAccess  // Gestão de acesso a organizações/projetos
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -152,4 +153,5 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	// CRUD de admins e clients (novo sistema de usuários)
 	h.SourceAdminUsers = NewSourceServerAdminUsers(handler)
 	h.SourceClientUsers = NewSourceServerClientUsers(handler)
+	h.SourceUserAccess = NewSourceServerUserAccess(handler)
 }

@@ -39,6 +39,7 @@ type Handlers struct {
 	// Novos handlers para Admin e Client separados
 	HandlerAdminUser          IHandlerAdminUser           // Gestão de usuários admin
 	HandlerClientUser         IHandlerClientUser          // Gestão de usuários cliente
+	HandlerUserAccess         IHandlerUserAccess          // Gestão de acesso a organizações/projetos
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
@@ -114,4 +115,5 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	// Novos handlers para Admin e Client separados
 	h.HandlerAdminUser = NewAdminUserHandler(repo)
 	h.HandlerClientUser = NewClientUserHandler(repo)
+	h.HandlerUserAccess = NewUserAccessHandler(repo)
 }

@@ -13,9 +13,9 @@ import (
 type Client struct {
 	Id           uuid.UUID      `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	Name         string         `json:"name" gorm:"not null"`
-	Email        string         `gorm:"unique;not null" json:"email"`
+	Email        string         `gorm:"not null;uniqueIndex:idx_client_email_org" json:"email"`
 	Password     string         `json:"-" gorm:"not null"` // hash bcrypt, nunca serializado
-	OrgId        uuid.UUID      `json:"org_id" gorm:"type:uuid;not null;index"`
+	OrgId        uuid.UUID      `json:"org_id" gorm:"type:uuid;not null;uniqueIndex:idx_client_email_org"`
 	ProjIds      pq.StringArray `json:"proj_ids" gorm:"type:text[]"` // Array de UUIDs dos projetos
 	Active       bool           `gorm:"default:true" json:"active"`
 	LastAccessAt *time.Time     `json:"last_access_at,omitempty"`

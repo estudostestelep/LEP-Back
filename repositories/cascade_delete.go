@@ -170,6 +170,21 @@ func (r *CascadeDeleteRepository) softDeleteProjectData(tx *gorm.DB, projectId u
 		return err
 	}
 
+	// Categories
+	if err := tx.Model(&models.Category{}).Where("project_id = ?", projectId).Update("deleted_at", now).Error; err != nil {
+		return err
+	}
+
+	// Subcategories
+	if err := tx.Model(&models.Subcategory{}).Where("project_id = ?", projectId).Update("deleted_at", now).Error; err != nil {
+		return err
+	}
+
+	// Client Audit Logs (não tem deleted_at - deletar permanentemente)
+	if err := tx.Where("project_id = ?", projectId).Delete(&models.ClientAuditLog{}).Error; err != nil {
+		return err
+	}
+
 	// Customers
 	if err := tx.Model(&models.Customer{}).Where("project_id = ?", projectId).Update("deleted_at", now).Error; err != nil {
 		return err
@@ -207,6 +222,36 @@ func (r *CascadeDeleteRepository) softDeleteProjectData(tx *gorm.DB, projectId u
 
 	// Notification Logs
 	if err := tx.Model(&models.NotificationLog{}).Where("project_id = ?", projectId).Update("deleted_at", now).Error; err != nil {
+		return err
+	}
+
+	// Notification Events (não tem deleted_at)
+	if err := tx.Where("project_id = ?", projectId).Delete(&models.NotificationEvent{}).Error; err != nil {
+		return err
+	}
+
+	// Notification Inbound (não tem deleted_at)
+	if err := tx.Where("project_id = ?", projectId).Delete(&models.NotificationInbound{}).Error; err != nil {
+		return err
+	}
+
+	// Notification Schedule (não tem deleted_at)
+	if err := tx.Where("project_id = ?", projectId).Delete(&models.NotificationSchedule{}).Error; err != nil {
+		return err
+	}
+
+	// Notification Reminder (não tem deleted_at)
+	if err := tx.Where("project_id = ?", projectId).Delete(&models.NotificationReminder{}).Error; err != nil {
+		return err
+	}
+
+	// Response Review Queue (não tem deleted_at)
+	if err := tx.Where("project_id = ?", projectId).Delete(&models.ResponseReviewQueue{}).Error; err != nil {
+		return err
+	}
+
+	// Project Display Settings (não tem deleted_at)
+	if err := tx.Where("project_id = ?", projectId).Delete(&models.ProjectDisplaySettings{}).Error; err != nil {
 		return err
 	}
 
@@ -280,6 +325,26 @@ func (r *CascadeDeleteRepository) hardDeleteProjectData(tx *gorm.DB, projectId u
 		return err
 	}
 
+	// SubcategoryCategory (junção - deletar primeiro por FK com Category)
+	if err := tx.Unscoped().Where("category_id IN (SELECT id FROM categories WHERE project_id = ?)", projectId).Delete(&models.SubcategoryCategory{}).Error; err != nil {
+		return err
+	}
+
+	// Categories
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.Category{}).Error; err != nil {
+		return err
+	}
+
+	// Subcategories
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.Subcategory{}).Error; err != nil {
+		return err
+	}
+
+	// Client Audit Logs
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.ClientAuditLog{}).Error; err != nil {
+		return err
+	}
+
 	// Customers
 	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.Customer{}).Error; err != nil {
 		return err
@@ -317,6 +382,36 @@ func (r *CascadeDeleteRepository) hardDeleteProjectData(tx *gorm.DB, projectId u
 
 	// Notification Logs
 	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.NotificationLog{}).Error; err != nil {
+		return err
+	}
+
+	// Notification Events
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.NotificationEvent{}).Error; err != nil {
+		return err
+	}
+
+	// Notification Inbound
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.NotificationInbound{}).Error; err != nil {
+		return err
+	}
+
+	// Notification Schedule
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.NotificationSchedule{}).Error; err != nil {
+		return err
+	}
+
+	// Notification Reminder
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.NotificationReminder{}).Error; err != nil {
+		return err
+	}
+
+	// Response Review Queue
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.ResponseReviewQueue{}).Error; err != nil {
+		return err
+	}
+
+	// Project Display Settings
+	if err := tx.Unscoped().Where("project_id = ?", projectId).Delete(&models.ProjectDisplaySettings{}).Error; err != nil {
 		return err
 	}
 

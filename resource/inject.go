@@ -40,6 +40,9 @@ func Inject() {
 		fmt.Printf("Executado seed demo: %v\n", err)
 	}
 
+	// Garantir que Default Organization tenha assinatura
+	ensureDefaultOrgHasSubscription()
+
 	// Atribuir role super_admin ao admin principal (pablo@lep.com)
 	assignSuperAdminRole(&Handlers)
 }
@@ -80,5 +83,35 @@ func assignSuperAdminRole(handlers *handler.Handlers) {
 		fmt.Printf("❌ Erro ao atribuir role super_admin: %v\n", err)
 	} else {
 		fmt.Printf("✅ Role super_admin atribuído ao admin Pablo (pablo@lep.com)\n")
+	}
+}
+
+// ensureDefaultOrgHasSubscription garante que a Default Organization tenha assinatura
+func ensureDefaultOrgHasSubscription() {
+	// Buscar Default Organization pelo slug
+	org, err := Handlers.HandlerOrganization.GetOrganizationBySlug("default-organization")
+	if err != nil || org == nil {
+		return // Organização não existe, nada a fazer
+	}
+
+	// Verificar se já tem assinatura
+	existingPlan, _ := Handlers.HandlerRole.GetOrganizationSubscription(org.Id.String())
+	if existingPlan != nil && existingPlan.Active {
+		fmt.Printf("✅ Default Organization já possui assinatura ativa\n")
+		return
+	}
+
+	// Buscar plano free pelo código
+	plan, err := Repository.Plans.GetByCode("free")
+	if err != nil || plan == nil {
+		fmt.Printf("⚠️ Plano free não encontrado\n")
+		return
+	}
+
+	// Atribuir plano
+	if err := Handlers.HandlerRole.SubscribeOrganization(org.Id.String(), plan.Id.String(), "monthly", nil); err != nil {
+		fmt.Printf("❌ Erro ao atribuir plano à Default Organization: %v\n", err)
+	} else {
+		fmt.Printf("✅ Plano free atribuído à Default Organization\n")
 	}
 }

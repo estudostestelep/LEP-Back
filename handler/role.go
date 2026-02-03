@@ -203,7 +203,17 @@ func (h *RoleHandler) AssignRoleToClient(clientRole *models.ClientRole, actorUse
 		return fmt.Errorf("você não tem permissão para atribuir este cargo (nível %d)", role.HierarchyLevel)
 	}
 
-	return h.roleRepo.AssignRoleToClient(clientRole)
+	// Atribuir o cargo
+	if err := h.roleRepo.AssignRoleToClient(clientRole); err != nil {
+		return err
+	}
+
+	// Sincronizar proj_ids: se o cargo tem um project_id, adicionar ao array proj_ids do cliente
+	if clientRole.ProjectId != nil {
+		_ = h.clientRepo.AddProjectToClient(clientRole.ClientId.String(), clientRole.ProjectId.String())
+	}
+
+	return nil
 }
 
 // RemoveRoleFromClient remove um cargo de um cliente

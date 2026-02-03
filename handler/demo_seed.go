@@ -55,8 +55,8 @@ func SeedDemoOrganization(db *gorm.DB) error {
 	menuId := uuid.New()
 	now := time.Now()
 
-	// Hash da senha padrão "password"
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
+	// Hash da senha padrão "demo123"
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("demo123"), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("erro ao gerar hash da senha: %w", err)
 	}
@@ -68,7 +68,7 @@ func SeedDemoOrganization(db *gorm.DB) error {
 			Id:          orgId,
 			Name:        "LEP Demo",
 			Slug:        "demo",
-			Email:       "contato@lep-demo.com",
+			Email:       "contato@demo.com",
 			Phone:       "(11) 99999-9999",
 			Address:     "Rua Exemplo, 123 - São Paulo, SP",
 			Description: "Organização de demonstração do sistema LEP",
@@ -171,9 +171,9 @@ func SeedDemoOrganization(db *gorm.DB) error {
 			email string
 			role  models.Role
 		}{
-			{"Administrador Demo", "admin@lep-demo.com", ownerRole},
-			{"Gerente Demo", "gerente@lep-demo.com", managerRole},
-			{"Garçom Demo", "garcom@lep-demo.com", waiterRole},
+			{"Administrador Demo", "admin@demo.com", ownerRole},
+			{"Gerente Demo", "gerente@demo.com", managerRole},
+			{"Garçom Demo", "garcom@demo.com", waiterRole},
 		}
 
 		usersCreated := 0
@@ -207,6 +207,7 @@ func SeedDemoOrganization(db *gorm.DB) error {
 				spRole := fmt.Sprintf("sp_role_%d", i)
 				tx.SavePoint(spRole)
 				clientRole := &models.ClientRole{
+					Id:             uuid.New(),
 					ClientId:       clientId,
 					RoleId:         u.role.Id,
 					OrganizationId: orgId,
@@ -215,7 +216,7 @@ func SeedDemoOrganization(db *gorm.DB) error {
 					CreatedAt:      now,
 					UpdatedAt:      now,
 				}
-				if err := tx.Omit("Id").Create(clientRole).Error; err != nil {
+				if err := tx.Create(clientRole).Error; err != nil {
 					if isIgnorableError(err) {
 						log.Printf("  ⚠️ Role para %s já existe, pulando", u.email)
 						tx.RollbackTo(spRole)
@@ -489,9 +490,9 @@ func SeedDemoOrganization(db *gorm.DB) error {
 		log.Println("✅ Seed da organização demo concluído!")
 		log.Println("")
 		log.Println("📋 Credenciais de login:")
-		log.Println("   Admin:   admin@lep-demo.com / password")
-		log.Println("   Gerente: gerente@lep-demo.com / password")
-		log.Println("   Garçom:  garcom@lep-demo.com / password")
+		log.Println("   Admin:   admin@demo.com / demo123")
+		log.Println("   Gerente: gerente@demo.com / demo123")
+		log.Println("   Garçom:  garcom@demo.com / demo123")
 
 		return nil
 	})

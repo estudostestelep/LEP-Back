@@ -14,7 +14,8 @@ import (
 )
 
 type ResourceClientUsers struct {
-	handler handler.IHandlerClientUser
+	handler     handler.IHandlerClientUser
+	roleHandler *handler.RoleHandler
 }
 
 type IServerClientUsers interface {
@@ -31,6 +32,18 @@ type CreateClientRequest struct {
 	Email       string   `json:"email" binding:"required,email"`
 	Password    string   `json:"password" binding:"required,min=6"`
 	OrgId       string   `json:"org_id" binding:"required"`
+	ProjIds     []string `json:"proj_ids"`
+	Permissions []string `json:"permissions"`
+	Active      *bool    `json:"active"`
+}
+
+// UpdateClientRequest DTO para atualizar client
+// OrgId é usado para identificar o contexto da organização, não para alterar
+type UpdateClientRequest struct {
+	Name        string   `json:"name" binding:"required"`
+	Email       string   `json:"email" binding:"required,email"`
+	Password    string   `json:"password" binding:"omitempty,min=6"`
+	OrgId       string   `json:"org_id"` // Para contexto, não altera o OrgId do cliente
 	ProjIds     []string `json:"proj_ids"`
 	Permissions []string `json:"permissions"`
 	Active      *bool    `json:"active"`
@@ -60,13 +73,17 @@ func (r *ResourceClientUsers) ServiceGetClient(c *gin.Context) {
 }
 
 func (r *ResourceClientUsers) ServiceListClients(c *gin.Context) {
-	// Pegar org_id do header para filtrar clientes desta organização
+	// Pegar org_id e project_id do header para filtrar clientes
 	orgId := c.GetString("organization_id")
+	projectId := c.GetString("project_id")
 
 	var clients []models.Client
 	var err error
 
-	if orgId != "" {
+	// Filtrar por projeto se disponível, senão por organização
+	if projectId != "" && orgId != "" {
+		clients, err = r.handler.ListClientsByProject(orgId, projectId)
+	} else if orgId != "" {
 		clients, err = r.handler.ListClientsByOrgId(orgId)
 	} else {
 		clients, err = r.handler.ListClients()
@@ -77,12 +94,48 @@ func (r *ResourceClientUsers) ServiceListClients(c *gin.Context) {
 		return
 	}
 
-	// Remover senhas das respostas
-	for i := range clients {
-		clients[i].Password = ""
+	// DTO com informações de role
+	type ClientWithRole struct {
+		Id                 uuid.UUID      `json:"id"`
+		Name               string         `json:"name"`
+		Email              string         `json:"email"`
+		Active             bool           `json:"active"`
+		OrgId              uuid.UUID      `json:"org_id"`
+		ProjIds            pq.StringArray `json:"proj_ids"`
+		LastAccessAt       interface{}    `json:"last_access_at"`
+		CreatedAt          interface{}    `json:"created_at"`
+		UpdatedAt          interface{}    `json:"updated_at"`
+		RoleDisplayName    string         `json:"role_display_name"`
+		RoleHierarchyLevel int            `json:"role_hierarchy_level"`
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": clients})
+	result := make([]ClientWithRole, 0, len(clients))
+	for _, client := range clients {
+		cwr := ClientWithRole{
+			Id:           client.Id,
+			Name:         client.Name,
+			Email:        client.Email,
+			Active:       client.Active,
+			OrgId:        client.OrgId,
+			ProjIds:      client.ProjIds,
+			LastAccessAt: client.LastAccessAt,
+			CreatedAt:    client.CreatedAt,
+			UpdatedAt:    client.UpdatedAt,
+		}
+
+		// Buscar role do cliente
+		if r.roleHandler != nil {
+			roles, _ := r.roleHandler.GetClientRoles(client.Id.String(), orgId)
+			if len(roles) > 0 && roles[0].Role != nil {
+				cwr.RoleDisplayName = roles[0].Role.DisplayName
+				cwr.RoleHierarchyLevel = roles[0].Role.HierarchyLevel
+			}
+		}
+
+		result = append(result, cwr)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": result})
 }
 
 func (r *ResourceClientUsers) ServiceCreateClient(c *gin.Context) {
@@ -121,8 +174,14 @@ func (r *ResourceClientUsers) ServiceCreateClient(c *gin.Context) {
 	}
 
 	if err := r.handler.CreateClient(client); err != nil {
+		// Verificar erro de validação prévia (mensagem em português)
 		if strings.Contains(err.Error(), "já cadastrado") {
-			utils.SendConflictError(c, "Client with this email already exists", nil)
+			utils.SendConflictError(c, "Email already registered in this organization", nil)
+			return
+		}
+		// Verificar erro de constraint do banco (fallback para race conditions)
+		if utils.IsDuplicateKeyError(err) {
+			utils.SendConflictError(c, "Email already registered in this organization", nil)
 			return
 		}
 		utils.SendInternalServerError(c, "Error creating client", err)
@@ -141,7 +200,7 @@ func (r *ResourceClientUsers) ServiceUpdateClient(c *gin.Context) {
 		return
 	}
 
-	var request CreateClientRequest
+	var request UpdateClientRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
@@ -154,17 +213,11 @@ func (r *ResourceClientUsers) ServiceUpdateClient(c *gin.Context) {
 		return
 	}
 
-	// Atualizar campos
+	// Atualizar campos (OrgId é imutável, não pode ser alterado)
 	existing.Name = request.Name
 	existing.Email = request.Email
 	if request.Password != "" {
 		existing.Password = request.Password
-	}
-	if request.OrgId != "" {
-		orgUUID, err := uuid.Parse(request.OrgId)
-		if err == nil {
-			existing.OrgId = orgUUID
-		}
 	}
 	if len(request.ProjIds) > 0 {
 		existing.ProjIds = pq.StringArray(request.ProjIds)
@@ -211,6 +264,7 @@ func (r *ResourceClientUsers) ServiceDeleteClient(c *gin.Context) {
 
 func NewSourceServerClientUsers(handler *handler.Handlers) IServerClientUsers {
 	return &ResourceClientUsers{
-		handler: handler.HandlerClientUser,
+		handler:     handler.HandlerClientUser,
+		roleHandler: handler.HandlerRole,
 	}
 }

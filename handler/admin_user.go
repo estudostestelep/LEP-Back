@@ -173,10 +173,16 @@ func (r *resourceAdminUser) GetPermissionsFromRole(roleId string) ([]string, err
 		return nil, err
 	}
 
-	// Se role tem HierarchyLevel >= 10, adicionar indicação de master_admin
+	// Se role tem HierarchyLevel >= 10, adicionar tag especial baseada no escopo
+	// master_admin: cargos admin (super_admin) - acesso a funcionalidades de suporte/gestão
+	// master_client: cargos client (owner) - proprietário da organização
 	role, _ := r.repo.Roles.GetById(roleId)
 	if role != nil && role.HierarchyLevel >= 10 {
-		codes = append(codes, "master_admin")
+		if role.Scope == "admin" {
+			codes = append(codes, "master_admin")
+		} else if role.Scope == "client" {
+			codes = append(codes, "master_client")
+		}
 	}
 
 	return codes, nil

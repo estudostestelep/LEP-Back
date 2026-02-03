@@ -192,6 +192,19 @@ func SetupRoutes(r *gin.Engine) {
 	adminClientUser.PUT("/:id", resource.ServersControllers.SourceClientUsers.ServiceUpdateClient)
 	adminClientUser.DELETE("/:id", resource.ServersControllers.SourceClientUsers.ServiceDeleteClient)
 
+	// Admin > User Access (organizações e projetos)
+	adminUserAccess := admin.Group("/user")
+	adminUserAccess.GET("/:userId/organizations-projects", resource.ServersControllers.SourceUserAccess.ServiceGetUserAccess)
+	adminUserAccess.POST("/:userId/organizations-projects", resource.ServersControllers.SourceUserAccess.ServiceUpdateUserAccess)
+
+	// Client User (gerenciamento de usuários da organização por clientes)
+	clientUser := protected.Group("/client-user")
+	clientUser.GET("", middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_users_view", 1), resource.ServersControllers.SourceClientUsers.ServiceListClients)
+	clientUser.GET("/:id", middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_users_view", 1), resource.ServersControllers.SourceClientUsers.ServiceGetClient)
+	clientUser.POST("", middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_users_create", 1), resource.ServersControllers.SourceClientUsers.ServiceCreateClient)
+	clientUser.PUT("/:id", middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_users_edit", 1), resource.ServersControllers.SourceClientUsers.ServiceUpdateClient)
+	clientUser.DELETE("/:id", middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_users_delete", 1), resource.ServersControllers.SourceClientUsers.ServiceDeleteClient)
+
 	// =============================================================================
 	// 4. ROTAS CLIENT (recursos do restaurante)
 	// =============================================================================
