@@ -206,7 +206,41 @@ func SetupRoutes(r *gin.Engine) {
 	clientUser.DELETE("/:id", middleware.RolePermissionMiddleware(resource.Handlers.HandlerRole, "client_users_delete", 1), resource.ServersControllers.SourceClientUsers.ServiceDeleteClient)
 
 	// =============================================================================
-	// 4. ROTAS CLIENT (recursos do restaurante)
+	// 4. ROTAS DE GESTÃO (/manage/*) - Admin OU Client com permissão
+	// =============================================================================
+
+	manage := protected.Group("/manage")
+
+	// Gestão de Menu
+	manageMenu := manage.Group("/menu")
+	manageMenu.POST("", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:create"), resource.ServersControllers.SourceMenu.ServiceCreateMenu)
+	manageMenu.PUT("/:id", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceMenu.ServiceUpdateMenu)
+	manageMenu.PUT("/:id/order", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceMenu.ServiceUpdateMenuOrder)
+	manageMenu.PUT("/:id/status", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceMenu.ServiceUpdateMenuStatus)
+	manageMenu.PUT("/:id/manual-override", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceMenu.ServiceSetMenuAsManualOverride)
+	manageMenu.DELETE("/manual-override", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:delete"), resource.ServersControllers.SourceMenu.ServiceRemoveManualOverride)
+	manageMenu.DELETE("/:id", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:delete"), resource.ServersControllers.SourceMenu.ServiceDeleteMenu)
+
+	// Gestão de Category
+	manageCategory := manage.Group("/category")
+	manageCategory.POST("", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:create"), resource.ServersControllers.SourceCategory.ServiceCreateCategory)
+	manageCategory.PUT("/:id", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceCategory.ServiceUpdateCategory)
+	manageCategory.PUT("/:id/order", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceCategory.ServiceUpdateCategoryOrder)
+	manageCategory.PUT("/:id/status", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceCategory.ServiceUpdateCategoryStatus)
+	manageCategory.DELETE("/:id", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:delete"), resource.ServersControllers.SourceCategory.ServiceDeleteCategory)
+
+	// Gestão de Subcategory
+	manageSubcategory := manage.Group("/subcategory")
+	manageSubcategory.POST("", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:create"), resource.ServersControllers.SourceSubcategory.ServiceCreateSubcategory)
+	manageSubcategory.PUT("/:id", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceSubcategory.ServiceUpdateSubcategory)
+	manageSubcategory.PUT("/:id/order", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceSubcategory.ServiceUpdateSubcategoryOrder)
+	manageSubcategory.PUT("/:id/status", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceSubcategory.ServiceUpdateSubcategoryStatus)
+	manageSubcategory.DELETE("/:id", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:delete"), resource.ServersControllers.SourceSubcategory.ServiceDeleteSubcategory)
+	manageSubcategory.POST("/:id/category/:categoryId", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceSubcategory.ServiceAddCategoryToSubcategory)
+	manageSubcategory.DELETE("/:id/category/:categoryId", middleware.AdminOrPermissionMiddleware(resource.Handlers.HandlerRole, "menu:update"), resource.ServersControllers.SourceSubcategory.ServiceRemoveCategoryFromSubcategory)
+
+	// =============================================================================
+	// 5. ROTAS CLIENT (recursos do restaurante)
 	// =============================================================================
 
 	// Menu (leitura)

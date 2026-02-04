@@ -234,6 +234,90 @@ func AdminScopeMiddleware(authHandler handler.IHandlerAuth) gin.HandlerFunc {
 	}
 }
 
+// AdminOrPermissionMiddleware permite acesso para admins OU usuários com permissão específica
+// Útil para rotas que precisam ser acessadas tanto por admins quanto por clients (owner, manager)
+func AdminOrPermissionMiddleware(roleHandler *handler.RoleHandler, permissionCode string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userId := c.GetString("user_id")
+		userType := c.GetString("user_type")
+
+		if userId == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Usuário não autenticado",
+				"message": "É necessário estar autenticado para acessar este recurso",
+			})
+			c.Abort()
+			return
+		}
+
+		// 1. Admins sempre têm acesso
+		if userType == "admin" {
+			c.Next()
+			return
+		}
+
+		// 2. Master admin sempre tem acesso
+		if isMasterAdmin(c) {
+			c.Next()
+			return
+		}
+
+		// 3. Verificar permissão granular (para clients como owner/manager)
+		if userType == "" {
+			userType = "client"
+		}
+
+		// Tentar formato novo (menu:create) primeiro
+		hasPermission, err := roleHandler.UserHasPermission(userId, userType, permissionCode)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Erro ao verificar permissão",
+				"message": err.Error(),
+			})
+			c.Abort()
+			return
+		}
+
+		// Se não encontrou, tentar formato antigo (client_menu_create)
+		if !hasPermission {
+			legacyCode := convertToLegacyPermission(permissionCode)
+			if legacyCode != permissionCode {
+				hasPermission, _ = roleHandler.UserHasPermission(userId, userType, legacyCode)
+			}
+		}
+
+		if hasPermission {
+			c.Next()
+			return
+		}
+
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":      "Acesso negado",
+			"message":    fmt.Sprintf("Permissão '%s' não encontrada", permissionCode),
+			"code":       "PERMISSION_DENIED",
+			"permission": permissionCode,
+		})
+		c.Abort()
+	}
+}
+
+// convertToLegacyPermission converte permissão do formato novo para o antigo
+// menu:create -> client_menu_create
+// menu:update -> client_menu_edit
+// menu:delete -> client_menu_delete
+func convertToLegacyPermission(code string) string {
+	mappings := map[string]string{
+		"menu:create": "client_menu_create",
+		"menu:update": "client_menu_edit",
+		"menu:delete": "client_menu_delete",
+		"menu:read":   "client_menu_view",
+	}
+	if legacy, ok := mappings[code]; ok {
+		return legacy
+	}
+	return code
+}
+
 // GetUserHierarchyLevel retorna o nível de hierarquia do usuário atual
 func GetUserHierarchyLevel(c *gin.Context, roleHandler *handler.RoleHandler) (int, error) {
 	userId := c.GetString("user_id")
