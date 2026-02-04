@@ -1,12 +1,9 @@
 package server
 
 import (
-	"fmt"
-	"lep/constants"
 	"lep/handler"
 	"lep/repositories/models"
 	"net/http"
-	"reflect"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -213,43 +210,62 @@ func (s *RoleServer) AssignRoleToUser(c *gin.Context) {
 		return
 	}
 
-	// Buscar o cargo para verificar seu escopo
-	role, err := s.handler.GetRole(req.RoleId)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Cargo não encontrado"})
-		return
-	}
+	// Obter dados do ator (quem está fazendo a atribuição)
+	actorUserId := c.GetString("user_id")
+	actorUserType := c.GetString("user_type")
 
-	userRole := &models.UserRole{
-		UserId: userUUID,
-		RoleId: roleUUID,
-		Active: true,
-	}
-
-	// Se cargo é de escopo "admin", OrganizationId deve ser NULL (cargo global)
-	// Caso contrário, usar orgId do contexto se fornecido
-	if role.Scope != "admin" && orgId != "" {
-		parsed, err := uuid.Parse(orgId)
-		if err == nil {
-			userRole.OrganizationId = &parsed
+	// Atribuir cargo baseado no tipo de usuário (admin ou client)
+	if req.UserType == "admin" {
+		adminRole := &models.AdminRole{
+			AdminId: userUUID,
+			RoleId:  roleUUID,
+			Active:  true,
 		}
-	}
 
-	// Se tiver projectId, adicionar
-	if req.ProjectId != "" {
-		parsed, err := uuid.Parse(req.ProjectId)
-		if err == nil {
-			userRole.ProjectId = &parsed
+		// Se tiver orgId, adicionar (para admin pode ser opcional)
+		if orgId != "" {
+			parsed, err := uuid.Parse(orgId)
+			if err == nil {
+				adminRole.OrganizationId = &parsed
+			}
 		}
-	}
 
-	// Construir contexto da requisição para auditoria
-	ctx := handler.BuildRequestContext(c)
+		if err := s.handler.AssignRoleToAdmin(adminRole, actorUserId, actorUserType); err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
+			return
+		}
+	} else {
+		// Para client, orgId é obrigatório
+		if orgId == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "organization_id é obrigatório para clients"})
+			return
+		}
 
-	// Handler captura auditoria internamente
-	if err := s.handler.AssignRoleToUserWithContext(ctx, userRole); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
-		return
+		orgUUID, err := uuid.Parse(orgId)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "organization_id inválido"})
+			return
+		}
+
+		clientRole := &models.ClientRole{
+			ClientId:       userUUID,
+			RoleId:         roleUUID,
+			OrganizationId: orgUUID,
+			Active:         true,
+		}
+
+		// Se tiver projectId, adicionar
+		if req.ProjectId != "" {
+			parsed, err := uuid.Parse(req.ProjectId)
+			if err == nil {
+				clientRole.ProjectId = &parsed
+			}
+		}
+
+		if err := s.handler.AssignRoleToClient(clientRole, actorUserId, actorUserType); err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cargo atribuído com sucesso"})
@@ -271,39 +287,53 @@ func (s *RoleServer) RemoveRoleFromUser(c *gin.Context) {
 	}
 
 	orgId := c.GetString("organization_id")
+	actorUserId := c.GetString("user_id")
+	actorUserType := c.GetString("user_type")
 
-	// Construir contexto da requisição para auditoria
-	ctx := handler.BuildRequestContext(c)
-
-	// Handler captura auditoria internamente
-	if err := s.handler.RemoveRoleFromUserWithContext(ctx, req.UserId, req.RoleId, orgId); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
-		return
+	// Remover cargo baseado no tipo de usuário
+	if req.UserType == "admin" {
+		if err := s.handler.RemoveRoleFromAdmin(req.UserId, req.RoleId, actorUserId, actorUserType); err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
+			return
+		}
+	} else {
+		if err := s.handler.RemoveRoleFromClient(req.UserId, req.RoleId, orgId, actorUserId, actorUserType); err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cargo removido com sucesso"})
 }
 
 // GetUserRoles godoc
-// @Summary Lista cargos de um usuário
+// @Summary Lista cargos de um usuário (client ou admin)
 // @Tags Roles
 // @Produce json
 // @Param userId path string true "ID do usuário"
-// @Param scope query string false "Filtrar por escopo (admin/client)"
-// @Success 200 {array} models.UserRole
+// @Param user_type query string true "Tipo de usuário (admin/client)"
+// @Success 200 {array} models.ClientRole
 // @Router /role/user/{userId} [get]
 func (s *RoleServer) GetUserRoles(c *gin.Context) {
 	userId := c.Param("userId")
 	orgId := c.GetString("organization_id")
-	scope := c.Query("scope")
+	userType := c.Query("user_type")
 
-	roles, err := s.handler.GetUserRoles(userId, orgId, scope)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar cargos do usuário"})
-		return
+	if userType == "admin" {
+		roles, err := s.handler.GetAdminRoles(userId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar cargos do admin"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": roles})
+	} else {
+		roles, err := s.handler.GetClientRoles(userId, orgId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar cargos do client"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": roles})
 	}
-
-	c.JSON(http.StatusOK, gin.H{"data": roles})
 }
 
 // GetUserRolesWithDetails godoc
@@ -311,68 +341,76 @@ func (s *RoleServer) GetUserRoles(c *gin.Context) {
 // @Tags Roles
 // @Produce json
 // @Param userId path string true "ID do usuário"
-// @Param scope query string false "Filtrar por escopo (admin/client)"
-// @Success 200 {array} models.RoleWithPermissionLevels
+// @Param user_type query string true "Tipo de usuário (admin/client)"
+// @Success 200 {array} models.RoleWithPermissions
 // @Router /role/user/{userId}/details [get]
 func (s *RoleServer) GetUserRolesWithDetails(c *gin.Context) {
 	userId := c.Param("userId")
 	orgId := c.GetString("organization_id")
-	scope := c.Query("scope")
+	userType := c.Query("user_type")
 
-	roles, err := s.handler.GetUserRolesWithDetails(userId, orgId, scope)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar detalhes dos cargos"})
-		return
+	if userType == "admin" {
+		roles, err := s.handler.GetAdminRolesWithPermissions(userId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar detalhes dos cargos"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": roles})
+	} else {
+		roles, err := s.handler.GetClientRolesWithPermissions(userId, orgId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar detalhes dos cargos"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": roles})
 	}
-
-	c.JSON(http.StatusOK, gin.H{"data": roles})
 }
 
-// ==================== Permission Levels ====================
+// ==================== Permission Management ====================
 
-// SetPermissionLevel godoc
-// @Summary Define o nível de uma permissão para um cargo
+// AddPermissionToRole godoc
+// @Summary Adiciona uma permissão a um cargo
 // @Tags Roles
 // @Accept json
 // @Produce json
-// @Param data body SetPermissionLevelRequest true "Dados do nível"
+// @Param data body AddPermissionRequest true "Dados da permissão"
 // @Success 200 {object} map[string]string
-// @Router /role/permission-level [post]
-func (s *RoleServer) SetPermissionLevel(c *gin.Context) {
-	var req SetPermissionLevelRequest
+// @Router /role/permission [post]
+func (s *RoleServer) AddPermissionToRole(c *gin.Context) {
+	var req struct {
+		RoleId       string `json:"role_id" binding:"required"`
+		PermissionId string `json:"permission_id" binding:"required"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
 		return
 	}
 
-	userId := c.GetString("user_id")
-	orgId := c.GetString("organization_id")
-
-	if err := s.handler.SetRolePermissionLevel(req.RoleId, req.PermissionId, req.Level, userId, orgId); err != nil {
+	if err := s.handler.AddPermissionToRole(req.RoleId, req.PermissionId); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Nível de permissão definido com sucesso"})
+	c.JSON(http.StatusOK, gin.H{"message": "Permissão adicionada com sucesso"})
 }
 
 // GetRolePermissions godoc
-// @Summary Lista níveis de permissão de um cargo
+// @Summary Lista permissões de um cargo
 // @Tags Roles
 // @Produce json
 // @Param id path string true "ID do cargo"
-// @Success 200 {array} models.RolePermissionLevel
+// @Success 200 {array} models.Permission
 // @Router /role/{id}/permissions [get]
 func (s *RoleServer) GetRolePermissions(c *gin.Context) {
 	roleId := c.Param("id")
 
-	levels, err := s.handler.GetRolePermissionLevels(roleId)
+	permissions, err := s.handler.GetRolePermissions(roleId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar permissões"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": levels})
+	c.JSON(http.StatusOK, gin.H{"data": permissions})
 }
 
 // ==================== Permission Checking ====================
@@ -381,23 +419,15 @@ func (s *RoleServer) GetRolePermissions(c *gin.Context) {
 // @Summary Verifica se o usuário tem uma permissão
 // @Tags Roles
 // @Produce json
-// @Param permission query string true "Código da permissão"
-// @Param level query int false "Nível mínimo (default: 1)"
+// @Param permission query string true "Código da permissão (formato: module:action)"
 // @Success 200 {object} PermissionCheckResponse
 // @Router /role/check [get]
 func (s *RoleServer) CheckPermission(c *gin.Context) {
 	userId := c.GetString("user_id")
-	orgId := c.GetString("organization_id")
+	userType := c.GetString("user_type")
 	permission := c.Query("permission")
-	level := 1 // Padrão: visualização
 
-	if l := c.Query("level"); l != "" {
-		if l == "2" {
-			level = 2
-		}
-	}
-
-	hasPermission, err := s.handler.HasPermission(userId, orgId, permission, level)
+	hasPermission, err := s.handler.UserHasPermission(userId, userType, permission)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"has_permission": false,
@@ -409,7 +439,6 @@ func (s *RoleServer) CheckPermission(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"has_permission": hasPermission,
 		"permission":     permission,
-		"level":          level,
 	})
 }
 
@@ -421,53 +450,32 @@ func (s *RoleServer) CheckPermission(c *gin.Context) {
 // @Router /role/my-permissions [get]
 func (s *RoleServer) GetMyPermissions(c *gin.Context) {
 	userId := c.GetString("user_id")
+	userType := c.GetString("user_type")
 	orgId := c.GetString("organization_id")
 
-	// Verificar se é Master Admin - precisa lidar com pq.StringArray e []string
-	userPermissions, _ := c.Get("user_permissions")
-	var permList []string
+	// Verificar se é Master Admin
+	isMasterAdmin, _ := s.handler.IsMasterAdmin(userId, userType)
 
-	// Tentar conversão direta para []string
-	if strArr, ok := userPermissions.([]string); ok {
-		permList = strArr
+	// Buscar cargos com detalhes baseado no tipo de usuário
+	var roles []models.RoleWithPermissions
+	var err error
+
+	if userType == "admin" {
+		roles, err = s.handler.GetAdminRolesWithPermissions(userId)
 	} else {
-		// Usar reflection para lidar com pq.StringArray
-		val := reflect.ValueOf(userPermissions)
-		if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
-			for i := 0; i < val.Len(); i++ {
-				elem := val.Index(i)
-				if elem.Kind() == reflect.String {
-					permList = append(permList, elem.String())
-				}
-			}
-		}
+		roles, err = s.handler.GetClientRolesWithPermissions(userId, orgId)
 	}
 
-	isMasterAdmin := constants.IsMasterAdmin(permList)
-
-	// DEBUG: Log para diagnóstico
-	fmt.Printf("[DEBUG GetMyPermissions] userId=%s, orgId=%s, isMasterAdmin=%v, permList=%v\n", userId, orgId, isMasterAdmin, permList)
-
-	// Buscar cargos com detalhes (todos os scopes para permissões efetivas)
-	roles, err := s.handler.GetUserRolesWithDetails(userId, orgId, "")
-	fmt.Printf("[DEBUG GetMyPermissions] Initial roles count=%d, err=%v\n", len(roles), err)
-
-	// Se é Master Admin e não tem cargos na org, simular cargo "owner"
+	// Se é Master Admin e não tem cargos, simular cargo "owner"
 	if isMasterAdmin && (err != nil || len(roles) == 0) {
-		fmt.Printf("[DEBUG GetMyPermissions] Master Admin without roles, simulating owner...\n")
 		ownerRole, roleErr := s.handler.GetRoleByName("owner")
-		fmt.Printf("[DEBUG GetMyPermissions] GetRoleByName owner: role=%+v, err=%v\n", ownerRole, roleErr)
 		if roleErr == nil && ownerRole != nil {
-			levels, levelsErr := s.handler.GetRolePermissionLevels(ownerRole.Id.String())
-			fmt.Printf("[DEBUG GetMyPermissions] GetRolePermissionLevels: count=%d, err=%v\n", len(levels), levelsErr)
-			if len(levels) > 0 {
-				fmt.Printf("[DEBUG GetMyPermissions] Sample permission: %+v\n", levels[0])
-			}
-			roles = []models.RoleWithPermissionLevels{{
-				Role:             *ownerRole,
-				PermissionLevels: levels,
+			codes, _ := s.handler.GetRolePermissionCodes(ownerRole.Id.String())
+			roles = []models.RoleWithPermissions{{
+				Role:            *ownerRole,
+				PermissionCodes: codes,
 			}}
-			err = nil // Reset error since we have simulated roles
+			err = nil
 		}
 	}
 
@@ -477,26 +485,23 @@ func (s *RoleServer) GetMyPermissions(c *gin.Context) {
 	}
 
 	// Buscar nível de hierarquia
-	hierarchyLevel, _ := s.handler.GetUserMaxHierarchyLevel(userId, orgId)
+	hierarchyLevel, _ := s.handler.GetUserHierarchyLevel(userId, userType)
 	if isMasterAdmin && hierarchyLevel == 0 {
-		hierarchyLevel = 10 // Owner level
+		hierarchyLevel = 10
 	}
 
-	// Agregar permissões efetivas
-	effectivePermissions := make(map[string]int)
-	fmt.Printf("[DEBUG GetMyPermissions] Processing %d roles\n", len(roles))
+	// Agregar permissões efetivas (lista de códigos únicos)
+	permSet := make(map[string]bool)
 	for _, role := range roles {
-		fmt.Printf("[DEBUG GetMyPermissions] Role: %s, PermissionLevels count: %d\n", role.Name, len(role.PermissionLevels))
-		for _, pl := range role.PermissionLevels {
-			if pl.Permission != nil {
-				codeName := pl.Permission.CodeName
-				if currentLevel, exists := effectivePermissions[codeName]; !exists || pl.Level > currentLevel {
-					effectivePermissions[codeName] = pl.Level
-				}
-			}
+		for _, code := range role.PermissionCodes {
+			permSet[code] = true
 		}
 	}
-	fmt.Printf("[DEBUG GetMyPermissions] Final effective_permissions count: %d\n", len(effectivePermissions))
+
+	effectivePermissions := make([]string, 0, len(permSet))
+	for code := range permSet {
+		effectivePermissions = append(effectivePermissions, code)
+	}
 
 	// Buscar módulos disponíveis
 	modules, _ := s.handler.GetOrganizationModules(orgId)
@@ -596,7 +601,7 @@ func (s *RoleServer) GetOrganizationModules(c *gin.Context) {
 func (s *RoleServer) ListPackages(c *gin.Context) {
 	publicOnly := c.Query("public") == "true"
 
-	packages, err := s.handler.ListPackages(publicOnly)
+	packages, err := s.handler.ListPlans(publicOnly)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao listar pacotes"})
 		return
@@ -615,7 +620,7 @@ func (s *RoleServer) ListPackages(c *gin.Context) {
 func (s *RoleServer) GetPackageWithModules(c *gin.Context) {
 	id := c.Param("id")
 
-	pkg, err := s.handler.GetPackageWithModules(id)
+	pkg, err := s.handler.GetPlanWithModules(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Pacote não encontrado"})
 		return
@@ -659,7 +664,7 @@ func (s *RoleServer) SubscribeOrganization(c *gin.Context) {
 
 	orgId := c.GetString("organization_id")
 
-	if err := s.handler.SubscribeOrganization(orgId, req.PackageId, req.BillingCycle, req.CustomPrice); err != nil {
+	if err := s.handler.SubscribeOrganization(orgId, req.PlanId, req.BillingCycle, req.CustomPrice); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
@@ -671,13 +676,15 @@ func (s *RoleServer) SubscribeOrganization(c *gin.Context) {
 
 type AssignRoleRequest struct {
 	UserId    string `json:"user_id" binding:"required"`
+	UserType  string `json:"user_type" binding:"required,oneof=admin client"` // "admin" ou "client"
 	RoleId    string `json:"role_id" binding:"required"`
 	ProjectId string `json:"project_id,omitempty"`
 }
 
 type RemoveRoleRequest struct {
-	UserId string `json:"user_id" binding:"required"`
-	RoleId string `json:"role_id" binding:"required"`
+	UserId   string `json:"user_id" binding:"required"`
+	UserType string `json:"user_type" binding:"required,oneof=admin client"` // "admin" ou "client"
+	RoleId   string `json:"role_id" binding:"required"`
 }
 
 type SetPermissionLevelRequest struct {
@@ -694,26 +701,26 @@ type PermissionCheckResponse struct {
 }
 
 type MyPermissionsResponse struct {
-	Roles                []models.RoleWithPermissionLevels `json:"roles"`
-	EffectivePermissions map[string]int                    `json:"effective_permissions"`
-	HierarchyLevel       int                               `json:"hierarchy_level"`
-	AvailableModules     []models.Module                   `json:"available_modules"`
+	Roles                []models.RoleWithPermissions `json:"roles"`
+	EffectivePermissions []string                     `json:"effective_permissions"` // Lista de permissões no formato module:action
+	HierarchyLevel       int                          `json:"hierarchy_level"`
+	AvailableModules     []models.Module              `json:"available_modules"`
 }
 
 type SubscribeRequest struct {
-	PackageId    string   `json:"package_id" binding:"required"`
+	PlanId       string   `json:"plan_id" binding:"required"`
 	BillingCycle string   `json:"billing_cycle" binding:"required,oneof=monthly yearly"`
 	CustomPrice  *float64 `json:"custom_price,omitempty"`
 }
 
 type UpdateSubscriptionRequest struct {
-	PackageId    string   `json:"package_id,omitempty"`
+	PlanId       string   `json:"plan_id,omitempty"`
 	BillingCycle string   `json:"billing_cycle,omitempty"`
 	CustomPrice  *float64 `json:"custom_price,omitempty"`
 	Active       *bool    `json:"active,omitempty"`
 }
 
-type SetPackageLimitRequest struct {
+type SetPlanLimitRequest struct {
 	LimitType  string `json:"limit_type" binding:"required"`
 	LimitValue int    `json:"limit_value" binding:"required"`
 }
@@ -721,71 +728,71 @@ type SetPackageLimitRequest struct {
 // ==================== Package CRUD (Master Admin) ====================
 
 // CreatePackage godoc
-// @Summary Cria um novo pacote (Master Admin)
+// @Summary Cria um novo plano (Master Admin)
 // @Tags Packages
 // @Accept json
 // @Produce json
-// @Param package body models.Package true "Dados do pacote"
-// @Success 201 {object} models.Package
+// @Param package body models.Plan true "Dados do plano"
+// @Success 201 {object} models.Plan
 // @Router /package [post]
 func (s *RoleServer) CreatePackage(c *gin.Context) {
-	var pkg models.Package
-	if err := c.ShouldBindJSON(&pkg); err != nil {
+	var plan models.Plan
+	if err := c.ShouldBindJSON(&plan); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
 		return
 	}
 
-	if pkg.Id == uuid.Nil {
-		pkg.Id = uuid.New()
+	if plan.Id == uuid.Nil {
+		plan.Id = uuid.New()
 	}
 
 	// Construir contexto da requisição para auditoria
 	ctx := handler.BuildRequestContext(c)
 
 	// Handler captura auditoria internamente
-	if err := s.handler.CreatePackageWithContext(ctx, &pkg); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao criar pacote", "error": err.Error()})
+	if err := s.handler.CreatePlanWithContext(ctx, &plan); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao criar plano", "error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"data": pkg})
+	c.JSON(http.StatusCreated, gin.H{"data": plan})
 }
 
 // UpdatePackage godoc
-// @Summary Atualiza um pacote (Master Admin)
+// @Summary Atualiza um plano (Master Admin)
 // @Tags Packages
 // @Accept json
 // @Produce json
-// @Param id path string true "ID do pacote"
-// @Param package body models.Package true "Dados atualizados"
-// @Success 200 {object} models.Package
+// @Param id path string true "ID do plano"
+// @Param package body models.Plan true "Dados atualizados"
+// @Success 200 {object} models.Plan
 // @Router /package/{id} [put]
 func (s *RoleServer) UpdatePackage(c *gin.Context) {
 	id := c.Param("id")
 
-	var pkg models.Package
-	if err := c.ShouldBindJSON(&pkg); err != nil {
+	var plan models.Plan
+	if err := c.ShouldBindJSON(&plan); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
 		return
 	}
 
-	pkgUUID, err := uuid.Parse(id)
+	planUUID, err := uuid.Parse(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "ID inválido"})
 		return
 	}
-	pkg.Id = pkgUUID
+	plan.Id = planUUID
 
 	// Construir contexto da requisição para auditoria
 	ctx := handler.BuildRequestContext(c)
 
 	// Handler captura auditoria internamente
-	if err := s.handler.UpdatePackageWithContext(ctx, &pkg); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao atualizar pacote", "error": err.Error()})
+	if err := s.handler.UpdatePlanWithContext(ctx, &plan); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao atualizar plano", "error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": pkg})
+	c.JSON(http.StatusOK, gin.H{"data": plan})
 }
 
 // DeletePackage godoc
@@ -802,7 +809,7 @@ func (s *RoleServer) DeletePackage(c *gin.Context) {
 	ctx := handler.BuildRequestContext(c)
 
 	// Handler captura estado anterior e auditoria internamente
-	if err := s.handler.DeletePackageWithContext(ctx, id); err != nil {
+	if err := s.handler.DeletePlanWithContext(ctx, id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao remover pacote", "error": err.Error()})
 		return
 	}
@@ -822,7 +829,7 @@ func (s *RoleServer) AddModuleToPackage(c *gin.Context) {
 	packageId := c.Param("id")
 	moduleId := c.Param("moduleId")
 
-	if err := s.handler.AddModuleToPackage(packageId, moduleId); err != nil {
+	if err := s.handler.AddModuleToPlan(packageId, moduleId); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao adicionar módulo", "error": err.Error()})
 		return
 	}
@@ -842,7 +849,7 @@ func (s *RoleServer) RemoveModuleFromPackage(c *gin.Context) {
 	packageId := c.Param("id")
 	moduleId := c.Param("moduleId")
 
-	if err := s.handler.RemoveModuleFromPackage(packageId, moduleId); err != nil {
+	if err := s.handler.RemoveModuleFromPlan(packageId, moduleId); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao remover módulo", "error": err.Error()})
 		return
 	}
@@ -856,19 +863,19 @@ func (s *RoleServer) RemoveModuleFromPackage(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "ID do pacote"
-// @Param data body SetPackageLimitRequest true "Dados do limite"
+// @Param data body SetPlanLimitRequest true "Dados do limite"
 // @Success 200 {object} map[string]string
 // @Router /package/{id}/limits [post]
 func (s *RoleServer) SetPackageLimit(c *gin.Context) {
 	packageId := c.Param("id")
 
-	var req SetPackageLimitRequest
+	var req SetPlanLimitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos", "error": err.Error()})
 		return
 	}
 
-	if err := s.handler.SetPackageLimit(packageId, req.LimitType, req.LimitValue); err != nil {
+	if err := s.handler.SetPlanLimit(packageId, req.LimitType, req.LimitValue); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao definir limite", "error": err.Error()})
 		return
 	}
@@ -886,7 +893,7 @@ func (s *RoleServer) SetPackageLimit(c *gin.Context) {
 func (s *RoleServer) GetPackageLimits(c *gin.Context) {
 	packageId := c.Param("id")
 
-	limits, err := s.handler.GetPackageLimits(packageId)
+	limits, err := s.handler.GetPlanLimits(packageId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao buscar limites"})
 		return
@@ -913,7 +920,7 @@ func (s *RoleServer) CreateOrganizationSubscription(c *gin.Context) {
 		return
 	}
 
-	if err := s.handler.SubscribeOrganization(orgId, req.PackageId, req.BillingCycle, req.CustomPrice); err != nil {
+	if err := s.handler.SubscribeOrganization(orgId, req.PlanId, req.BillingCycle, req.CustomPrice); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
@@ -939,7 +946,7 @@ func (s *RoleServer) UpdateOrganizationSubscription(c *gin.Context) {
 		return
 	}
 
-	if err := s.handler.UpdateOrganizationSubscription(orgId, req.PackageId, req.BillingCycle, req.CustomPrice, req.Active); err != nil {
+	if err := s.handler.UpdateOrganizationSubscription(orgId, req.PlanId, req.BillingCycle, req.CustomPrice, req.Active); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao atualizar assinatura", "error": err.Error()})
 		return
 	}

@@ -23,6 +23,14 @@ type IServerPublic interface {
 	ServiceCreatePublicReservation(c *gin.Context)
 	ServiceGetPublicCategories(c *gin.Context)
 	ServiceGetPublicMenus(c *gin.Context)
+	// Novos métodos com slugs
+	ServiceResolveProject(c *gin.Context)
+	ServiceGetPublicMenuBySlug(c *gin.Context)
+	ServiceGetPublicCategoriesBySlug(c *gin.Context)
+	ServiceGetPublicMenusBySlug(c *gin.Context)
+	ServiceGetProjectInfoBySlug(c *gin.Context)
+	ServiceGetAvailableTimesBySlug(c *gin.Context)
+	ServiceCreatePublicReservationBySlug(c *gin.Context)
 }
 
 // ServiceGetPublicMenu retorna produtos do cardápio sem autenticação
@@ -396,6 +404,321 @@ func (r *ResourcePublic) ServiceGetPublicMenus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, activeMenus)
+}
+
+// ServiceResolveProject resolve organização e projeto por slugs
+func (r *ResourcePublic) ServiceResolveProject(c *gin.Context) {
+	orgSlug := c.Query("org_slug")
+	projectSlug := c.Query("project_slug") // opcional
+
+	if orgSlug == "" {
+		utils.SendBadRequestError(c, "org_slug is required", nil)
+		return
+	}
+
+	// Buscar organização por slug
+	org, err := r.handler.HandlerOrganization.GetOrganizationBySlug(orgSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Organization not found")
+		return
+	}
+
+	// Resolver projeto (por slug ou default/primeiro ativo)
+	project, err := r.handler.HandlerProject.ResolveProject(org.Id.String(), projectSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Project not found")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"organization_id":   org.Id,
+		"organization_slug": org.Slug,
+		"organization_name": org.Name,
+		"project_id":        project.Id,
+		"project_slug":      project.Slug,
+		"project_name":      project.Name,
+		"is_default":        project.IsDefault,
+	})
+}
+
+// resolveOrgAndProject é um helper interno para resolver org e projeto por slugs
+func (r *ResourcePublic) resolveOrgAndProject(orgSlug, projectSlug string) (string, string, error) {
+	// Buscar organização por slug
+	org, err := r.handler.HandlerOrganization.GetOrganizationBySlug(orgSlug)
+	if err != nil {
+		return "", "", err
+	}
+
+	// Resolver projeto
+	project, err := r.handler.HandlerProject.ResolveProject(org.Id.String(), projectSlug)
+	if err != nil {
+		return "", "", err
+	}
+
+	return org.Id.String(), project.Id.String(), nil
+}
+
+// ServiceGetPublicMenuBySlug retorna produtos do cardápio usando slugs
+func (r *ResourcePublic) ServiceGetPublicMenuBySlug(c *gin.Context) {
+	orgSlug := c.Param("orgSlug")
+	projectSlug := c.Param("projectSlug") // pode estar vazio
+
+	orgId, projId, err := r.resolveOrgAndProject(orgSlug, projectSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Organization or project not found")
+		return
+	}
+
+	// Buscar produtos do cardápio disponíveis
+	products, err := r.handler.HandlerProducts.ListProducts(orgId, projId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting menu products", err)
+		return
+	}
+
+	// Filtrar apenas produtos disponíveis
+	var availableProducts []models.Product
+	for _, product := range products {
+		if product.Active {
+			availableProducts = append(availableProducts, product)
+		}
+	}
+
+	c.JSON(http.StatusOK, availableProducts)
+}
+
+// ServiceGetPublicCategoriesBySlug retorna categorias usando slugs
+func (r *ResourcePublic) ServiceGetPublicCategoriesBySlug(c *gin.Context) {
+	orgSlug := c.Param("orgSlug")
+	projectSlug := c.Param("projectSlug")
+
+	orgId, projId, err := r.resolveOrgAndProject(orgSlug, projectSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Organization or project not found")
+		return
+	}
+
+	categories, err := r.handler.HandlerCategory.ListCategories(orgId, projId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting categories", err)
+		return
+	}
+
+	var activeCategories []models.Category
+	for _, category := range categories {
+		if category.Active {
+			activeCategories = append(activeCategories, category)
+		}
+	}
+
+	c.JSON(http.StatusOK, activeCategories)
+}
+
+// ServiceGetPublicMenusBySlug retorna menus usando slugs
+func (r *ResourcePublic) ServiceGetPublicMenusBySlug(c *gin.Context) {
+	orgSlug := c.Param("orgSlug")
+	projectSlug := c.Param("projectSlug")
+
+	orgId, projId, err := r.resolveOrgAndProject(orgSlug, projectSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Organization or project not found")
+		return
+	}
+
+	menus, err := r.handler.HandlerMenu.ListMenus(orgId, projId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting menus", err)
+		return
+	}
+
+	var activeMenus []models.Menu
+	for _, menu := range menus {
+		if menu.Active {
+			activeMenus = append(activeMenus, menu)
+		}
+	}
+
+	c.JSON(http.StatusOK, activeMenus)
+}
+
+// ServiceGetProjectInfoBySlug retorna informações do projeto usando slugs
+func (r *ResourcePublic) ServiceGetProjectInfoBySlug(c *gin.Context) {
+	orgSlug := c.Param("orgSlug")
+	projectSlug := c.Param("projectSlug")
+
+	// Buscar organização por slug
+	org, err := r.handler.HandlerOrganization.GetOrganizationBySlug(orgSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Organization not found")
+		return
+	}
+
+	// Resolver projeto
+	project, err := r.handler.HandlerProject.ResolveProject(org.Id.String(), projectSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Project not found")
+		return
+	}
+
+	projectInfo := gin.H{
+		"name":        project.Name,
+		"description": project.Description,
+		"slug":        project.Slug,
+		"is_default":  project.IsDefault,
+		"contact_info": gin.H{
+			"phone":   org.Phone,
+			"email":   org.Email,
+			"address": org.Address,
+		},
+	}
+
+	c.JSON(http.StatusOK, projectInfo)
+}
+
+// ServiceGetAvailableTimesBySlug retorna horários disponíveis usando slugs
+func (r *ResourcePublic) ServiceGetAvailableTimesBySlug(c *gin.Context) {
+	orgSlug := c.Param("orgSlug")
+	projectSlug := c.Param("projectSlug")
+
+	orgId, projId, err := r.resolveOrgAndProject(orgSlug, projectSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Organization or project not found")
+		return
+	}
+
+	dateStr := c.Query("date")
+	partySizeStr := c.Query("party_size")
+
+	if dateStr == "" || partySizeStr == "" {
+		utils.SendBadRequestError(c, "Date and party_size are required", nil)
+		return
+	}
+
+	partySize, err := strconv.Atoi(partySizeStr)
+	if err != nil || partySize < 1 {
+		utils.SendBadRequestError(c, "Invalid party_size", err)
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid date format. Use YYYY-MM-DD", err)
+		return
+	}
+
+	availableTimes := generateAvailableTimeSlots(date, partySize, orgId, projId, r.handler)
+	c.JSON(http.StatusOK, availableTimes)
+}
+
+// ServiceCreatePublicReservationBySlug cria reserva usando slugs
+func (r *ResourcePublic) ServiceCreatePublicReservationBySlug(c *gin.Context) {
+	orgSlug := c.Param("orgSlug")
+	projectSlug := c.Param("projectSlug")
+
+	// Buscar organização por slug
+	org, err := r.handler.HandlerOrganization.GetOrganizationBySlug(orgSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Organization not found")
+		return
+	}
+
+	// Resolver projeto
+	project, err := r.handler.HandlerProject.ResolveProject(org.Id.String(), projectSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Project not found")
+		return
+	}
+
+	orgId := org.Id
+	projId := project.Id
+
+	var requestData struct {
+		Customer struct {
+			Name  string `json:"name" binding:"required"`
+			Email string `json:"email"`
+			Phone string `json:"phone" binding:"required"`
+		} `json:"customer" binding:"required"`
+		Reservation struct {
+			Datetime  string `json:"datetime" binding:"required"`
+			PartySize int    `json:"party_size" binding:"required,min=1"`
+			Note      string `json:"note"`
+			Source    string `json:"source"`
+		} `json:"reservation" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&requestData); err != nil {
+		utils.SendBadRequestError(c, "Invalid request body", err)
+		return
+	}
+
+	newCustomer := models.Customer{
+		Id:             uuid.New(),
+		OrganizationId: orgId,
+		ProjectId:      projId,
+		Name:           requestData.Customer.Name,
+		Email:          requestData.Customer.Email,
+		Phone:          requestData.Customer.Phone,
+	}
+
+	err = r.handler.HandlerCustomer.CreateCustomer(&newCustomer)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error creating customer", err)
+		return
+	}
+
+	datetime, err := time.Parse(time.RFC3339, requestData.Reservation.Datetime)
+	if err != nil {
+		datetime, err = time.Parse("2006-01-02T15:04", requestData.Reservation.Datetime)
+		if err != nil {
+			utils.SendBadRequestError(c, "Invalid datetime format", err)
+			return
+		}
+	}
+
+	tables, err := r.handler.HandlerTables.ListTables(orgId.String(), projId.String())
+	if err != nil {
+		utils.SendInternalServerError(c, "Error finding available tables", err)
+		return
+	}
+
+	var selectedTable *models.Table
+	for _, table := range tables {
+		if table.Capacity >= requestData.Reservation.PartySize && table.Status == "livre" {
+			selectedTable = &table
+			break
+		}
+	}
+
+	if selectedTable == nil {
+		utils.SendBadRequestError(c, "No available tables for this party size", nil)
+		return
+	}
+
+	newReservation := models.Reservation{
+		Id:             uuid.New(),
+		OrganizationId: orgId,
+		ProjectId:      projId,
+		CustomerId:     newCustomer.Id,
+		TableId:        selectedTable.Id,
+		Datetime:       datetime.Format(time.RFC3339),
+		PartySize:      requestData.Reservation.PartySize,
+		Status:         "confirmed",
+		Note:           requestData.Reservation.Note,
+	}
+
+	err = r.handler.HandlerReservation.CreateReservation(&newReservation)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error creating reservation", err)
+		return
+	}
+
+	response := gin.H{
+		"customer":    newCustomer,
+		"reservation": newReservation,
+		"table":       selectedTable,
+	}
+
+	utils.SendCreatedSuccess(c, "Reservation created successfully", response)
 }
 
 func NewSourceServerPublic(handler *handler.Handlers) IServerPublic {

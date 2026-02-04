@@ -13,25 +13,34 @@ type resourceAuth struct {
 	repo *repositories.DBconn
 }
 
+// AuthUser representa um usuário autenticado (Admin ou Client)
+type AuthUser struct {
+	Id       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	UserType string    `json:"user_type"` // "admin" ou "client"
+	Active   bool      `json:"active"`
+}
+
 type IHandlerAuth interface {
-	PostToken(user *models.User, token string) error
+	PostTokenForUser(userId uuid.UUID, email, token string) error
 	Logout(token string) error
-	VerificationToken(token string) (*models.User, error)
-	GetUserOrganizationsWithNames(userId string) ([]UserOrganizationWithName, error)
-	GetUserProjectsWithNames(userId string) ([]UserProjectWithName, error)
+	VerificationToken(token string) (*AuthUser, error)
+	GetClientOrganizationsWithNames(clientId string) ([]UserOrganizationWithName, error)
+	GetClientProjectsWithNames(clientId string) ([]UserProjectWithName, error)
 	RecordAccessLog(userId, ip, userAgent string) error
 	GetAccessLogs(userId string, page, perPage int) (*models.AccessLogPaginatedResponse, error)
 	// Admin Roles - para acesso à área administrativa
-	GetUserAdminRoles(userId string) ([]UserAdminRoleInfo, error)
-	UserHasAdminScopeRole(userId string) (bool, error)
+	GetAdminRolesInfo(adminId string) ([]UserAdminRoleInfo, error)
+	AdminHasAdminScopeRole(adminId string) (bool, error)
 }
 
-func (r *resourceAuth) PostToken(user *models.User, token string) error {
+func (r *resourceAuth) PostTokenForUser(userId uuid.UUID, email, token string) error {
 	loggedList := &models.LoggedLists{
 		LoggedListId: uuid.New(),
 		Token:        token,
-		UserEmail:    user.Email,
-		UserId:       user.Id,
+		UserEmail:    email,
+		UserId:       userId,
 	}
 
 	if err := r.repo.LoggedLists.CreateLoggedList(loggedList); err != nil {
@@ -80,8 +89,7 @@ func (r *resourceAuth) cleanupExpiredTokens() {
 	}
 }
 
-func (r *resourceAuth) VerificationToken(token string) (*models.User, error) {
-
+func (r *resourceAuth) VerificationToken(token string) (*AuthUser, error) {
 	logged, err := r.repo.LoggedLists.GetLoggedToken(token)
 	if err != nil {
 		return nil, err
@@ -91,18 +99,37 @@ func (r *resourceAuth) VerificationToken(token string) (*models.User, error) {
 		return nil, errors.New("Not found")
 	}
 
-	user, err := r.repo.User.GetUserById(logged.UserId.String())
-	if err != nil {
-		return nil, err
+	// Tentar buscar como Admin primeiro
+	admin, err := r.repo.Admins.GetAdminById(logged.UserId.String())
+	if err == nil && admin != nil {
+		return &AuthUser{
+			Id:       admin.Id,
+			Name:     admin.Name,
+			Email:    admin.Email,
+			UserType: "admin",
+			Active:   admin.Active,
+		}, nil
 	}
 
-	return user, nil
+	// Se não for Admin, tentar buscar como Client
+	client, err := r.repo.Clients.GetClientById(logged.UserId.String())
+	if err == nil && client != nil {
+		return &AuthUser{
+			Id:       client.Id,
+			Name:     client.Name,
+			Email:    client.Email,
+			UserType: "client",
+			Active:   client.Active,
+		}, nil
+	}
+
+	return nil, errors.New("usuário não encontrado")
 }
 
-// GetUserOrganizationsWithNames busca organizações do usuário com seus nomes via user_roles
-func (r *resourceAuth) GetUserOrganizationsWithNames(userId string) ([]UserOrganizationWithName, error) {
-	// Buscar todos os user_roles do usuário
-	userRoles, err := r.repo.Roles.GetAllUserRoles(userId)
+// GetClientOrganizationsWithNames busca organizações do cliente com seus nomes via client_roles
+func (r *resourceAuth) GetClientOrganizationsWithNames(clientId string) ([]UserOrganizationWithName, error) {
+	// Buscar todos os client_roles do cliente
+	clientRoles, err := r.repo.Roles.GetClientRoles(clientId, "")
 	if err != nil {
 		return nil, err
 	}
@@ -110,37 +137,33 @@ func (r *resourceAuth) GetUserOrganizationsWithNames(userId string) ([]UserOrgan
 	// Agrupar por organização (evitar duplicatas)
 	orgMap := make(map[uuid.UUID]UserOrganizationWithName)
 
-	for _, ur := range userRoles {
-		if ur.OrganizationId == nil {
-			continue
-		}
-
+	for _, cr := range clientRoles {
 		// Se já temos essa organização, pular
-		if _, exists := orgMap[*ur.OrganizationId]; exists {
+		if _, exists := orgMap[cr.OrganizationId]; exists {
 			continue
 		}
 
 		// Buscar nome da organização
-		org, err := r.repo.Organizations.GetOrganizationById(*ur.OrganizationId)
+		org, err := r.repo.Organizations.GetOrganizationById(cr.OrganizationId)
 		if err != nil {
 			continue
 		}
 
 		roleName := ""
-		if ur.Role != nil {
-			roleName = ur.Role.DisplayName
+		if cr.Role != nil {
+			roleName = cr.Role.DisplayName
 		}
 
-		orgMap[*ur.OrganizationId] = UserOrganizationWithName{
-			Id:               ur.Id,
-			UserId:           ur.UserId,
-			OrganizationId:   *ur.OrganizationId,
+		orgMap[cr.OrganizationId] = UserOrganizationWithName{
+			Id:               cr.Id,
+			UserId:           cr.ClientId,
+			OrganizationId:   cr.OrganizationId,
 			OrganizationName: org.Name,
 			Role:             roleName,
-			Active:           ur.Active,
-			CreatedAt:        ur.CreatedAt,
-			UpdatedAt:        ur.UpdatedAt,
-			DeletedAt:        ur.DeletedAt,
+			Active:           cr.Active,
+			CreatedAt:        cr.CreatedAt,
+			UpdatedAt:        cr.UpdatedAt,
+			DeletedAt:        cr.DeletedAt,
 		}
 	}
 
@@ -153,10 +176,10 @@ func (r *resourceAuth) GetUserOrganizationsWithNames(userId string) ([]UserOrgan
 	return result, nil
 }
 
-// GetUserProjectsWithNames busca projetos do usuário com seus nomes via user_roles
-func (r *resourceAuth) GetUserProjectsWithNames(userId string) ([]UserProjectWithName, error) {
-	// Buscar todos os user_roles do usuário
-	userRoles, err := r.repo.Roles.GetAllUserRoles(userId)
+// GetClientProjectsWithNames busca projetos do cliente com seus nomes via client_roles
+func (r *resourceAuth) GetClientProjectsWithNames(clientId string) ([]UserProjectWithName, error) {
+	// Buscar todos os client_roles do cliente
+	clientRoles, err := r.repo.Roles.GetClientRoles(clientId, "")
 	if err != nil {
 		return nil, err
 	}
@@ -164,18 +187,18 @@ func (r *resourceAuth) GetUserProjectsWithNames(userId string) ([]UserProjectWit
 	// Agrupar por projeto (evitar duplicatas)
 	projMap := make(map[uuid.UUID]UserProjectWithName)
 
-	for _, ur := range userRoles {
-		if ur.ProjectId == nil {
+	for _, cr := range clientRoles {
+		if cr.ProjectId == nil {
 			continue
 		}
 
 		// Se já temos esse projeto, pular
-		if _, exists := projMap[*ur.ProjectId]; exists {
+		if _, exists := projMap[*cr.ProjectId]; exists {
 			continue
 		}
 
 		// Buscar nome do projeto
-		proj, err := r.repo.Projects.GetProjectById(*ur.ProjectId)
+		proj, err := r.repo.Projects.GetProjectById(*cr.ProjectId)
 		if err != nil {
 			continue
 		}
@@ -187,22 +210,22 @@ func (r *resourceAuth) GetUserProjectsWithNames(userId string) ([]UserProjectWit
 		}
 
 		roleName := ""
-		if ur.Role != nil {
-			roleName = ur.Role.DisplayName
+		if cr.Role != nil {
+			roleName = cr.Role.DisplayName
 		}
 
-		projMap[*ur.ProjectId] = UserProjectWithName{
-			Id:               ur.Id,
-			UserId:           ur.UserId,
-			ProjectId:        *ur.ProjectId,
+		projMap[*cr.ProjectId] = UserProjectWithName{
+			Id:               cr.Id,
+			UserId:           cr.ClientId,
+			ProjectId:        *cr.ProjectId,
 			ProjectName:      proj.Name,
 			OrganizationId:   proj.OrganizationId,
 			OrganizationName: orgName,
 			Role:             roleName,
-			Active:           ur.Active,
-			CreatedAt:        ur.CreatedAt,
-			UpdatedAt:        ur.UpdatedAt,
-			DeletedAt:        ur.DeletedAt,
+			Active:           cr.Active,
+			CreatedAt:        cr.CreatedAt,
+			UpdatedAt:        cr.UpdatedAt,
+			DeletedAt:        cr.DeletedAt,
 		}
 	}
 
@@ -240,49 +263,46 @@ func (r *resourceAuth) GetAccessLogs(userId string, page, perPage int) (*models.
 	return r.repo.AccessLogs.GetByUserId(userId, page, perPage)
 }
 
-// GetUserAdminRoles busca todos os cargos de escopo "admin" atribuídos ao usuário
-// Esses são cargos com organization_id IS NULL (globais/administrativos)
-func (r *resourceAuth) GetUserAdminRoles(userId string) ([]UserAdminRoleInfo, error) {
-	// Buscar user_roles onde organization_id IS NULL (cargos admin globais)
-	// e o role tem scope = 'admin'
-	fmt.Printf("[DEBUG] GetUserAdminRoles - Buscando cargos admin para userId: %s\n", userId)
+// GetAdminRolesInfo busca todos os cargos de escopo "admin" atribuídos ao admin
+func (r *resourceAuth) GetAdminRolesInfo(adminId string) ([]UserAdminRoleInfo, error) {
+	fmt.Printf("[DEBUG] GetAdminRolesInfo - Buscando cargos admin para adminId: %s\n", adminId)
 
-	userRoles, err := r.repo.Roles.GetUserRoles(userId, "", "admin")
+	adminRoles, err := r.repo.Roles.GetAdminRoles(adminId)
 	if err != nil {
-		fmt.Printf("[DEBUG] GetUserAdminRoles - Erro ao buscar: %v\n", err)
+		fmt.Printf("[DEBUG] GetAdminRolesInfo - Erro ao buscar: %v\n", err)
 		return nil, err
 	}
 
-	fmt.Printf("[DEBUG] GetUserAdminRoles - Encontrados %d user_roles (organization_id IS NULL + scope='admin')\n", len(userRoles))
+	fmt.Printf("[DEBUG] GetAdminRolesInfo - Encontrados %d admin_roles\n", len(adminRoles))
 
-	result := make([]UserAdminRoleInfo, 0, len(userRoles))
-	for _, ur := range userRoles {
-		if ur.Role == nil {
-			fmt.Printf("[DEBUG] GetUserAdminRoles - UserRole %s tem Role nil, pulando\n", ur.Id)
+	result := make([]UserAdminRoleInfo, 0, len(adminRoles))
+	for _, ar := range adminRoles {
+		if ar.Role == nil {
+			fmt.Printf("[DEBUG] GetAdminRolesInfo - AdminRole %s tem Role nil, pulando\n", ar.Id)
 			continue
 		}
 
-		fmt.Printf("[DEBUG] GetUserAdminRoles - UserRole encontrado: id=%s, role_name=%s, scope=%s, active=%v\n",
-			ur.Id, ur.Role.Name, ur.Role.Scope, ur.Active)
+		fmt.Printf("[DEBUG] GetAdminRolesInfo - AdminRole encontrado: id=%s, role_name=%s, scope=%s, active=%v\n",
+			ar.Id, ar.Role.Name, ar.Role.Scope, ar.Active)
 
 		result = append(result, UserAdminRoleInfo{
-			Id:              ur.Id,
-			RoleId:          ur.RoleId,
-			RoleName:        ur.Role.Name,
-			RoleDisplayName: ur.Role.DisplayName,
-			Scope:           ur.Role.Scope,
-			HierarchyLevel:  ur.Role.HierarchyLevel,
-			Active:          ur.Active,
+			Id:              ar.Id,
+			RoleId:          ar.RoleId,
+			RoleName:        ar.Role.Name,
+			RoleDisplayName: ar.Role.DisplayName,
+			Scope:           ar.Role.Scope,
+			HierarchyLevel:  ar.Role.HierarchyLevel,
+			Active:          ar.Active,
 		})
 	}
 
-	fmt.Printf("[DEBUG] GetUserAdminRoles - Retornando %d cargos admin\n", len(result))
+	fmt.Printf("[DEBUG] GetAdminRolesInfo - Retornando %d cargos admin\n", len(result))
 	return result, nil
 }
 
-// UserHasAdminScopeRole verifica se o usuário possui pelo menos um cargo de escopo "admin"
-func (r *resourceAuth) UserHasAdminScopeRole(userId string) (bool, error) {
-	adminRoles, err := r.GetUserAdminRoles(userId)
+// AdminHasAdminScopeRole verifica se o admin possui pelo menos um cargo de escopo "admin"
+func (r *resourceAuth) AdminHasAdminScopeRole(adminId string) (bool, error) {
+	adminRoles, err := r.GetAdminRolesInfo(adminId)
 	if err != nil {
 		return false, err
 	}

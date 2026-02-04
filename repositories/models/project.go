@@ -12,6 +12,8 @@ type Project struct {
 	OrganizationId uuid.UUID `json:"organization_id"`
 	Name           string    `json:"name"`
 	Description    string    `json:"description,omitempty"`
+	Slug           string    `json:"slug" gorm:"size:100;index"`
+	IsDefault      bool      `json:"is_default" gorm:"default:false"`
 
 	// Configurações Twilio (SMS + WhatsApp)
 	TwilioAccountSid       *string `json:"twilio_account_sid,omitempty"`

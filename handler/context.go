@@ -14,6 +14,8 @@ import (
 type RequestContext struct {
 	UserId         uuid.UUID
 	UserEmail      string
+	UserType       string // "admin" ou "client"
+	HierarchyLevel int    // Nível de hierarquia do usuário
 	OrganizationId *uuid.UUID
 	ProjectId      *uuid.UUID
 	Permissions    pq.StringArray
@@ -22,9 +24,9 @@ type RequestContext struct {
 	IsAdminZone    bool
 }
 
-// IsMasterAdmin verifica se o usuário do contexto é um Master Admin
+// IsMasterAdmin verifica se o usuário do contexto é um Master Admin (hierarchy >= 10)
 func (ctx *RequestContext) IsMasterAdmin() bool {
-	return constants.HasPermission(ctx.Permissions, constants.PermissionMasterAdmin)
+	return constants.IsMasterAdminLevel(ctx.HierarchyLevel)
 }
 
 // BuildRequestContext constrói um RequestContext a partir do gin.Context
@@ -44,6 +46,16 @@ func BuildRequestContext(c *gin.Context) *RequestContext {
 
 	// Extrair email do usuário
 	ctx.UserEmail = c.GetString("user_email")
+
+	// Extrair tipo de usuário (admin ou client)
+	ctx.UserType = c.GetString("user_type")
+
+	// Extrair nível de hierarquia
+	if hierarchyLevel, exists := c.Get("hierarchy_level"); exists {
+		if level, ok := hierarchyLevel.(int); ok {
+			ctx.HierarchyLevel = level
+		}
+	}
 
 	// Extrair permissões do usuário
 	if permissions, exists := c.Get("user_permissions"); exists {

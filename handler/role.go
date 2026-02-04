@@ -2,18 +2,22 @@ package handler
 
 import (
 	"fmt"
+	"lep/constants"
 	"lep/repositories"
 	"lep/repositories/models"
 
 	"github.com/google/uuid"
 )
 
+// RoleHandler gerencia roles, permissões e planos
+// Implementa IAuthorizationHandler para uso no middleware
 type RoleHandler struct {
 	roleRepo          repositories.IRoleRepository
 	permissionRepo    repositories.IPermissionRepository
 	moduleRepo        repositories.IModuleRepository
-	packageRepo       repositories.IPackageRepository
-	userRepo          repositories.IUserRepository
+	planRepo          repositories.IPlanRepository
+	adminRepo         repositories.IAdminRepository
+	clientRepo        repositories.IClientRepository
 	adminAuditHandler IAdminAuditLogHandler
 }
 
@@ -21,15 +25,17 @@ func NewRoleHandler(
 	roleRepo repositories.IRoleRepository,
 	permissionRepo repositories.IPermissionRepository,
 	moduleRepo repositories.IModuleRepository,
-	packageRepo repositories.IPackageRepository,
-	userRepo repositories.IUserRepository,
+	planRepo repositories.IPlanRepository,
+	adminRepo repositories.IAdminRepository,
+	clientRepo repositories.IClientRepository,
 ) *RoleHandler {
 	return &RoleHandler{
 		roleRepo:       roleRepo,
 		permissionRepo: permissionRepo,
 		moduleRepo:     moduleRepo,
-		packageRepo:    packageRepo,
-		userRepo:       userRepo,
+		planRepo:       planRepo,
+		adminRepo:      adminRepo,
+		clientRepo:     clientRepo,
 	}
 }
 
@@ -41,9 +47,9 @@ func (h *RoleHandler) SetAdminAuditHandler(handler IAdminAuditLogHandler) {
 // ==================== Role CRUD ====================
 
 // CreateRole cria um novo cargo
-func (h *RoleHandler) CreateRole(role *models.Role, actorUserId, orgId string) error {
+func (h *RoleHandler) CreateRole(role *models.Role, actorUserId, actorUserType, orgId string) error {
 	// Validar hierarquia - usuário só pode criar cargos com nível igual ou menor
-	actorLevel, err := h.roleRepo.GetUserMaxHierarchyLevel(actorUserId, orgId)
+	actorLevel, err := h.roleRepo.GetUserHierarchyLevel(actorUserId, actorUserType, orgId)
 	if err != nil {
 		return fmt.Errorf("erro ao verificar hierarquia: %w", err)
 	}
@@ -61,14 +67,26 @@ func (h *RoleHandler) GetRole(id string) (*models.Role, error) {
 }
 
 // UpdateRole atualiza um cargo
-func (h *RoleHandler) UpdateRole(role *models.Role, actorUserId, orgId string) error {
-	// Validar se o usuário pode gerenciar este cargo
-	canManage, err := h.roleRepo.CanManageRole(actorUserId, role.Id.String(), orgId)
+func (h *RoleHandler) UpdateRole(role *models.Role, actorUserId, actorUserType, orgId string) error {
+	// Buscar o cargo alvo para verificar hierarquia
+	targetRole, err := h.roleRepo.GetById(role.Id.String())
 	if err != nil {
-		return fmt.Errorf("erro ao verificar permissão: %w", err)
+		return fmt.Errorf("cargo não encontrado: %w", err)
 	}
 
-	if !canManage {
+	// Buscar nível de hierarquia do ator
+	actorLevel, err := h.roleRepo.GetUserHierarchyLevel(actorUserId, actorUserType, orgId)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar hierarquia: %w", err)
+	}
+
+	// Master admin pode tudo
+	if actorLevel >= constants.HierarchyMasterAdmin {
+		return h.roleRepo.Update(role)
+	}
+
+	// Ator pode gerenciar roles com nível igual ou menor
+	if actorLevel < targetRole.HierarchyLevel {
 		return fmt.Errorf("você não tem permissão para modificar este cargo")
 	}
 
@@ -76,17 +94,7 @@ func (h *RoleHandler) UpdateRole(role *models.Role, actorUserId, orgId string) e
 }
 
 // DeleteRole remove um cargo
-func (h *RoleHandler) DeleteRole(id, actorUserId, orgId string) error {
-	// Validar se o usuário pode gerenciar este cargo
-	canManage, err := h.roleRepo.CanManageRole(actorUserId, id, orgId)
-	if err != nil {
-		return fmt.Errorf("erro ao verificar permissão: %w", err)
-	}
-
-	if !canManage {
-		return fmt.Errorf("você não tem permissão para excluir este cargo")
-	}
-
+func (h *RoleHandler) DeleteRole(id, actorUserId, actorUserType, orgId string) error {
 	// Verificar se é um cargo do sistema
 	role, err := h.roleRepo.GetById(id)
 	if err != nil {
@@ -95,6 +103,22 @@ func (h *RoleHandler) DeleteRole(id, actorUserId, orgId string) error {
 
 	if role.IsSystem {
 		return fmt.Errorf("cargos do sistema não podem ser excluídos")
+	}
+
+	// Buscar nível de hierarquia do ator
+	actorLevel, err := h.roleRepo.GetUserHierarchyLevel(actorUserId, actorUserType, orgId)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar hierarquia: %w", err)
+	}
+
+	// Master admin pode tudo
+	if actorLevel >= constants.HierarchyMasterAdmin {
+		return h.roleRepo.Delete(id)
+	}
+
+	// Ator pode gerenciar roles com nível igual ou menor
+	if actorLevel < role.HierarchyLevel {
+		return fmt.Errorf("você não tem permissão para excluir este cargo")
 	}
 
 	return h.roleRepo.Delete(id)
@@ -116,115 +140,193 @@ func (h *RoleHandler) ListSystemRoles() ([]models.Role, error) {
 	return h.roleRepo.ListSystemRoles()
 }
 
-// ==================== User-Role Assignment ====================
+// ==================== IAuthorizationHandler Implementation ====================
 
-// AssignRoleToUser atribui um cargo a um usuário
-func (h *RoleHandler) AssignRoleToUser(userRole *models.UserRole, actorUserId string) error {
-	// Obter orgId - pode ser vazio para cargos admin globais
-	orgId := ""
-	if userRole.OrganizationId != nil {
-		orgId = userRole.OrganizationId.String()
-	}
+// IsMasterAdmin verifica se usuário é master admin (hierarchy >= 10)
+func (h *RoleHandler) IsMasterAdmin(userId, userType string) (bool, error) {
+	return h.roleRepo.IsMasterAdmin(userId, userType)
+}
 
-	// Validar se o ator pode atribuir este cargo
-	canManage, err := h.roleRepo.CanManageRole(actorUserId, userRole.RoleId.String(), orgId)
+// GetUserHierarchyLevel retorna o maior nível de hierarquia do usuário
+func (h *RoleHandler) GetUserHierarchyLevel(userId, userType string) (int, error) {
+	return h.roleRepo.GetUserHierarchyLevel(userId, userType, "")
+}
+
+// UserHasPermission verifica se usuário tem uma permissão específica via roles
+func (h *RoleHandler) UserHasPermission(userId, userType, permission string) (bool, error) {
+	return h.roleRepo.UserHasPermission(userId, userType, permission)
+}
+
+// OrganizationHasModule verifica se organização tem acesso ao módulo via plan
+func (h *RoleHandler) OrganizationHasModule(orgId, moduleCode string) (bool, error) {
+	return h.planRepo.OrganizationHasModule(orgId, moduleCode)
+}
+
+// CanManageUser verifica se actor pode gerenciar target baseado em hierarquia
+func (h *RoleHandler) CanManageUser(actorId, targetId, userType string) (bool, error) {
+	actorLevel, err := h.roleRepo.GetUserHierarchyLevel(actorId, userType, "")
 	if err != nil {
-		return fmt.Errorf("erro ao verificar permissão: %w", err)
+		return false, err
 	}
 
-	if !canManage {
-		return fmt.Errorf("você não tem permissão para atribuir este cargo")
+	targetLevel, err := h.roleRepo.GetUserHierarchyLevel(targetId, userType, "")
+	if err != nil {
+		return false, err
 	}
 
-	// Verificar se o cargo é super_admin para sincronizar permissão master_admin
-	role, err := h.roleRepo.GetById(userRole.RoleId.String())
+	return actorLevel > targetLevel, nil
+}
+
+// ==================== Client-Role Assignment ====================
+
+// AssignRoleToClient atribui um cargo a um cliente
+func (h *RoleHandler) AssignRoleToClient(clientRole *models.ClientRole, actorUserId, actorUserType string) error {
+	// Validar se o ator pode atribuir este cargo
+	role, err := h.roleRepo.GetById(clientRole.RoleId.String())
 	if err != nil {
 		return fmt.Errorf("erro ao buscar cargo: %w", err)
 	}
 
-	// Se o cargo é super_admin, adicionar permissão master_admin ao usuário
-	if role.Name == "super_admin" {
-		user, err := h.userRepo.GetUserById(userRole.UserId.String())
-		if err != nil {
-			return fmt.Errorf("erro ao buscar usuário: %w", err)
-		}
-
-		// Verificar se já tem a permissão
-		hasMasterAdmin := false
-		for _, perm := range user.Permissions {
-			if perm == "master_admin" {
-				hasMasterAdmin = true
-				break
-			}
-		}
-
-		// Adicionar permissão se não tiver
-		if !hasMasterAdmin {
-			user.Permissions = append(user.Permissions, "master_admin")
-			if err := h.userRepo.UpdateUser(user); err != nil {
-				return fmt.Errorf("erro ao atualizar permissões do usuário: %w", err)
-			}
-		}
+	orgId := ""
+	if clientRole.OrganizationId != uuid.Nil {
+		orgId = clientRole.OrganizationId.String()
 	}
 
-	return h.roleRepo.AssignRoleToUser(userRole)
+	// Verificar hierarquia do ator
+	actorLevel, err := h.roleRepo.GetUserHierarchyLevel(actorUserId, actorUserType, orgId)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar hierarquia: %w", err)
+	}
+
+	// Ator deve ter hierarquia maior ou igual ao cargo que está atribuindo
+	if role.HierarchyLevel > actorLevel && actorLevel < constants.HierarchyMasterAdmin {
+		return fmt.Errorf("você não tem permissão para atribuir este cargo (nível %d)", role.HierarchyLevel)
+	}
+
+	// Atribuir o cargo
+	if err := h.roleRepo.AssignRoleToClient(clientRole); err != nil {
+		return err
+	}
+
+	// Sincronizar proj_ids: se o cargo tem um project_id, adicionar ao array proj_ids do cliente
+	if clientRole.ProjectId != nil {
+		_ = h.clientRepo.AddProjectToClient(clientRole.ClientId.String(), clientRole.ProjectId.String())
+	}
+
+	return nil
 }
 
-// RemoveRoleFromUser remove um cargo de um usuário
-func (h *RoleHandler) RemoveRoleFromUser(userId, roleId, orgId, actorUserId string) error {
-	// Validar se o ator pode gerenciar este cargo
-	canManage, err := h.roleRepo.CanManageRole(actorUserId, roleId, orgId)
-	if err != nil {
-		return fmt.Errorf("erro ao verificar permissão: %w", err)
-	}
-
-	if !canManage {
-		return fmt.Errorf("você não tem permissão para remover este cargo")
-	}
-
-	// Verificar se o cargo é super_admin para remover permissão master_admin
+// RemoveRoleFromClient remove um cargo de um cliente
+func (h *RoleHandler) RemoveRoleFromClient(clientId, roleId, orgId, actorUserId, actorUserType string) error {
+	// Validar se o ator pode remover este cargo
 	role, err := h.roleRepo.GetById(roleId)
 	if err != nil {
 		return fmt.Errorf("erro ao buscar cargo: %w", err)
 	}
 
-	// Se o cargo é super_admin, remover permissão master_admin do usuário
-	if role.Name == "super_admin" {
-		user, err := h.userRepo.GetUserById(userId)
-		if err != nil {
-			return fmt.Errorf("erro ao buscar usuário: %w", err)
-		}
-
-		// Filtrar a permissão master_admin
-		newPermissions := make([]string, 0)
-		for _, perm := range user.Permissions {
-			if perm != "master_admin" {
-				newPermissions = append(newPermissions, perm)
-			}
-		}
-
-		// Atualizar se houve mudança
-		if len(newPermissions) != len(user.Permissions) {
-			user.Permissions = newPermissions
-			if err := h.userRepo.UpdateUser(user); err != nil {
-				return fmt.Errorf("erro ao atualizar permissões do usuário: %w", err)
-			}
-		}
+	// Verificar hierarquia do ator
+	actorLevel, err := h.roleRepo.GetUserHierarchyLevel(actorUserId, actorUserType, orgId)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar hierarquia: %w", err)
 	}
 
-	return h.roleRepo.RemoveRoleFromUser(userId, roleId, orgId)
+	// Ator deve ter hierarquia maior ou igual ao cargo que está removendo
+	if role.HierarchyLevel > actorLevel && actorLevel < constants.HierarchyMasterAdmin {
+		return fmt.Errorf("você não tem permissão para remover este cargo")
+	}
+
+	return h.roleRepo.RemoveRoleFromClient(clientId, roleId, orgId)
 }
 
-// GetUserRoles retorna todos os cargos de um usuário
-// Se scope for fornecido, filtra apenas roles daquele escopo (admin/client)
-func (h *RoleHandler) GetUserRoles(userId, orgId, scope string) ([]models.UserRole, error) {
-	return h.roleRepo.GetUserRoles(userId, orgId, scope)
+// GetClientRoles retorna todos os cargos de um cliente
+func (h *RoleHandler) GetClientRoles(clientId, orgId string) ([]models.ClientRole, error) {
+	return h.roleRepo.GetClientRoles(clientId, orgId)
 }
 
-// GetUserRolesWithDetails retorna cargos com detalhes de permissões
-// Se scope for fornecido, filtra apenas roles daquele escopo (admin/client)
-func (h *RoleHandler) GetUserRolesWithDetails(userId, orgId, scope string) ([]models.RoleWithPermissionLevels, error) {
-	return h.roleRepo.GetUserRolesWithDetails(userId, orgId, scope)
+// ==================== Admin-Role Assignment ====================
+
+// AssignRoleToAdmin atribui um cargo a um admin
+func (h *RoleHandler) AssignRoleToAdmin(adminRole *models.AdminRole, actorUserId, actorUserType string) error {
+	// Validar se o ator pode atribuir este cargo
+	role, err := h.roleRepo.GetById(adminRole.RoleId.String())
+	if err != nil {
+		return fmt.Errorf("erro ao buscar cargo: %w", err)
+	}
+
+	orgId := ""
+	if adminRole.OrganizationId != nil {
+		orgId = adminRole.OrganizationId.String()
+	}
+
+	// Verificar hierarquia do ator
+	actorLevel, err := h.roleRepo.GetUserHierarchyLevel(actorUserId, actorUserType, orgId)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar hierarquia: %w", err)
+	}
+
+	// Ator deve ter hierarquia maior ou igual ao cargo que está atribuindo
+	if role.HierarchyLevel > actorLevel && actorLevel < constants.HierarchyMasterAdmin {
+		return fmt.Errorf("você não tem permissão para atribuir este cargo (nível %d)", role.HierarchyLevel)
+	}
+
+	return h.roleRepo.AssignRoleToAdmin(adminRole)
+}
+
+// RemoveRoleFromAdmin remove um cargo de um admin
+func (h *RoleHandler) RemoveRoleFromAdmin(adminId, roleId, actorUserId, actorUserType string) error {
+	// Validar se o ator pode remover este cargo
+	role, err := h.roleRepo.GetById(roleId)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar cargo: %w", err)
+	}
+
+	// Verificar hierarquia do ator (admins não tem orgId obrigatório)
+	actorLevel, err := h.roleRepo.GetUserHierarchyLevel(actorUserId, actorUserType, "")
+	if err != nil {
+		return fmt.Errorf("erro ao verificar hierarquia: %w", err)
+	}
+
+	// Ator deve ter hierarquia maior ou igual ao cargo que está removendo
+	if role.HierarchyLevel > actorLevel && actorLevel < constants.HierarchyMasterAdmin {
+		return fmt.Errorf("você não tem permissão para remover este cargo")
+	}
+
+	return h.roleRepo.RemoveRoleFromAdmin(adminId, roleId)
+}
+
+// GetAdminRoles retorna todos os cargos de um admin
+func (h *RoleHandler) GetAdminRoles(adminId string) ([]models.AdminRole, error) {
+	return h.roleRepo.GetAdminRoles(adminId)
+}
+
+// GetAdminRolesWithPermissions retorna cargos de admin com suas permissões
+func (h *RoleHandler) GetAdminRolesWithPermissions(adminId string) ([]models.RoleWithPermissions, error) {
+	return h.roleRepo.GetAdminRolesWithPermissions(adminId)
+}
+
+// GetClientRolesWithPermissions retorna cargos de client com suas permissões
+func (h *RoleHandler) GetClientRolesWithPermissions(clientId, orgId string) ([]models.RoleWithPermissions, error) {
+	return h.roleRepo.GetClientRolesWithPermissions(clientId, orgId)
+}
+
+// AddPermissionToRole adiciona uma permissão a um cargo
+func (h *RoleHandler) AddPermissionToRole(roleId, permissionId string) error {
+	return h.roleRepo.AddPermissionToRole(roleId, permissionId)
+}
+
+// RemovePermissionFromRole remove uma permissão de um cargo
+func (h *RoleHandler) RemovePermissionFromRole(roleId, permissionId string) error {
+	return h.roleRepo.RemovePermissionFromRole(roleId, permissionId)
+}
+
+// GetRolePermissions retorna todas as permissões de um cargo
+func (h *RoleHandler) GetRolePermissions(roleId string) ([]models.Permission, error) {
+	return h.roleRepo.GetRolePermissions(roleId)
+}
+
+// GetRolePermissionCodes retorna os códigos das permissões de um cargo
+func (h *RoleHandler) GetRolePermissionCodes(roleId string) ([]string, error) {
+	return h.roleRepo.GetRolePermissionCodes(roleId)
 }
 
 // GetRoleByName busca um cargo pelo nome
@@ -232,173 +334,14 @@ func (h *RoleHandler) GetRoleByName(name string) (*models.Role, error) {
 	return h.roleRepo.GetByName(name)
 }
 
-// ==================== Permission Level Management ====================
-
-// SetRolePermissionLevel define o nível de uma permissão para um cargo
-func (h *RoleHandler) SetRolePermissionLevel(roleId, permissionId string, level int, actorUserId, orgId string) error {
-	// Validar nível (0, 1, 2)
-	if level < 0 || level > 2 {
-		return fmt.Errorf("nível de permissão inválido: deve ser 0, 1 ou 2")
-	}
-
-	// Verificar se a permissão existe no banco
-	permission, err := h.permissionRepo.GetById(permissionId)
-	if err != nil {
-		return fmt.Errorf("permissão não encontrada: %s", permissionId)
-	}
-	if permission == nil || !permission.Active {
-		return fmt.Errorf("permissão inválida ou inativa")
-	}
-
-	// Validar se o ator pode gerenciar este cargo
-	canManage, err := h.roleRepo.CanManageRole(actorUserId, roleId, orgId)
-	if err != nil {
-		return fmt.Errorf("erro ao verificar permissão: %w", err)
-	}
-
-	if !canManage {
-		return fmt.Errorf("você não tem permissão para modificar este cargo")
-	}
-
-	return h.roleRepo.SetPermissionLevel(roleId, permissionId, level)
-}
-
-// GetRolePermissionLevels retorna todos os níveis de permissão de um cargo
-func (h *RoleHandler) GetRolePermissionLevels(roleId string) ([]models.RolePermissionLevel, error) {
-	return h.roleRepo.GetPermissionLevels(roleId)
-}
-
-// ==================== Permission Checking (Herança) ====================
-
-// UserEffectivePermissionLevel retorna o nível efetivo de uma permissão para um usuário
-// considerando todos os seus cargos (retorna o maior nível)
-func (h *RoleHandler) UserEffectivePermissionLevel(userId, orgId, permissionCodeName string) (int, error) {
-	// Buscar a permissão pelo código
-	permission, err := h.permissionRepo.GetByCodeName(permissionCodeName)
-	if err != nil {
-		return 0, fmt.Errorf("permissão não encontrada: %s", permissionCodeName)
-	}
-
-	// Buscar todos os cargos do usuário com detalhes (todos os scopes para permissões efetivas)
-	rolesWithLevels, err := h.roleRepo.GetUserRolesWithDetails(userId, orgId, "")
-	if err != nil {
-		return 0, err
-	}
-
-	// Encontrar o maior nível para esta permissão
-	maxLevel := 0
-	for _, roleData := range rolesWithLevels {
-		for _, permLevel := range roleData.PermissionLevels {
-			if permLevel.PermissionId == permission.Id && permLevel.Level > maxLevel {
-				maxLevel = permLevel.Level
-			}
-		}
-	}
-
-	return maxLevel, nil
-}
-
-// HasPermission verifica se um usuário tem pelo menos o nível mínimo para uma permissão
-func (h *RoleHandler) HasPermission(userId, orgId, permissionCodeName string, minLevel int) (bool, error) {
-	effectiveLevel, err := h.UserEffectivePermissionLevel(userId, orgId, permissionCodeName)
-	if err != nil {
-		return false, err
-	}
-	return effectiveLevel >= minLevel, nil
-}
-
 // HasModuleAccess verifica se a organização tem acesso a um módulo
 func (h *RoleHandler) HasModuleAccess(orgId, moduleCodeName string) (bool, error) {
-	// Buscar o módulo
-	module, err := h.moduleRepo.GetByCodeName(moduleCodeName)
-	if err != nil {
-		return false, fmt.Errorf("módulo não encontrado: %s", moduleCodeName)
-	}
-
-	// Se o módulo é gratuito, todos têm acesso
-	if module.IsFree {
-		return true, nil
-	}
-
-	// Buscar o pacote da organização
-	orgPackage, err := h.packageRepo.GetOrganizationPackage(orgId)
-	if err != nil {
-		// Sem pacote, só módulos gratuitos
-		return false, nil
-	}
-
-	// Verificar se o módulo está no pacote
-	return h.moduleRepo.IsModuleInPackage(module.Id.String(), orgPackage.PackageId.String())
+	return h.planRepo.OrganizationHasModule(orgId, moduleCodeName)
 }
 
-// FullPermissionCheck faz verificação completa: módulo + permissão + hierarquia
-func (h *RoleHandler) FullPermissionCheck(userId, orgId, permissionCodeName string, minLevel int, targetUserId string) (bool, string, error) {
-	// 1. Buscar a permissão para identificar o módulo
-	permission, err := h.permissionRepo.GetByCodeName(permissionCodeName)
-	if err != nil {
-		return false, "Permissão não encontrada", err
-	}
-
-	// 2. Verificar acesso ao módulo
-	if permission.Module != nil {
-		hasModule, err := h.HasModuleAccess(orgId, permission.Module.CodeName)
-		if err != nil {
-			return false, "Erro ao verificar módulo", err
-		}
-		if !hasModule {
-			return false, fmt.Sprintf("Módulo '%s' não disponível no seu plano", permission.Module.DisplayName), nil
-		}
-	}
-
-	// 3. Verificar nível de permissão
-	hasPermission, err := h.HasPermission(userId, orgId, permissionCodeName, minLevel)
-	if err != nil {
-		return false, "Erro ao verificar permissão", err
-	}
-	if !hasPermission {
-		return false, fmt.Sprintf("Você não tem permissão para '%s'", permission.DisplayName), nil
-	}
-
-	// 4. Se há um usuário alvo, verificar hierarquia
-	if targetUserId != "" && targetUserId != userId {
-		actorLevel, err := h.roleRepo.GetUserMaxHierarchyLevel(userId, orgId)
-		if err != nil {
-			return false, "Erro ao verificar hierarquia", err
-		}
-
-		targetLevel, err := h.roleRepo.GetUserMaxHierarchyLevel(targetUserId, orgId)
-		if err != nil {
-			return false, "Erro ao verificar hierarquia do alvo", err
-		}
-
-		if targetLevel > actorLevel {
-			return false, "Você não pode gerenciar usuários com nível de hierarquia maior", nil
-		}
-	}
-
-	return true, "", nil
-}
-
-// ==================== Helpers ====================
-
-// GetUserMaxHierarchyLevel retorna o maior nível de hierarquia do usuário
-func (h *RoleHandler) GetUserMaxHierarchyLevel(userId, orgId string) (int, error) {
-	return h.roleRepo.GetUserMaxHierarchyLevel(userId, orgId)
-}
-
-// CanManageUser verifica se um usuário pode gerenciar outro
-func (h *RoleHandler) CanManageUser(actorUserId, targetUserId, orgId string) (bool, error) {
-	actorLevel, err := h.roleRepo.GetUserMaxHierarchyLevel(actorUserId, orgId)
-	if err != nil {
-		return false, err
-	}
-
-	targetLevel, err := h.roleRepo.GetUserMaxHierarchyLevel(targetUserId, orgId)
-	if err != nil {
-		return false, err
-	}
-
-	return actorLevel >= targetLevel, nil
+// CanManageUserInOrg verifica se um usuário pode gerenciar outro na mesma organização
+func (h *RoleHandler) CanManageUserInOrg(actorUserId, targetUserId, userType, orgId string) (bool, error) {
+	return h.roleRepo.CanManageUser(actorUserId, targetUserId, userType, orgId)
 }
 
 // ==================== Module & Permission Listing ====================
@@ -429,50 +372,50 @@ func (h *RoleHandler) GetOrganizationModules(orgId string) ([]models.Module, err
 	return h.moduleRepo.GetModulesForOrganization(orgId)
 }
 
-// ==================== Package Management ====================
+// ==================== Plan Management ====================
 
-// ListPackages lista todos os pacotes
-func (h *RoleHandler) ListPackages(publicOnly bool) ([]models.Package, error) {
+// ListPlans lista todos os planos
+func (h *RoleHandler) ListPlans(publicOnly bool) ([]models.Plan, error) {
 	if publicOnly {
-		return h.packageRepo.ListPublic()
+		return h.planRepo.ListPublic()
 	}
-	return h.packageRepo.List()
+	return h.planRepo.List()
 }
 
-// GetPackageWithModules retorna um pacote com seus módulos
-func (h *RoleHandler) GetPackageWithModules(id string) (*models.Package, error) {
-	return h.packageRepo.GetPackageWithModules(id)
+// GetPlanWithModules retorna um plano com seus módulos
+func (h *RoleHandler) GetPlanWithModules(id string) (*models.Plan, error) {
+	return h.planRepo.GetPlanWithModules(id)
 }
 
-// SubscribeOrganization inscreve uma organização em um pacote
-func (h *RoleHandler) SubscribeOrganization(orgId, packageId string, billingCycle string, customPrice *float64) error {
+// SubscribeOrganization inscreve uma organização em um plano
+func (h *RoleHandler) SubscribeOrganization(orgId, planId string, billingCycle string, customPrice *float64) error {
 	orgUUID, err := uuid.Parse(orgId)
 	if err != nil {
 		return fmt.Errorf("ID da organização inválido: %w", err)
 	}
 
-	pkgUUID, err := uuid.Parse(packageId)
+	planUUID, err := uuid.Parse(planId)
 	if err != nil {
-		return fmt.Errorf("ID do pacote inválido: %w", err)
+		return fmt.Errorf("ID do plano inválido: %w", err)
 	}
 
-	// Buscar pacote para obter preço
-	pkg, err := h.packageRepo.GetById(packageId)
+	// Buscar plano para obter preço
+	plan, err := h.planRepo.GetById(planId)
 	if err != nil {
-		return fmt.Errorf("pacote não encontrado: %w", err)
+		return fmt.Errorf("plano não encontrado: %w", err)
 	}
 
-	price := pkg.PriceMonthly
+	price := plan.PriceMonthly
 	if billingCycle == "yearly" {
-		price = pkg.PriceYearly
+		price = plan.PriceYearly
 	}
 	if customPrice != nil {
 		price = *customPrice
 	}
 
-	orgPackage := &models.OrganizationPackage{
+	orgPlan := &models.OrganizationPlan{
 		OrganizationId: orgUUID,
-		PackageId:      pkgUUID,
+		PlanId:         planUUID,
 		BillingCycle:   billingCycle,
 		CustomPrice:    customPrice,
 		Active:         true,
@@ -480,69 +423,69 @@ func (h *RoleHandler) SubscribeOrganization(orgId, packageId string, billingCycl
 
 	// Se o preço customizado não foi definido, usar o preço padrão
 	if customPrice == nil {
-		orgPackage.CustomPrice = &price
+		orgPlan.CustomPrice = &price
 	}
 
-	return h.packageRepo.SubscribeOrganization(orgPackage)
+	return h.planRepo.SubscribeOrganization(orgPlan)
 }
 
 // GetOrganizationSubscription retorna a assinatura ativa da organização
-func (h *RoleHandler) GetOrganizationSubscription(orgId string) (*models.OrganizationPackage, error) {
-	return h.packageRepo.GetOrganizationPackage(orgId)
+func (h *RoleHandler) GetOrganizationSubscription(orgId string) (*models.OrganizationPlan, error) {
+	return h.planRepo.GetOrganizationPlan(orgId)
 }
 
-// ==================== Package CRUD (Master Admin) ====================
+// ==================== Plan CRUD (Master Admin) ====================
 
-// CreatePackage cria um novo pacote
-func (h *RoleHandler) CreatePackage(pkg *models.Package) error {
-	return h.packageRepo.Create(pkg)
+// CreatePlan cria um novo plano
+func (h *RoleHandler) CreatePlan(plan *models.Plan) error {
+	return h.planRepo.Create(plan)
 }
 
-// UpdatePackage atualiza um pacote
-func (h *RoleHandler) UpdatePackage(pkg *models.Package) error {
-	return h.packageRepo.Update(pkg)
+// UpdatePlan atualiza um plano
+func (h *RoleHandler) UpdatePlan(plan *models.Plan) error {
+	return h.planRepo.Update(plan)
 }
 
-// DeletePackage remove um pacote
-func (h *RoleHandler) DeletePackage(id string) error {
-	return h.packageRepo.Delete(id)
+// DeletePlan remove um plano
+func (h *RoleHandler) DeletePlan(id string) error {
+	return h.planRepo.Delete(id)
 }
 
-// AddModuleToPackage adiciona um módulo a um pacote
-func (h *RoleHandler) AddModuleToPackage(packageId, moduleId string) error {
-	return h.packageRepo.AddModuleToPackage(packageId, moduleId)
+// AddModuleToPlan adiciona um módulo a um plano
+func (h *RoleHandler) AddModuleToPlan(planId, moduleId string) error {
+	return h.planRepo.AddModuleToPlan(planId, moduleId)
 }
 
-// RemoveModuleFromPackage remove um módulo de um pacote
-func (h *RoleHandler) RemoveModuleFromPackage(packageId, moduleId string) error {
-	return h.packageRepo.RemoveModuleFromPackage(packageId, moduleId)
+// RemoveModuleFromPlan remove um módulo de um plano
+func (h *RoleHandler) RemoveModuleFromPlan(planId, moduleId string) error {
+	return h.planRepo.RemoveModuleFromPlan(planId, moduleId)
 }
 
-// SetPackageLimit define um limite para o pacote
-func (h *RoleHandler) SetPackageLimit(packageId, limitType string, limitValue int) error {
-	return h.packageRepo.SetPackageLimit(packageId, limitType, limitValue)
+// SetPlanLimit define um limite para o plano
+func (h *RoleHandler) SetPlanLimit(planId, limitType string, limitValue int) error {
+	return h.planRepo.SetPlanLimit(planId, limitType, limitValue)
 }
 
-// GetPackageLimits retorna os limites de um pacote
-func (h *RoleHandler) GetPackageLimits(packageId string) ([]models.PackageLimit, error) {
-	return h.packageRepo.GetPackageLimits(packageId)
+// GetPlanLimits retorna os limites de um plano
+func (h *RoleHandler) GetPlanLimits(planId string) ([]models.PlanLimit, error) {
+	return h.planRepo.GetPlanLimits(planId)
 }
 
 // UpdateOrganizationSubscription atualiza a assinatura de uma organização
-func (h *RoleHandler) UpdateOrganizationSubscription(orgId, packageId, billingCycle string, customPrice *float64, active *bool) error {
+func (h *RoleHandler) UpdateOrganizationSubscription(orgId, planId, billingCycle string, customPrice *float64, active *bool) error {
 	// Buscar assinatura existente
-	existingSubscription, err := h.packageRepo.GetOrganizationPackage(orgId)
+	existingSubscription, err := h.planRepo.GetOrganizationPlan(orgId)
 	if err != nil {
 		return fmt.Errorf("assinatura não encontrada: %w", err)
 	}
 
 	// Atualizar campos se fornecidos
-	if packageId != "" {
-		pkgUUID, err := uuid.Parse(packageId)
+	if planId != "" {
+		planUUID, err := uuid.Parse(planId)
 		if err != nil {
-			return fmt.Errorf("ID do pacote inválido: %w", err)
+			return fmt.Errorf("ID do plano inválido: %w", err)
 		}
-		existingSubscription.PackageId = pkgUUID
+		existingSubscription.PlanId = planUUID
 	}
 
 	if billingCycle != "" {
@@ -557,22 +500,22 @@ func (h *RoleHandler) UpdateOrganizationSubscription(orgId, packageId, billingCy
 		existingSubscription.Active = *active
 	}
 
-	return h.packageRepo.UpdateOrganizationPackage(existingSubscription)
+	return h.planRepo.UpdateOrganizationPlan(existingSubscription)
 }
 
 // CancelOrganizationSubscription cancela a assinatura de uma organização
 func (h *RoleHandler) CancelOrganizationSubscription(orgId string) error {
-	return h.packageRepo.CancelOrganizationPackage(orgId)
+	return h.planRepo.CancelOrganizationPlan(orgId)
 }
 
 // DeleteOrganizationSubscription exclui permanentemente a assinatura de uma organização
 func (h *RoleHandler) DeleteOrganizationSubscription(orgId string) error {
-	return h.packageRepo.DeleteOrganizationPackage(orgId)
+	return h.planRepo.DeleteOrganizationPlan(orgId)
 }
 
 // ListAllSubscriptions lista todas as assinaturas ativas
-func (h *RoleHandler) ListAllSubscriptions() ([]models.OrganizationPackage, error) {
-	return h.packageRepo.ListAllSubscriptions()
+func (h *RoleHandler) ListAllSubscriptions() ([]models.OrganizationPlan, error) {
+	return h.planRepo.ListAllSubscriptions()
 }
 
 // ==================== Module CRUD (Master Admin) ====================
@@ -624,7 +567,7 @@ func (h *RoleHandler) GetPermission(id string) (*models.Permission, error) {
 // CreateRoleWithContext cria um cargo e registra auditoria
 func (h *RoleHandler) CreateRoleWithContext(ctx *RequestContext, role *models.Role, orgId string) error {
 	// Executar criação normal
-	if err := h.CreateRole(role, ctx.UserId.String(), orgId); err != nil {
+	if err := h.CreateRole(role, ctx.UserId.String(), ctx.UserType, orgId); err != nil {
 		return err
 	}
 
@@ -643,7 +586,7 @@ func (h *RoleHandler) CreateRoleWithContext(ctx *RequestContext, role *models.Ro
 				Action:        models.AdminAuditActionCreate,
 				EntityType:    models.AdminAuditEntityRole,
 				OrgId:         orgUUID,
-				ProjectId:     role.ProjectId,
+				ProjectId:     nil,
 				IsAdminZone:   true,
 				NewValues:     map[string]interface{}{"name": role.Name, "display_name": role.DisplayName, "scope": role.Scope},
 				ChangedFields: []string{"*"},
@@ -662,7 +605,7 @@ func (h *RoleHandler) UpdateRoleWithContext(ctx *RequestContext, roleId string, 
 	oldRole, _ := h.GetRole(roleId)
 
 	// Executar atualização normal
-	if err := h.UpdateRole(role, ctx.UserId.String(), orgId); err != nil {
+	if err := h.UpdateRole(role, ctx.UserId.String(), ctx.UserType, orgId); err != nil {
 		return err
 	}
 
@@ -681,7 +624,7 @@ func (h *RoleHandler) UpdateRoleWithContext(ctx *RequestContext, roleId string, 
 				Action:        models.AdminAuditActionUpdate,
 				EntityType:    models.AdminAuditEntityRole,
 				OrgId:         orgUUID,
-				ProjectId:     role.ProjectId,
+				ProjectId:     nil,
 				IsAdminZone:   true,
 				OldValues:     map[string]interface{}{"name": oldRole.Name, "display_name": oldRole.DisplayName},
 				NewValues:     map[string]interface{}{"name": role.Name, "display_name": role.DisplayName},
@@ -701,7 +644,7 @@ func (h *RoleHandler) DeleteRoleWithContext(ctx *RequestContext, roleId, orgId s
 	oldRole, _ := h.GetRole(roleId)
 
 	// Executar exclusão normal
-	if err := h.DeleteRole(roleId, ctx.UserId.String(), orgId); err != nil {
+	if err := h.DeleteRole(roleId, ctx.UserId.String(), ctx.UserType, orgId); err != nil {
 		return err
 	}
 
@@ -721,7 +664,7 @@ func (h *RoleHandler) DeleteRoleWithContext(ctx *RequestContext, roleId, orgId s
 				Action:        models.AdminAuditActionDelete,
 				EntityType:    models.AdminAuditEntityRole,
 				OrgId:         orgUUID,
-				ProjectId:     oldRole.ProjectId,
+				ProjectId:     nil,
 				IsAdminZone:   true,
 				OldValues:     map[string]interface{}{"name": oldRole.Name, "display_name": oldRole.DisplayName},
 				ChangedFields: []string{"*"},
@@ -734,17 +677,17 @@ func (h *RoleHandler) DeleteRoleWithContext(ctx *RequestContext, roleId, orgId s
 	return nil
 }
 
-// AssignRoleToUserWithContext atribui um cargo e registra auditoria
-func (h *RoleHandler) AssignRoleToUserWithContext(ctx *RequestContext, userRole *models.UserRole) error {
+// AssignRoleToClientWithContext atribui um cargo a um cliente e registra auditoria
+func (h *RoleHandler) AssignRoleToClientWithContext(ctx *RequestContext, clientRole *models.ClientRole) error {
 	// Buscar informações do cargo para o log
-	role, _ := h.GetRole(userRole.RoleId.String())
+	role, _ := h.GetRole(clientRole.RoleId.String())
 	roleName := ""
 	if role != nil {
 		roleName = role.DisplayName
 	}
 
 	// Executar atribuição normal
-	if err := h.AssignRoleToUser(userRole, ctx.UserId.String()); err != nil {
+	if err := h.AssignRoleToClient(clientRole, ctx.UserId.String(), "admin"); err != nil {
 		return err
 	}
 
@@ -753,9 +696,9 @@ func (h *RoleHandler) AssignRoleToUserWithContext(ctx *RequestContext, userRole 
 		go func() {
 			if err := h.adminAuditHandler.LogRoleAssignment(
 				ctx.UserId, ctx.UserEmail,
-				userRole.UserId, "",
-				userRole.RoleId, roleName,
-				userRole.OrganizationId, userRole.ProjectId,
+				clientRole.ClientId, "",
+				clientRole.RoleId, roleName,
+				&clientRole.OrganizationId, clientRole.ProjectId,
 				ctx.IpAddress, ctx.UserAgent,
 			); err != nil {
 				fmt.Printf("⚠️ Erro ao registrar log de auditoria (ASSIGN_ROLE): %v\n", err)
@@ -766,8 +709,8 @@ func (h *RoleHandler) AssignRoleToUserWithContext(ctx *RequestContext, userRole 
 	return nil
 }
 
-// RemoveRoleFromUserWithContext remove um cargo e registra auditoria
-func (h *RoleHandler) RemoveRoleFromUserWithContext(ctx *RequestContext, userId, roleId, orgId string) error {
+// RemoveRoleFromClientWithContext remove um cargo de um cliente e registra auditoria
+func (h *RoleHandler) RemoveRoleFromClientWithContext(ctx *RequestContext, clientId, roleId, orgId string) error {
 	// Buscar informações do cargo para o log
 	role, _ := h.GetRole(roleId)
 	roleName := ""
@@ -776,14 +719,14 @@ func (h *RoleHandler) RemoveRoleFromUserWithContext(ctx *RequestContext, userId,
 	}
 
 	// Executar remoção normal
-	if err := h.RemoveRoleFromUser(userId, roleId, orgId, ctx.UserId.String()); err != nil {
+	if err := h.RemoveRoleFromClient(clientId, roleId, orgId, ctx.UserId.String(), "admin"); err != nil {
 		return err
 	}
 
 	// Registrar auditoria
 	if h.adminAuditHandler != nil {
 		go func() {
-			userUUID, _ := uuid.Parse(userId)
+			clientUUID, _ := uuid.Parse(clientId)
 			roleUUID, _ := uuid.Parse(roleId)
 			var orgUUID *uuid.UUID
 			if orgId != "" {
@@ -792,7 +735,7 @@ func (h *RoleHandler) RemoveRoleFromUserWithContext(ctx *RequestContext, userId,
 			}
 			if err := h.adminAuditHandler.LogRoleRemoval(
 				ctx.UserId, ctx.UserEmail,
-				userUUID, "",
+				clientUUID, "",
 				roleUUID, roleName,
 				orgUUID, nil,
 				ctx.IpAddress, ctx.UserAgent,
@@ -805,10 +748,10 @@ func (h *RoleHandler) RemoveRoleFromUserWithContext(ctx *RequestContext, userId,
 	return nil
 }
 
-// CreatePackageWithContext cria um pacote e registra auditoria
-func (h *RoleHandler) CreatePackageWithContext(ctx *RequestContext, pkg *models.Package) error {
+// CreatePlanWithContext cria um plano e registra auditoria
+func (h *RoleHandler) CreatePlanWithContext(ctx *RequestContext, plan *models.Plan) error {
 	// Executar criação normal
-	if err := h.CreatePackage(pkg); err != nil {
+	if err := h.CreatePlan(plan); err != nil {
 		return err
 	}
 
@@ -818,11 +761,11 @@ func (h *RoleHandler) CreatePackageWithContext(ctx *RequestContext, pkg *models.
 			h.adminAuditHandler.LogGenericAction(AuditLogParams{
 				ActorId:       ctx.UserId,
 				ActorEmail:    ctx.UserEmail,
-				TargetId:      pkg.Id,
+				TargetId:      plan.Id,
 				Action:        models.AdminAuditActionCreate,
 				EntityType:    models.AdminAuditEntityPackage,
 				IsAdminZone:   true,
-				NewValues:     map[string]interface{}{"code_name": pkg.CodeName, "display_name": pkg.DisplayName},
+				NewValues:     map[string]interface{}{"code": plan.Code, "name": plan.Name},
 				ChangedFields: []string{"*"},
 				IpAddress:     ctx.IpAddress,
 				UserAgent:     ctx.UserAgent,
@@ -833,10 +776,10 @@ func (h *RoleHandler) CreatePackageWithContext(ctx *RequestContext, pkg *models.
 	return nil
 }
 
-// UpdatePackageWithContext atualiza um pacote e registra auditoria
-func (h *RoleHandler) UpdatePackageWithContext(ctx *RequestContext, pkg *models.Package) error {
+// UpdatePlanWithContext atualiza um plano e registra auditoria
+func (h *RoleHandler) UpdatePlanWithContext(ctx *RequestContext, plan *models.Plan) error {
 	// Executar atualização normal
-	if err := h.UpdatePackage(pkg); err != nil {
+	if err := h.UpdatePlan(plan); err != nil {
 		return err
 	}
 
@@ -846,12 +789,12 @@ func (h *RoleHandler) UpdatePackageWithContext(ctx *RequestContext, pkg *models.
 			h.adminAuditHandler.LogGenericAction(AuditLogParams{
 				ActorId:       ctx.UserId,
 				ActorEmail:    ctx.UserEmail,
-				TargetId:      pkg.Id,
+				TargetId:      plan.Id,
 				Action:        models.AdminAuditActionUpdate,
 				EntityType:    models.AdminAuditEntityPackage,
 				IsAdminZone:   true,
-				NewValues:     map[string]interface{}{"code_name": pkg.CodeName, "display_name": pkg.DisplayName},
-				ChangedFields: []string{"code_name", "display_name", "prices"},
+				NewValues:     map[string]interface{}{"code": plan.Code, "name": plan.Name},
+				ChangedFields: []string{"code", "name", "prices"},
 				IpAddress:     ctx.IpAddress,
 				UserAgent:     ctx.UserAgent,
 			})
@@ -861,28 +804,28 @@ func (h *RoleHandler) UpdatePackageWithContext(ctx *RequestContext, pkg *models.
 	return nil
 }
 
-// DeletePackageWithContext remove um pacote e registra auditoria
-func (h *RoleHandler) DeletePackageWithContext(ctx *RequestContext, packageId string) error {
+// DeletePlanWithContext remove um plano e registra auditoria
+func (h *RoleHandler) DeletePlanWithContext(ctx *RequestContext, planId string) error {
 	// Capturar estado anterior para auditoria
-	oldPkg, _ := h.GetPackageWithModules(packageId)
+	oldPlan, _ := h.GetPlanWithModules(planId)
 
 	// Executar exclusão normal
-	if err := h.DeletePackage(packageId); err != nil {
+	if err := h.DeletePlan(planId); err != nil {
 		return err
 	}
 
 	// Registrar auditoria
 	if h.adminAuditHandler != nil {
 		go func() {
-			pkgUUID, _ := uuid.Parse(packageId)
+			planUUID, _ := uuid.Parse(planId)
 			var oldValues map[string]interface{}
-			if oldPkg != nil {
-				oldValues = map[string]interface{}{"code_name": oldPkg.CodeName, "display_name": oldPkg.DisplayName}
+			if oldPlan != nil {
+				oldValues = map[string]interface{}{"code": oldPlan.Code, "name": oldPlan.Name}
 			}
 			h.adminAuditHandler.LogGenericAction(AuditLogParams{
 				ActorId:       ctx.UserId,
 				ActorEmail:    ctx.UserEmail,
-				TargetId:      pkgUUID,
+				TargetId:      planUUID,
 				Action:        models.AdminAuditActionDelete,
 				EntityType:    models.AdminAuditEntityPackage,
 				IsAdminZone:   true,
@@ -896,3 +839,4 @@ func (h *RoleHandler) DeletePackageWithContext(ctx *RequestContext, packageId st
 
 	return nil
 }
+

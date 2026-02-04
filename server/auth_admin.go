@@ -63,6 +63,19 @@ func (r *ResourceAuthAdmin) ServiceAdminLogin(c *gin.Context) {
 	}
 	_ = r.handler.HandlerAuth.RecordAccessLog(admin.Id.String(), clientIP, userAgent)
 
+	// Buscar permissões do admin via roles
+	var permissions []string
+	adminRoles, _ := r.handler.HandlerAdminUser.GetAdminRoles(admin.Id.String())
+	if len(adminRoles) > 0 {
+		for _, ar := range adminRoles {
+			if ar.Active {
+				perms, _ := r.handler.HandlerAdminUser.GetPermissionsFromRole(ar.RoleId.String())
+				permissions = append(permissions, perms...)
+				break // Usar o primeiro role ativo
+			}
+		}
+	}
+
 	// Preparar resposta (sem senha)
 	adminResponse := struct {
 		Id          string   `json:"id"`
@@ -74,7 +87,7 @@ func (r *ResourceAuthAdmin) ServiceAdminLogin(c *gin.Context) {
 		Id:          admin.Id.String(),
 		Name:        admin.Name,
 		Email:       admin.Email,
-		Permissions: admin.Permissions,
+		Permissions: permissions,
 		Active:      admin.Active,
 	}
 
@@ -82,7 +95,7 @@ func (r *ResourceAuthAdmin) ServiceAdminLogin(c *gin.Context) {
 		Admin:       adminResponse,
 		Token:       tokenString,
 		UserType:    "admin",
-		Permissions: admin.Permissions,
+		Permissions: permissions,
 	})
 }
 

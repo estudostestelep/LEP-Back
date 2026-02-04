@@ -12,11 +12,11 @@ import (
 type LimitType string
 
 const (
-	LimitUsers             LimitType = "users"
-	LimitTables            LimitType = "tables"
-	LimitProducts          LimitType = "products"
-	LimitReservationsDay   LimitType = "reservations_per_day"
-	LimitAuditLogs         LimitType = "audit_logs_limit"
+	LimitUsers              LimitType = "users"
+	LimitTables             LimitType = "tables"
+	LimitProducts           LimitType = "products"
+	LimitReservationsDay    LimitType = "reservations_per_day"
+	LimitAuditLogs          LimitType = "audit_logs_limit"
 	LimitAuditLogsRetention LimitType = "audit_logs_retention"
 )
 
@@ -45,10 +45,10 @@ type LimitsData struct {
 
 // UsageLimitsResponse representa a resposta completa de uso e limites
 type UsageLimitsResponse struct {
-	PackageCode string     `json:"package_code"`
-	PackageName string     `json:"package_name"`
-	Usage       UsageData  `json:"usage"`
-	Limits      LimitsData `json:"limits"`
+	PlanCode  string     `json:"plan_code"`
+	PlanName  string     `json:"plan_name"`
+	Usage     UsageData  `json:"usage"`
+	Limits    LimitsData `json:"limits"`
 }
 
 // ILimitHandler interface para verificação de limites
@@ -60,7 +60,7 @@ type ILimitHandler interface {
 
 // LimitHandler implementa ILimitHandler
 type LimitHandler struct {
-	packageRepo     repositories.IPackageRepository
+	planRepo        repositories.IPlanRepository
 	tableRepo       repositories.ITableRepository
 	roleRepo        repositories.IRoleRepository
 	productRepo     repositories.IProductRepository
@@ -70,7 +70,7 @@ type LimitHandler struct {
 
 // NewLimitHandler cria uma nova instância de LimitHandler
 func NewLimitHandler(
-	packageRepo repositories.IPackageRepository,
+	planRepo repositories.IPlanRepository,
 	tableRepo repositories.ITableRepository,
 	roleRepo repositories.IRoleRepository,
 	productRepo repositories.IProductRepository,
@@ -78,7 +78,7 @@ func NewLimitHandler(
 	moduleRepo repositories.IModuleRepository,
 ) *LimitHandler {
 	return &LimitHandler{
-		packageRepo:     packageRepo,
+		planRepo:        planRepo,
 		tableRepo:       tableRepo,
 		roleRepo:        roleRepo,
 		productRepo:     productRepo,
@@ -91,14 +91,14 @@ func NewLimitHandler(
 // Retorna: canCreate (pode criar), current (quantidade atual), limit (limite máximo), error
 func (h *LimitHandler) CheckLimit(orgId, projectId string, limitType LimitType) (bool, int, int, error) {
 	// 1. Buscar assinatura da organização
-	orgPackage, err := h.packageRepo.GetOrganizationPackage(orgId)
+	orgPlan, err := h.planRepo.GetOrganizationPlan(orgId)
 	if err != nil {
 		// Sem assinatura = sem plano, não pode criar
 		return false, 0, 0, fmt.Errorf("organização sem plano ativo")
 	}
 
-	// 2. Buscar limites do pacote
-	limits, err := h.packageRepo.GetPackageLimits(orgPackage.PackageId.String())
+	// 2. Buscar limites do plano
+	limits, err := h.planRepo.GetPlanLimits(orgPlan.PlanId.String())
 	if err != nil {
 		// Sem limites definidos = ilimitado
 		return true, 0, -1, nil
@@ -150,7 +150,7 @@ func (h *LimitHandler) countResource(orgId, projectId string, limitType LimitTyp
 		return len(tables), nil
 
 	case LimitUsers:
-		count, err := h.roleRepo.CountUsersByOrganization(orgId)
+		count, err := h.roleRepo.CountClientsByOrganization(orgId)
 		if err != nil {
 			return 0, err
 		}
@@ -192,19 +192,19 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 	}
 
 	// Buscar assinatura
-	orgPackage, err := h.packageRepo.GetOrganizationPackage(orgId)
+	orgPlan, err := h.planRepo.GetOrganizationPlan(orgId)
 	if err != nil {
 		return nil, fmt.Errorf("organização sem plano ativo: %w", err)
 	}
 
-	// Preencher informações do pacote
-	if orgPackage.Package != nil {
-		response.PackageCode = orgPackage.Package.CodeName
-		response.PackageName = orgPackage.Package.DisplayName
+	// Preencher informações do plano
+	if orgPlan.Plan != nil {
+		response.PlanCode = orgPlan.Plan.Code
+		response.PlanName = orgPlan.Plan.Name
 	}
 
-	// Buscar limites do pacote
-	limits, _ := h.packageRepo.GetPackageLimits(orgPackage.PackageId.String())
+	// Buscar limites do plano
+	limits, _ := h.planRepo.GetPlanLimits(orgPlan.PlanId.String())
 
 	// Mapear limites (default = -1 ilimitado, exceto audit logs que default = 0 desabilitado)
 	response.Limits.MaxTables = -1
@@ -232,11 +232,11 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 	}
 
 	// Verificar módulos habilitados
-	modules, modulesErr := h.packageRepo.GetPackageModules(orgPackage.PackageId.String())
-	fmt.Printf("[DEBUG GetUsageAndLimits] packageId=%s, modules count=%d, err=%v\n", orgPackage.PackageId.String(), len(modules), modulesErr)
+	modules, modulesErr := h.planRepo.GetPlanModules(orgPlan.PlanId.String())
+	fmt.Printf("[DEBUG GetUsageAndLimits] planId=%s, modules count=%d, err=%v\n", orgPlan.PlanId.String(), len(modules), modulesErr)
 	for _, m := range modules {
-		fmt.Printf("[DEBUG GetUsageAndLimits] Module: code=%s, name=%s\n", m.CodeName, m.DisplayName)
-		switch m.CodeName {
+		fmt.Printf("[DEBUG GetUsageAndLimits] Module: code=%s, name=%s\n", m.Code, m.Name)
+		switch m.Code {
 		case "client_notifications":
 			response.Limits.NotificationsEnabled = true
 		case "client_reports":
@@ -263,7 +263,7 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 	}
 
 	// Contar usuários
-	if count, err := h.roleRepo.CountUsersByOrganization(orgId); err == nil {
+	if count, err := h.roleRepo.CountClientsByOrganization(orgId); err == nil {
 		response.Usage.UsersCount = count
 	}
 
@@ -290,24 +290,5 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 
 // HasModule verifica se a organização tem acesso a um módulo específico
 func (h *LimitHandler) HasModule(orgId, moduleCode string) (bool, error) {
-	// Buscar assinatura
-	orgPackage, err := h.packageRepo.GetOrganizationPackage(orgId)
-	if err != nil {
-		return false, fmt.Errorf("organização sem plano ativo: %w", err)
-	}
-
-	// Buscar módulos do pacote
-	modules, err := h.packageRepo.GetPackageModules(orgPackage.PackageId.String())
-	if err != nil {
-		return false, err
-	}
-
-	// Verificar se o módulo está na lista
-	for _, m := range modules {
-		if m.CodeName == moduleCode && m.Active {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return h.planRepo.OrganizationHasModule(orgId, moduleCode)
 }

@@ -71,6 +71,19 @@ func (r *ResourceAuthClient) ServiceClientLogin(c *gin.Context) {
 	// Buscar projetos do cliente
 	projects, _ := r.handler.HandlerClientUser.GetClientProjects(client)
 
+	// Buscar permissões do cliente via roles
+	var permissions []string
+	clientRoles, _ := r.handler.HandlerRole.GetClientRoles(client.Id.String(), client.OrgId.String())
+	if len(clientRoles) > 0 {
+		for _, cr := range clientRoles {
+			if cr.Active {
+				perms, _ := r.handler.HandlerAdminUser.GetPermissionsFromRole(cr.RoleId.String())
+				permissions = append(permissions, perms...)
+				break // Usar o primeiro role ativo
+			}
+		}
+	}
+
 	// Preparar resposta (sem senha)
 	clientResponse := struct {
 		Id          string   `json:"id"`
@@ -86,7 +99,7 @@ func (r *ResourceAuthClient) ServiceClientLogin(c *gin.Context) {
 		Email:       client.Email,
 		OrgId:       client.OrgId.String(),
 		ProjIds:     client.ProjIds,
-		Permissions: client.Permissions,
+		Permissions: permissions,
 		Active:      client.Active,
 	}
 
@@ -100,7 +113,7 @@ func (r *ResourceAuthClient) ServiceClientLogin(c *gin.Context) {
 			Slug: org.Slug,
 		},
 		Projects:    projects,
-		Permissions: client.Permissions,
+		Permissions: permissions,
 	})
 }
 

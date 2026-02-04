@@ -68,17 +68,21 @@ func Start(db *gorm.DB) {
 		&models.FileReference{},
 		&models.EntityFileReference{},
 
+		// Admin & Client user models (must be before AdminRole/ClientRole due to FK relationships)
+		&models.Admin{},
+		&models.Client{},
+
 		// Role & Permission System models
 		&models.Module{},
 		&models.Permission{},
 		&models.Role{},
-		&models.UserRole{},
-		&models.RolePermissionLevel{},
-		&models.Package{},
-		&models.PackageModule{},
-		&models.PackageLimit{},
-		&models.PackageBundle{},
-		&models.OrganizationPackage{},
+		&models.RolePermission{},
+		&models.AdminRole{},  // depends on Admin, Role
+		&models.ClientRole{}, // depends on Client, Role, Organization
+		&models.Plan{},
+		&models.PlanModule{},
+		&models.PlanLimit{},
+		&models.OrganizationPlan{},
 
 		// Plan Change Request System
 		&models.PlanChangeRequest{},
@@ -92,10 +96,6 @@ func Start(db *gorm.DB) {
 		// Client Audit Log System (optional module for client-side logging)
 		&models.ClientAuditLog{},
 		&models.ClientAuditConfig{},
-
-		// Admin & Client user models
-		&models.Admin{},
-		&models.Client{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product

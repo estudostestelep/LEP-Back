@@ -23,6 +23,7 @@ type IProjectServer interface {
 	SoftDeleteProject(c *gin.Context)
 	HardDeleteProject(c *gin.Context)
 	GetActiveProjects(c *gin.Context)
+	SetDefaultProject(c *gin.Context)
 }
 
 func NewProjectServer(handler handler.IProjectHandler) IProjectServer {
@@ -277,4 +278,44 @@ func (s *ProjectServer) GetActiveProjects(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, projects)
+}
+
+// SetDefaultProject define um projeto como principal da organização
+func (s *ProjectServer) SetDefaultProject(c *gin.Context) {
+	organizationId := c.GetHeader("X-Lpe-Organization-Id")
+	if strings.TrimSpace(organizationId) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "the header param 'X-Lpe-Organization-Id' cannot be empty",
+		})
+		return
+	}
+
+	idStr := c.Param("id")
+	if strings.TrimSpace(idStr) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Project ID is required"})
+		return
+	}
+
+	// Verificar se projeto existe e pertence à organização
+	project, err := s.handler.GetProjectById(idStr)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if project.OrganizationId.String() != organizationId {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	err = s.handler.SetDefaultProject(organizationId, idStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error setting default project"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Project set as default successfully",
+		"project_id": idStr,
+	})
 }
