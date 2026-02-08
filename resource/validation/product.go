@@ -44,6 +44,16 @@ func UpdateProductValidation(product *models.Product) error {
 // validateProductPrice valida preço baseado no tipo do produto
 // Vinhos podem ter price_normal=0 se tiverem price_bottle ou price_glass
 func validateProductPrice(product *models.Product) error {
+	// Validação de preço promocional
+	if product.UsePromo {
+		if product.PricePromo == nil || *product.PricePromo <= 0 {
+			return errors.New("promotional price must be set and greater than 0 when use_promo is true")
+		}
+		if product.PriceNormal > 0 && *product.PricePromo >= product.PriceNormal {
+			return errors.New("promotional price must be less than normal price")
+		}
+	}
+
 	// Para vinhos: pelo menos um preço deve estar definido
 	if product.Type == "vinho" {
 		hasBottlePrice := product.PriceBottle != nil && *product.PriceBottle > 0

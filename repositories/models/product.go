@@ -30,6 +30,7 @@ type Product struct {
 	// Campos de preço (refatorados)
 	PriceNormal     float64    `json:"price_normal" gorm:"not null"`
 	PricePromo      *float64   `json:"price_promo,omitempty"`
+	UsePromo        bool       `json:"use_promo" gorm:"default:false"`
 
 	// NOVOS - Campos para Bebida/Vinho
 	Volume          *int       `json:"volume,omitempty"`           // ml
