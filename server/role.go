@@ -230,7 +230,9 @@ func (s *RoleServer) AssignRoleToUser(c *gin.Context) {
 			}
 		}
 
-		if err := s.handler.AssignRoleToAdmin(adminRole, actorUserId, actorUserType); err != nil {
+		// Usar método com contexto para auditoria
+		ctx := handler.BuildRequestContext(c)
+		if err := s.handler.AssignRoleToAdminWithContext(ctx, adminRole, actorUserType); err != nil {
 			c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 			return
 		}
@@ -287,17 +289,19 @@ func (s *RoleServer) RemoveRoleFromUser(c *gin.Context) {
 	}
 
 	orgId := c.GetString("organization_id")
-	actorUserId := c.GetString("user_id")
-	actorUserType := c.GetString("user_type")
 
 	// Remover cargo baseado no tipo de usuário
 	if req.UserType == "admin" {
-		if err := s.handler.RemoveRoleFromAdmin(req.UserId, req.RoleId, actorUserId, actorUserType); err != nil {
+		// Usar método com contexto para auditoria
+		ctx := handler.BuildRequestContext(c)
+		if err := s.handler.RemoveRoleFromAdminWithContext(ctx, req.UserId, req.RoleId); err != nil {
 			c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 			return
 		}
 	} else {
-		if err := s.handler.RemoveRoleFromClient(req.UserId, req.RoleId, orgId, actorUserId, actorUserType); err != nil {
+		// Usar método com contexto para auditoria
+		ctx := handler.BuildRequestContext(c)
+		if err := s.handler.RemoveRoleFromClientWithContext(ctx, req.UserId, req.RoleId, orgId); err != nil {
 			c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
 			return
 		}

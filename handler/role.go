@@ -709,6 +709,38 @@ func (h *RoleHandler) AssignRoleToClientWithContext(ctx *RequestContext, clientR
 	return nil
 }
 
+// AssignRoleToAdminWithContext atribui um cargo a um admin e registra auditoria
+func (h *RoleHandler) AssignRoleToAdminWithContext(ctx *RequestContext, adminRole *models.AdminRole, actorUserType string) error {
+	// Buscar informações do cargo para o log
+	role, _ := h.GetRole(adminRole.RoleId.String())
+	roleName := ""
+	if role != nil {
+		roleName = role.DisplayName
+	}
+
+	// Executar atribuição normal
+	if err := h.AssignRoleToAdmin(adminRole, ctx.UserId.String(), actorUserType); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil {
+		go func() {
+			if err := h.adminAuditHandler.LogRoleAssignment(
+				ctx.UserId, ctx.UserEmail,
+				adminRole.AdminId, "",
+				adminRole.RoleId, roleName,
+				adminRole.OrganizationId, nil,
+				ctx.IpAddress, ctx.UserAgent,
+			); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (ASSIGN_ROLE_ADMIN): %v\n", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
 // RemoveRoleFromClientWithContext remove um cargo de um cliente e registra auditoria
 func (h *RoleHandler) RemoveRoleFromClientWithContext(ctx *RequestContext, clientId, roleId, orgId string) error {
 	// Buscar informações do cargo para o log
@@ -741,6 +773,40 @@ func (h *RoleHandler) RemoveRoleFromClientWithContext(ctx *RequestContext, clien
 				ctx.IpAddress, ctx.UserAgent,
 			); err != nil {
 				fmt.Printf("⚠️ Erro ao registrar log de auditoria (REMOVE_ROLE): %v\n", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+// RemoveRoleFromAdminWithContext remove um cargo de um admin e registra auditoria
+func (h *RoleHandler) RemoveRoleFromAdminWithContext(ctx *RequestContext, adminId, roleId string) error {
+	// Buscar informações do cargo para o log
+	role, _ := h.GetRole(roleId)
+	roleName := ""
+	if role != nil {
+		roleName = role.DisplayName
+	}
+
+	// Executar remoção normal
+	if err := h.RemoveRoleFromAdmin(adminId, roleId, ctx.UserId.String(), "admin"); err != nil {
+		return err
+	}
+
+	// Registrar auditoria
+	if h.adminAuditHandler != nil {
+		go func() {
+			adminUUID, _ := uuid.Parse(adminId)
+			roleUUID, _ := uuid.Parse(roleId)
+			if err := h.adminAuditHandler.LogRoleRemoval(
+				ctx.UserId, ctx.UserEmail,
+				adminUUID, "",
+				roleUUID, roleName,
+				nil, nil,
+				ctx.IpAddress, ctx.UserAgent,
+			); err != nil {
+				fmt.Printf("⚠️ Erro ao registrar log de auditoria (REMOVE_ROLE_ADMIN): %v\n", err)
 			}
 		}()
 	}
