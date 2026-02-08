@@ -17,6 +17,7 @@ type Menu struct {
 	Styling           *string    `json:"styling,omitempty" gorm:"type:json"` // JSON com configs visuais
 	Order             int        `json:"order" gorm:"default:0"`
 	Active            bool       `json:"active" gorm:"default:true"`
+	ImageUrl          *string    `json:"image_url,omitempty" gorm:"column:image_url"` // Imagem do menu para exibição no cardápio
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 	DeletedAt         *time.Time `json:"deleted_at,omitempty"`

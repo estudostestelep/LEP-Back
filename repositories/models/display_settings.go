@@ -23,6 +23,10 @@ type ProjectDisplaySettings struct {
 	ShowAvailability *bool `json:"show_availability" gorm:"default:true"` // ✓ Disponibilidade
 	ShowAllergens    *bool `json:"show_allergens" gorm:"default:true"`    // ⚠️ Alergênios
 
+	// Banner do cardápio (exibição pública)
+	BannerUrl     *string `json:"banner_url" gorm:"default:null"`     // URL da imagem do banner
+	BannerAltText *string `json:"banner_alt_text" gorm:"default:null"` // Texto alternativo para acessibilidade
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
