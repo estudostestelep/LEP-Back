@@ -937,12 +937,12 @@ func (s *RoleServer) CreateOrganizationSubscription(c *gin.Context) {
 // @Tags Packages
 // @Accept json
 // @Produce json
-// @Param orgId path string true "ID da organização"
+// @Param subscriptionId path string true "ID da assinatura"
 // @Param data body UpdateSubscriptionRequest true "Dados atualizados"
 // @Success 200 {object} map[string]string
-// @Router /package/subscription/{orgId} [put]
+// @Router /package/subscription/{subscriptionId} [put]
 func (s *RoleServer) UpdateOrganizationSubscription(c *gin.Context) {
-	orgId := c.Param("orgId")
+	subscriptionId := c.Param("subscriptionId")
 
 	var req UpdateSubscriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -950,7 +950,7 @@ func (s *RoleServer) UpdateOrganizationSubscription(c *gin.Context) {
 		return
 	}
 
-	if err := s.handler.UpdateOrganizationSubscription(orgId, req.PlanId, req.BillingCycle, req.CustomPrice, req.Active); err != nil {
+	if err := s.handler.UpdateOrganizationSubscription(subscriptionId, req.PlanId, req.BillingCycle, req.CustomPrice, req.Active); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao atualizar assinatura", "error": err.Error()})
 		return
 	}

@@ -25,10 +25,10 @@ COPY . .
 
 RUN go build main.go
 
-FROM alpine:3.18
+FROM alpine:latest
 WORKDIR /app
 
-COPY --from=build /app/main .
+COPY --from=builder /app/main .
 RUN apk add --no-cache tzdata
 EXPOSE 8080
 

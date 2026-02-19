@@ -35,6 +35,7 @@ type IPlanRepository interface {
 	// Organization subscription
 	SubscribeOrganization(orgPlan *models.OrganizationPlan) error
 	GetOrganizationPlan(orgId string) (*models.OrganizationPlan, error)
+	GetOrganizationPlanById(subscriptionId string) (*models.OrganizationPlan, error)
 	UpdateOrganizationPlan(orgPlan *models.OrganizationPlan) error
 	CancelOrganizationPlan(orgId string) error
 	DeleteOrganizationPlan(orgId string) error
@@ -253,9 +254,24 @@ func (r *resourcePlan) GetOrganizationPlan(orgId string) (*models.OrganizationPl
 	return &orgPlan, nil
 }
 
+// GetOrganizationPlanById retorna uma assinatura pelo seu ID
+func (r *resourcePlan) GetOrganizationPlanById(subscriptionId string) (*models.OrganizationPlan, error) {
+	var orgPlan models.OrganizationPlan
+	err := r.db.Where("id = ? AND deleted_at IS NULL", subscriptionId).
+		Preload("Plan").
+		First(&orgPlan).Error
+	if err != nil {
+		return nil, err
+	}
+	return &orgPlan, nil
+}
+
 // UpdateOrganizationPlan atualiza a assinatura de uma organização
 func (r *resourcePlan) UpdateOrganizationPlan(orgPlan *models.OrganizationPlan) error {
-	return r.db.Save(orgPlan).Error
+	return r.db.Model(&models.OrganizationPlan{}).
+		Where("id = ?", orgPlan.Id).
+		Select("plan_id", "billing_cycle", "custom_price", "active", "updated_at").
+		Updates(orgPlan).Error
 }
 
 // CancelOrganizationPlan cancela a assinatura de uma organização

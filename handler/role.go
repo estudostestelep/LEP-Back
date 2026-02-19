@@ -472,9 +472,9 @@ func (h *RoleHandler) GetPlanLimits(planId string) ([]models.PlanLimit, error) {
 }
 
 // UpdateOrganizationSubscription atualiza a assinatura de uma organização
-func (h *RoleHandler) UpdateOrganizationSubscription(orgId, planId, billingCycle string, customPrice *float64, active *bool) error {
-	// Buscar assinatura existente
-	existingSubscription, err := h.planRepo.GetOrganizationPlan(orgId)
+func (h *RoleHandler) UpdateOrganizationSubscription(subscriptionId, planId, billingCycle string, customPrice *float64, active *bool) error {
+	// Buscar assinatura existente pelo ID da assinatura
+	existingSubscription, err := h.planRepo.GetOrganizationPlanById(subscriptionId)
 	if err != nil {
 		return fmt.Errorf("assinatura não encontrada: %w", err)
 	}

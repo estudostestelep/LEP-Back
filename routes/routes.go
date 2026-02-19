@@ -142,7 +142,7 @@ func SetupRoutes(r *gin.Engine) {
 	adminPackage.POST("/:id/limits", resource.ServersControllers.SourceRole.SetPackageLimit)
 	adminPackage.GET("/subscriptions", resource.ServersControllers.SourceRole.ListAllSubscriptions)
 	adminPackage.POST("/subscription/:orgId", resource.ServersControllers.SourceRole.CreateOrganizationSubscription)
-	adminPackage.PUT("/subscription/:orgId", resource.ServersControllers.SourceRole.UpdateOrganizationSubscription)
+	adminPackage.PUT("/subscription/:subscriptionId", resource.ServersControllers.SourceRole.UpdateOrganizationSubscription)
 	adminPackage.DELETE("/subscription/:orgId", resource.ServersControllers.SourceRole.CancelOrganizationSubscription)
 	adminPackage.DELETE("/subscription/:orgId/delete", resource.ServersControllers.SourceRole.DeleteOrganizationSubscription)
 
