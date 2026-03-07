@@ -12,7 +12,7 @@ import (
 func CreateClientValidation(client *models.Client) error {
 	return validation.ValidateStruct(client,
 		validation.Field(&client.Name, validation.Required, validation.Length(1, 100)),
-		validation.Field(&client.Email, validation.Required, is.Email),
+		validation.Field(&client.Email, validation.Required, is.EmailFormat),
 		validation.Field(&client.Password, validation.Required, validation.Length(6, 255)),
 		validation.Field(&client.OrgId, validation.Required),
 	)
@@ -25,7 +25,7 @@ func UpdateClientValidation(client *models.Client) error {
 	return validation.ValidateStruct(client,
 		validation.Field(&client.Id, validation.Required),
 		validation.Field(&client.Name, validation.Required, validation.Length(1, 100)),
-		validation.Field(&client.Email, validation.Required, is.Email),
+		validation.Field(&client.Email, validation.Required, is.EmailFormat),
 		validation.Field(&client.Password, validation.When(client.Password != "", validation.Length(6, 255))),
 	)
 }

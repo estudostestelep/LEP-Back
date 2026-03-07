@@ -47,6 +47,13 @@ type ServerController struct {
 	SourceAdminUsers  IServerAdminUsers  // CRUD de admins (tabela admins)
 	SourceClientUsers IServerClientUsers // CRUD de clients (tabela clients)
 	SourceUserAccess  IServerUserAccess  // Gestão de acesso a organizações/projetos
+	// Staff Management System
+	SourceStaffAvailability IServerStaffAvailability // Disponibilidade de equipe
+	SourceStaffSchedule     IServerStaffSchedule     // Escalas de trabalho
+	SourceStaffAttendance   IServerStaffAttendance   // Presença e consumo
+	SourceStaffStock        IServerStaffStock        // Estoque operacional
+	SourceStaffCommission   IServerStaffCommission   // Comissões
+	SourceStaffDashboard    IServerStaffDashboard    // Dashboard e relatórios
 }
 
 func (h *ServerController) Inject(handler *handler.Handlers) {
@@ -154,4 +161,12 @@ func (h *ServerController) Inject(handler *handler.Handlers) {
 	h.SourceAdminUsers = NewSourceServerAdminUsers(handler)
 	h.SourceClientUsers = NewSourceServerClientUsers(handler)
 	h.SourceUserAccess = NewSourceServerUserAccess(handler)
+
+	// Staff Management System
+	h.SourceStaffAvailability = NewStaffAvailabilityServer(handler.HandlerStaffAvailability)
+	h.SourceStaffSchedule = NewStaffScheduleServer(handler)
+	h.SourceStaffAttendance = NewStaffAttendanceServer(handler.HandlerStaffAttendance)
+	h.SourceStaffStock = NewStaffStockServer(handler.HandlerStaffStock)
+	h.SourceStaffCommission = NewStaffCommissionServer(handler.HandlerStaffCommission)
+	h.SourceStaffDashboard = NewStaffDashboardServer(handler.HandlerStaffDashboard)
 }

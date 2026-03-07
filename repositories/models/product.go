@@ -10,7 +10,7 @@ import (
 // --- Product (item do cardápio - REFATORADO) ---
 type Product struct {
 	// Campos base
-	Id              uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
+	Id              uuid.UUID  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	OrganizationId  uuid.UUID  `json:"organization_id" gorm:"not null"`
 	ProjectId       uuid.UUID  `json:"project_id" gorm:"not null"`
 	Name            string     `json:"name" gorm:"not null"`

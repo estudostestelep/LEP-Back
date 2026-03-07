@@ -48,6 +48,13 @@ type DBconn struct {
 	AdminAuditLogs IAdminAuditLogRepository
 	// Client Audit Logs (optional module)
 	ClientAuditLogs IClientAuditLogRepository
+	// Staff Management System
+	StaffAvailability IStaffAvailabilityRepository
+	StaffSchedule     IStaffScheduleRepository
+	StaffAttendance   IStaffAttendanceRepository
+	StaffStock        IStaffStockRepository
+	StaffCommission   IStaffCommissionRepository
+	StaffDashboard    IStaffDashboardRepository
 }
 
 func (r *DBconn) InjectPostgres(db *gorm.DB) {
@@ -94,4 +101,11 @@ func (r *DBconn) InjectPostgres(db *gorm.DB) {
 	r.AdminAuditLogs = NewAdminAuditLogRepository(db)
 	// Client Audit Logs (optional module)
 	r.ClientAuditLogs = NewClientAuditLogRepository(db)
+	// Staff Management System
+	r.StaffAvailability = NewStaffAvailabilityRepository(db)
+	r.StaffSchedule = NewStaffScheduleRepository(db)
+	r.StaffAttendance = NewStaffAttendanceRepository(db)
+	r.StaffStock = NewStaffStockRepository(db)
+	r.StaffCommission = NewStaffCommissionRepository(db)
+	r.StaffDashboard = NewStaffDashboardRepository(db)
 }

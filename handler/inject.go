@@ -40,6 +40,13 @@ type Handlers struct {
 	HandlerAdminUser          IHandlerAdminUser           // Gestão de usuários admin
 	HandlerClientUser         IHandlerClientUser          // Gestão de usuários cliente
 	HandlerUserAccess         IHandlerUserAccess          // Gestão de acesso a organizações/projetos
+	// Staff Management System
+	HandlerStaffAvailability  IHandlerStaffAvailability   // Disponibilidade de equipe
+	HandlerStaffSchedule      IHandlerStaffSchedule       // Escalas de trabalho
+	HandlerStaffAttendance    IHandlerStaffAttendance     // Presença e consumo
+	HandlerStaffStock         IHandlerStaffStock          // Estoque operacional
+	HandlerStaffCommission    IHandlerStaffCommission     // Comissões
+	HandlerStaffDashboard     IHandlerStaffDashboard      // Dashboard e relatórios
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
@@ -116,4 +123,12 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerAdminUser = NewAdminUserHandler(repo)
 	h.HandlerClientUser = NewClientUserHandler(repo)
 	h.HandlerUserAccess = NewUserAccessHandler(repo)
+
+	// Staff Management System
+	h.HandlerStaffAvailability = NewStaffAvailabilityHandler(repo)
+	h.HandlerStaffSchedule = NewStaffScheduleHandler(repo)
+	h.HandlerStaffAttendance = NewStaffAttendanceHandler(repo)
+	h.HandlerStaffStock = NewStaffStockHandler(repo)
+	h.HandlerStaffCommission = NewStaffCommissionHandler(repo)
+	h.HandlerStaffDashboard = NewStaffDashboardHandler(repo)
 }

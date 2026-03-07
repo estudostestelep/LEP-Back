@@ -96,6 +96,20 @@ func Start(db *gorm.DB) {
 		// Client Audit Log System (optional module for client-side logging)
 		&models.ClientAuditLog{},
 		&models.ClientAuditConfig{},
+
+		// Staff Management System (availability, schedule, attendance, etc.)
+		&models.StaffAvailability{},
+		&models.StaffSchedule{},
+		&models.StaffConsumptionProduct{},
+		&models.StaffAttendance{},
+		&models.StaffAttendanceTransport{},
+		&models.StaffAttendanceConsumption{},
+		&models.StaffStockItem{},
+		&models.StaffStockRecord{},
+		&models.StaffStockRecordItem{},
+		&models.StaffDailyCommission{},
+		&models.StaffSalesRecord{},
+		&models.StaffSalesImportBatch{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product

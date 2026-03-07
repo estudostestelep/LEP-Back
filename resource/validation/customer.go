@@ -13,7 +13,7 @@ func CreateCustomerValidation(customer *models.Customer) error {
 		validation.Field(&customer.OrganizationId, validation.Required, is.UUID),
 		validation.Field(&customer.ProjectId, validation.Required, is.UUID),
 		validation.Field(&customer.Name, validation.Required, validation.Length(1, 100)),
-		validation.Field(&customer.Email, is.Email),
+		validation.Field(&customer.Email, is.EmailFormat),
 		validation.Field(&customer.Phone, validation.Required, validation.Length(8, 20)),
 	)
 }
@@ -25,7 +25,7 @@ func UpdateCustomerValidation(customer *models.Customer) error {
 		validation.Field(&customer.OrganizationId, validation.Required, is.UUID),
 		validation.Field(&customer.ProjectId, validation.Required, is.UUID),
 		validation.Field(&customer.Name, validation.Required, validation.Length(1, 100)),
-		validation.Field(&customer.Email, is.Email),
+		validation.Field(&customer.Email, is.EmailFormat),
 		validation.Field(&customer.Phone, validation.Required, validation.Length(8, 20)),
 	)
 }

@@ -33,6 +33,11 @@ func Inject() {
 		fmt.Printf("⚠️ Erro no seed de roles: %v\n", err)
 	}
 
+	// Seed de módulos Staff (disponibilidade, escalas, presença, etc.)
+	if err := handler.SeedStaffModules(db); err != nil {
+		fmt.Printf("⚠️ Erro no seed de módulos Staff: %v\n", err)
+	}
+
 	// Seed da organização demo (criada automaticamente se não existir)
 	if err := handler.SeedDemoOrganization(db); err != nil {
 		fmt.Printf("⚠️ Erro no seed demo: %v\n", err)
