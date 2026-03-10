@@ -153,10 +153,14 @@ func (s *NotificationScheduleService) processSchedule(schedule *models.Notificat
 		return s.markScheduleStatus(schedule.Id, "skipped")
 	}
 
-	table, err := s.tableRepo.GetTableById(reservation.TableId)
-	if err != nil {
-		log.Printf("Mesa não encontrada para agendamento %s: %v", schedule.Id, err)
-		return s.markScheduleStatus(schedule.Id, "skipped")
+	var table *models.Table
+	if reservation.TableId != nil {
+		t, err := s.tableRepo.GetTableById(*reservation.TableId)
+		if err != nil {
+			log.Printf("Mesa não encontrada para agendamento %s: %v", schedule.Id, err)
+			return s.markScheduleStatus(schedule.Id, "skipped")
+		}
+		table = t
 	}
 
 	// Envia notificação baseado no tipo de evento

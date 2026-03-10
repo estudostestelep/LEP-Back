@@ -66,6 +66,10 @@ func SetupRoutes(r *gin.Engine) {
 	publicRoutes.GET("/times/org/:orgSlug/:projectSlug", resource.ServersControllers.SourcePublic.ServiceGetAvailableTimesBySlug)
 	publicRoutes.POST("/reservation/org/:orgSlug", resource.ServersControllers.SourcePublic.ServiceCreatePublicReservationBySlug)
 	publicRoutes.POST("/reservation/org/:orgSlug/:projectSlug", resource.ServersControllers.SourcePublic.ServiceCreatePublicReservationBySlug)
+	// Fila de espera pública
+	publicRoutes.GET("/waitlist/:orgId/:projId", resource.ServersControllers.SourcePublic.ServiceGetPublicWaitlist)
+	publicRoutes.GET("/waitlist/org/:orgSlug", resource.ServersControllers.SourcePublic.ServiceGetPublicWaitlistBySlug)
+	publicRoutes.GET("/waitlist/org/:orgSlug/:projectSlug", resource.ServersControllers.SourcePublic.ServiceGetPublicWaitlistBySlug)
 
 	// =============================================================================
 	// 2. ROTAS PROTEGIDAS (auth + headers obrigatórios)

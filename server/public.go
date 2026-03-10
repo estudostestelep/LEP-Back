@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"lep/handler"
 	"lep/repositories/models"
 	"lep/utils"
@@ -31,6 +32,9 @@ type IServerPublic interface {
 	ServiceGetProjectInfoBySlug(c *gin.Context)
 	ServiceGetAvailableTimesBySlug(c *gin.Context)
 	ServiceCreatePublicReservationBySlug(c *gin.Context)
+	// Fila de espera pública
+	ServiceGetPublicWaitlist(c *gin.Context)
+	ServiceGetPublicWaitlistBySlug(c *gin.Context)
 }
 
 // ServiceGetPublicMenu retorna produtos do cardápio sem autenticação
@@ -235,20 +239,38 @@ func (r *ResourcePublic) ServiceCreatePublicReservation(c *gin.Context) {
 		return
 	}
 
-	// Criar cliente
-	newCustomer := models.Customer{
-		Id:             uuid.New(),
-		OrganizationId: orgId,
-		ProjectId:      projId,
-		Name:           requestData.Customer.Name,
-		Email:          requestData.Customer.Email,
-		Phone:          requestData.Customer.Phone,
-	}
-
-	err = r.handler.HandlerCustomer.CreateCustomer(&newCustomer)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error creating customer", err)
-		return
+	// Buscar ou criar cliente
+	var customer models.Customer
+	if requestData.Customer.Email != "" {
+		existingCustomer, emailErr := r.handler.HandlerCustomer.GetCustomerByEmail(orgId, projId, requestData.Customer.Email)
+		if emailErr == nil && existingCustomer != nil {
+			customer = *existingCustomer
+		} else {
+			newCustomer := models.Customer{
+				OrganizationId: orgId,
+				ProjectId:      projId,
+				Name:           requestData.Customer.Name,
+				Email:          requestData.Customer.Email,
+				Phone:          requestData.Customer.Phone,
+			}
+			if createErr := r.handler.HandlerCustomer.CreateCustomer(&newCustomer); createErr != nil {
+				utils.SendInternalServerError(c, "Error creating customer", createErr)
+				return
+			}
+			customer = newCustomer
+		}
+	} else {
+		newCustomer := models.Customer{
+			OrganizationId: orgId,
+			ProjectId:      projId,
+			Name:           requestData.Customer.Name,
+			Phone:          requestData.Customer.Phone,
+		}
+		if createErr := r.handler.HandlerCustomer.CreateCustomer(&newCustomer); createErr != nil {
+			utils.SendInternalServerError(c, "Error creating customer", createErr)
+			return
+		}
+		customer = newCustomer
 	}
 
 	// Parse datetime
@@ -262,36 +284,86 @@ func (r *ResourcePublic) ServiceCreatePublicReservation(c *gin.Context) {
 		}
 	}
 
-	// Buscar mesa disponível (simplificado - pegar primeira mesa com capacidade)
-	tables, err := r.handler.HandlerTables.ListTables(orgIdStr, projIdStr)
+	// Carregar configurações do projeto (usadas para diningDuration e AutoConfirm)
+	settings, _ := r.handler.HandlerSettings.GetOrCreateSettings(orgIdStr, projIdStr)
+	diningDuration := 120
+	if settings != nil && settings.DiningDurationMinutes > 0 {
+		diningDuration = settings.DiningDurationMinutes
+	}
+
+	// Buscar mesa disponível (pegar primeira mesa com capacidade suficiente e sem conflito de reserva)
+	tables, err := r.handler.HandlerTables.ListTables(orgIdStr, projIdStr, nil)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error finding available tables", err)
 		return
 	}
 
+	// isPendingBySize: excede threshold configurado OU nenhuma mesa comporta o grupo sozinha
+	exceedsThreshold := settings != nil && settings.AutoConfirmMaxPartySize > 0 && requestData.Reservation.PartySize > settings.AutoConfirmMaxPartySize
+	noTableFits := true
+	for _, t := range tables {
+		if t.Capacity >= requestData.Reservation.PartySize {
+			noTableFits = false
+			break
+		}
+	}
+	isPendingBySize := exceedsThreshold || noTableFits
+
 	var selectedTable *models.Table
 	for _, table := range tables {
-		if table.Capacity >= requestData.Reservation.PartySize && table.Status == "livre" {
-			selectedTable = &table
+		if table.Capacity < requestData.Reservation.PartySize {
+			continue
+		}
+		available, availErr := r.handler.HandlerReservation.IsTableAvailable(table.Id, datetime, diningDuration)
+		if availErr != nil || !available {
+			continue
+		}
+		t := table
+		selectedTable = &t
+		break
+	}
+
+	// Para grupos que exigem intervenção manual, tenta qualquer mesa disponível como placeholder
+	if selectedTable == nil && isPendingBySize {
+		for _, table := range tables {
+			available, availErr := r.handler.HandlerReservation.IsTableAvailable(table.Id, datetime, diningDuration)
+			if availErr != nil || !available {
+				continue
+			}
+			t := table
+			selectedTable = &t
 			break
 		}
 	}
 
 	if selectedTable == nil {
-		utils.SendBadRequestError(c, "No available tables for this party size", nil)
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"error":   "no_availability",
+			"message": "Estamos sem disponibilidade para o horário e quantidade de pessoas selecionados. Por favor, escolha outro horário ou entre em contato conosco.",
+		})
 		return
 	}
 
+	// Determinar status
+	reservationStatus := "confirmed"
+	if isPendingBySize {
+		reservationStatus = "pending"
+	}
+
 	// Criar reserva
+	var tableId *uuid.UUID
+	if selectedTable != nil {
+		tableId = &selectedTable.Id
+	}
 	newReservation := models.Reservation{
 		Id:             uuid.New(),
 		OrganizationId: orgId,
 		ProjectId:      projId,
-		CustomerId:     newCustomer.Id,
-		TableId:        selectedTable.Id,
+		CustomerId:     customer.Id,
+		TableId:        tableId,
 		Datetime:       datetime.Format(time.RFC3339),
 		PartySize:      requestData.Reservation.PartySize,
-		Status:         "confirmed",
+		Status:         reservationStatus,
 		Note:           requestData.Reservation.Note,
 	}
 
@@ -301,9 +373,14 @@ func (r *ResourcePublic) ServiceCreatePublicReservation(c *gin.Context) {
 		return
 	}
 
+	// Disparar notificação de status pendente
+	if reservationStatus == "pending" && r.handler.EventService != nil {
+		r.handler.EventService.TriggerReservationStatusChanged(orgId, projId, &newReservation, &customer, selectedTable)
+	}
+
 	// Retornar resposta com dados criados
 	response := gin.H{
-		"customer":    newCustomer,
+		"customer":    customer,
 		"reservation": newReservation,
 		"table":       selectedTable,
 	}
@@ -311,27 +388,131 @@ func (r *ResourcePublic) ServiceCreatePublicReservation(c *gin.Context) {
 	utils.SendCreatedSuccess(c, "Reservation created successfully", response)
 }
 
-// generateAvailableTimeSlots gera horários disponíveis (lógica simplificada)
-func generateAvailableTimeSlots(date time.Time, partySize int, orgId, projId string, handler *handler.Handlers) []gin.H {
-	// Horários padrão de funcionamento
-	timeSlots := []string{
-		"12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
-		"19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00",
+// generateAvailableTimeSlots gera horários disponíveis verificando disponibilidade real no banco.
+// Os horários de funcionamento são carregados das configurações do projeto.
+func generateAvailableTimeSlots(date time.Time, partySize int, orgId, projId string, h *handler.Handlers) []gin.H {
+	// Defaults caso as configurações não sejam encontradas
+	lunchStart, lunchEnd := "12:00", "14:30"
+	dinnerStart, dinnerEnd := "19:00", "22:00"
+	slotInterval := 30
+	enableLunch, enableDinner := true, true
+	diningDuration := 120
+
+	settings, err := h.HandlerSettings.GetOrCreateSettings(orgId, projId)
+	if err == nil && settings != nil {
+		if settings.LunchStart != "" {
+			lunchStart = settings.LunchStart
+		}
+		if settings.LunchEnd != "" {
+			lunchEnd = settings.LunchEnd
+		}
+		if settings.DinnerStart != "" {
+			dinnerStart = settings.DinnerStart
+		}
+		if settings.DinnerEnd != "" {
+			dinnerEnd = settings.DinnerEnd
+		}
+		if settings.SlotIntervalMinutes > 0 {
+			slotInterval = settings.SlotIntervalMinutes
+		}
+		enableLunch = settings.EnableLunch
+		enableDinner = settings.EnableDinner
+		if settings.DiningDurationMinutes > 0 {
+			diningDuration = settings.DiningDurationMinutes
+		}
+
+		// Agenda semanal: sobrescreve enableLunch/enableDinner para o dia da semana solicitado
+		if settings.OperatingScheduleJson != "" {
+			type dayConfig struct {
+				Enabled      bool `json:"enabled"`
+				EnableLunch  bool `json:"enable_lunch"`
+				EnableDinner bool `json:"enable_dinner"`
+			}
+			var schedule map[string]dayConfig
+			if jsonErr := json.Unmarshal([]byte(settings.OperatingScheduleJson), &schedule); jsonErr == nil {
+				dayKey := strconv.Itoa(int(date.Weekday())) // 0=Domingo ... 6=Sábado
+				if dc, ok := schedule[dayKey]; ok {
+					if !dc.Enabled {
+						return []gin.H{} // restaurante fechado neste dia
+					}
+					enableLunch = dc.EnableLunch
+					enableDinner = dc.EnableDinner
+				}
+			}
+		}
 	}
 
-	var availableTimes []gin.H
+	var timeSlots []string
+	if enableLunch {
+		timeSlots = append(timeSlots, buildTimeSlots(lunchStart, lunchEnd, slotInterval)...)
+	}
+	if enableDinner {
+		timeSlots = append(timeSlots, buildTimeSlots(dinnerStart, dinnerEnd, slotInterval)...)
+	}
 
-	// Para cada horário, verificar disponibilidade (lógica simplificada)
-	for _, timeSlot := range timeSlots {
-		// Por simplicidade, marcar todos como disponíveis
-		// Em produção, verificar conflitos com reservas existentes
+	tables, tablesErr := h.HandlerTables.ListTables(orgId, projId, nil)
+
+	// Se nenhuma mesa tem capacidade para o grupo, aceita qualquer mesa disponível (reserva ficará pending)
+	noTableFitsParty := true
+	if tablesErr == nil {
+		for _, t := range tables {
+			if t.Capacity >= partySize {
+				noTableFitsParty = false
+				break
+			}
+		}
+	}
+
+	availableTimes := make([]gin.H, 0)
+	for _, slot := range timeSlots {
+		slotTime, parseErr := time.Parse("15:04", slot)
+		if parseErr != nil {
+			continue
+		}
+		dt := time.Date(date.Year(), date.Month(), date.Day(),
+			slotTime.Hour(), slotTime.Minute(), 0, 0, time.UTC)
+
+		hasAvailableTable := false
+		if tablesErr == nil {
+			for _, table := range tables {
+				// Se nenhuma mesa comporta o grupo, verifica disponibilidade sem filtrar capacidade
+				if !noTableFitsParty && table.Capacity < partySize {
+					continue
+				}
+				ok, checkErr := h.HandlerReservation.IsTableAvailable(table.Id, dt, diningDuration)
+				if checkErr == nil && ok {
+					hasAvailableTable = true
+					break
+				}
+			}
+		}
+
 		availableTimes = append(availableTimes, gin.H{
-			"time":      timeSlot,
-			"available": true,
+			"time":      slot,
+			"available": hasAvailableTable,
 		})
 	}
 
 	return availableTimes
+}
+
+// buildTimeSlots gera uma lista de horários (HH:MM) entre start e end com o intervalo dado em minutos.
+func buildTimeSlots(start, end string, intervalMinutes int) []string {
+	startTime, err := time.Parse("15:04", start)
+	if err != nil {
+		return nil
+	}
+	endTime, err := time.Parse("15:04", end)
+	if err != nil {
+		return nil
+	}
+	var slots []string
+	cur := startTime
+	for !cur.After(endTime) {
+		slots = append(slots, cur.Format("15:04"))
+		cur = cur.Add(time.Duration(intervalMinutes) * time.Minute)
+	}
+	return slots
 }
 
 // ServiceGetPublicCategories retorna categorias ativas sem autenticação
@@ -651,19 +832,38 @@ func (r *ResourcePublic) ServiceCreatePublicReservationBySlug(c *gin.Context) {
 		return
 	}
 
-	newCustomer := models.Customer{
-		Id:             uuid.New(),
-		OrganizationId: orgId,
-		ProjectId:      projId,
-		Name:           requestData.Customer.Name,
-		Email:          requestData.Customer.Email,
-		Phone:          requestData.Customer.Phone,
-	}
-
-	err = r.handler.HandlerCustomer.CreateCustomer(&newCustomer)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error creating customer", err)
-		return
+	// Buscar ou criar cliente
+	var customer models.Customer
+	if requestData.Customer.Email != "" {
+		existingCustomer, emailErr := r.handler.HandlerCustomer.GetCustomerByEmail(orgId, projId, requestData.Customer.Email)
+		if emailErr == nil && existingCustomer != nil {
+			customer = *existingCustomer
+		} else {
+			newCustomer := models.Customer{
+				OrganizationId: orgId,
+				ProjectId:      projId,
+				Name:           requestData.Customer.Name,
+				Email:          requestData.Customer.Email,
+				Phone:          requestData.Customer.Phone,
+			}
+			if createErr := r.handler.HandlerCustomer.CreateCustomer(&newCustomer); createErr != nil {
+				utils.SendInternalServerError(c, "Error creating customer", createErr)
+				return
+			}
+			customer = newCustomer
+		}
+	} else {
+		newCustomer := models.Customer{
+			OrganizationId: orgId,
+			ProjectId:      projId,
+			Name:           requestData.Customer.Name,
+			Phone:          requestData.Customer.Phone,
+		}
+		if createErr := r.handler.HandlerCustomer.CreateCustomer(&newCustomer); createErr != nil {
+			utils.SendInternalServerError(c, "Error creating customer", createErr)
+			return
+		}
+		customer = newCustomer
 	}
 
 	datetime, err := time.Parse(time.RFC3339, requestData.Reservation.Datetime)
@@ -675,34 +875,84 @@ func (r *ResourcePublic) ServiceCreatePublicReservationBySlug(c *gin.Context) {
 		}
 	}
 
-	tables, err := r.handler.HandlerTables.ListTables(orgId.String(), projId.String())
+	// Carregar configurações do projeto (usadas para diningDuration e AutoConfirm)
+	settings, _ := r.handler.HandlerSettings.GetOrCreateSettings(orgId.String(), projId.String())
+	diningDuration := 120
+	if settings != nil && settings.DiningDurationMinutes > 0 {
+		diningDuration = settings.DiningDurationMinutes
+	}
+
+	tables, err := r.handler.HandlerTables.ListTables(orgId.String(), projId.String(), nil)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error finding available tables", err)
 		return
 	}
 
+	// isPendingBySize: excede threshold configurado OU nenhuma mesa comporta o grupo sozinha
+	exceedsThresholdSlug := settings != nil && settings.AutoConfirmMaxPartySize > 0 && requestData.Reservation.PartySize > settings.AutoConfirmMaxPartySize
+	noTableFitsSlug := true
+	for _, t := range tables {
+		if t.Capacity >= requestData.Reservation.PartySize {
+			noTableFitsSlug = false
+			break
+		}
+	}
+	isPendingBySize := exceedsThresholdSlug || noTableFitsSlug
+
 	var selectedTable *models.Table
 	for _, table := range tables {
-		if table.Capacity >= requestData.Reservation.PartySize && table.Status == "livre" {
-			selectedTable = &table
+		if table.Capacity < requestData.Reservation.PartySize {
+			continue
+		}
+		available, availErr := r.handler.HandlerReservation.IsTableAvailable(table.Id, datetime, diningDuration)
+		if availErr != nil || !available {
+			continue
+		}
+		t := table
+		selectedTable = &t
+		break
+	}
+
+	// Para grupos que exigem intervenção manual, tenta qualquer mesa disponível como placeholder
+	if selectedTable == nil && isPendingBySize {
+		for _, table := range tables {
+			available, availErr := r.handler.HandlerReservation.IsTableAvailable(table.Id, datetime, diningDuration)
+			if availErr != nil || !available {
+				continue
+			}
+			t := table
+			selectedTable = &t
 			break
 		}
 	}
 
 	if selectedTable == nil {
-		utils.SendBadRequestError(c, "No available tables for this party size", nil)
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"error":   "no_availability",
+			"message": "Estamos sem disponibilidade para o horário e quantidade de pessoas selecionados. Por favor, escolha outro horário ou entre em contato conosco.",
+		})
 		return
 	}
 
+	// Determinar status
+	reservationStatus := "confirmed"
+	if isPendingBySize {
+		reservationStatus = "pending"
+	}
+
+	var tableIdSlug *uuid.UUID
+	if selectedTable != nil {
+		tableIdSlug = &selectedTable.Id
+	}
 	newReservation := models.Reservation{
 		Id:             uuid.New(),
 		OrganizationId: orgId,
 		ProjectId:      projId,
-		CustomerId:     newCustomer.Id,
-		TableId:        selectedTable.Id,
+		CustomerId:     customer.Id,
+		TableId:        tableIdSlug,
 		Datetime:       datetime.Format(time.RFC3339),
 		PartySize:      requestData.Reservation.PartySize,
-		Status:         "confirmed",
+		Status:         reservationStatus,
 		Note:           requestData.Reservation.Note,
 	}
 
@@ -712,13 +962,107 @@ func (r *ResourcePublic) ServiceCreatePublicReservationBySlug(c *gin.Context) {
 		return
 	}
 
+	// Disparar notificação de status pendente
+	if reservationStatus == "pending" && r.handler.EventService != nil {
+		r.handler.EventService.TriggerReservationStatusChanged(orgId, projId, &newReservation, &customer, selectedTable)
+	}
+
 	response := gin.H{
-		"customer":    newCustomer,
+		"customer":    customer,
 		"reservation": newReservation,
 		"table":       selectedTable,
 	}
 
 	utils.SendCreatedSuccess(c, "Reservation created successfully", response)
+}
+
+// PublicWaitlistEntry representa uma entrada na fila pública (sem dados sensíveis)
+type PublicWaitlistEntry struct {
+	Position      int    `json:"position"`
+	CustomerName  string `json:"customer_name"`
+	PartySize     int    `json:"party_size"`
+	WaitedMinutes int    `json:"waited_minutes"`
+}
+
+// ServiceGetPublicWaitlist retorna a fila de espera sem autenticação (por UUID)
+func (r *ResourcePublic) ServiceGetPublicWaitlist(c *gin.Context) {
+	orgIdStr := c.Param("orgId")
+	projIdStr := c.Param("projId")
+
+	_, err := uuid.Parse(orgIdStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid organization ID format", err)
+		return
+	}
+	_, err = uuid.Parse(projIdStr)
+	if err != nil {
+		utils.SendBadRequestError(c, "Invalid project ID format", err)
+		return
+	}
+
+	waitlist, err := r.handler.HandlerWaitlist.ListWaitlists(orgIdStr, projIdStr)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting waitlist", err)
+		return
+	}
+
+	var queue []PublicWaitlistEntry
+	position := 1
+	now := time.Now()
+	for _, entry := range waitlist {
+		if entry.Status == "waiting" {
+			queue = append(queue, PublicWaitlistEntry{
+				Position:      position,
+				CustomerName:  entry.CustomerName,
+				PartySize:     entry.People,
+				WaitedMinutes: int(now.Sub(entry.CreatedAt).Minutes()),
+			})
+			position++
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"queue":         queue,
+		"total_waiting": len(queue),
+	})
+}
+
+// ServiceGetPublicWaitlistBySlug retorna a fila de espera sem autenticação (por slug)
+func (r *ResourcePublic) ServiceGetPublicWaitlistBySlug(c *gin.Context) {
+	orgSlug := c.Param("orgSlug")
+	projectSlug := c.Param("projectSlug")
+
+	orgId, projId, err := r.resolveOrgAndProject(orgSlug, projectSlug)
+	if err != nil {
+		utils.SendNotFoundError(c, "Organization or project not found")
+		return
+	}
+
+	waitlist, err := r.handler.HandlerWaitlist.ListWaitlists(orgId, projId)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error getting waitlist", err)
+		return
+	}
+
+	var queue []PublicWaitlistEntry
+	position := 1
+	now := time.Now()
+	for _, entry := range waitlist {
+		if entry.Status == "waiting" {
+			queue = append(queue, PublicWaitlistEntry{
+				Position:      position,
+				CustomerName:  entry.CustomerName,
+				PartySize:     entry.People,
+				WaitedMinutes: int(now.Sub(entry.CreatedAt).Minutes()),
+			})
+			position++
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"queue":         queue,
+		"total_waiting": len(queue),
+	})
 }
 
 func NewSourceServerPublic(handler *handler.Handlers) IServerPublic {

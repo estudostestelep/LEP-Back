@@ -149,7 +149,12 @@ func (r *ResourceTables) ServiceListTables(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
-	resp, err := r.handler.HandlerTables.ListTables(organizationId, projectId)
+	var environmentId *string
+	if envId := c.Query("environment_id"); envId != "" {
+		environmentId = &envId
+	}
+
+	resp, err := r.handler.HandlerTables.ListTables(organizationId, projectId, environmentId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error listing tables", err)
 		return

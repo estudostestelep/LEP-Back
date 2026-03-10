@@ -3,6 +3,7 @@ package handler
 import (
 	"lep/repositories"
 	"lep/service"
+	"lep/utils"
 
 	"gorm.io/gorm"
 )
@@ -34,19 +35,20 @@ type Handlers struct {
 	HandlerLimits             *LimitHandler
 	ImageManagementService    service.IImageManagementService // Service direto para o Upload server
 	HandlerSidebarConfig      ISidebarConfigHandler
-	HandlerAdminAuditLog      IAdminAuditLogHandler       // Logs de auditoria administrativa (read-only)
-	HandlerClientAuditLog     IClientAuditLogHandler      // Logs de auditoria de cliente (módulo opcional)
+	HandlerAdminAuditLog      IAdminAuditLogHandler  // Logs de auditoria administrativa (read-only)
+	HandlerClientAuditLog     IClientAuditLogHandler // Logs de auditoria de cliente (módulo opcional)
 	// Novos handlers para Admin e Client separados
-	HandlerAdminUser          IHandlerAdminUser           // Gestão de usuários admin
-	HandlerClientUser         IHandlerClientUser          // Gestão de usuários cliente
-	HandlerUserAccess         IHandlerUserAccess          // Gestão de acesso a organizações/projetos
+	HandlerAdminUser  IHandlerAdminUser  // Gestão de usuários admin
+	HandlerClientUser IHandlerClientUser // Gestão de usuários cliente
+	HandlerUserAccess IHandlerUserAccess // Gestão de acesso a organizações/projetos
+	EventService      *utils.EventService
 	// Staff Management System
-	HandlerStaffAvailability  IHandlerStaffAvailability   // Disponibilidade de equipe
-	HandlerStaffSchedule      IHandlerStaffSchedule       // Escalas de trabalho
-	HandlerStaffAttendance    IHandlerStaffAttendance     // Presença e consumo
-	HandlerStaffStock         IHandlerStaffStock          // Estoque operacional
-	HandlerStaffCommission    IHandlerStaffCommission     // Comissões
-	HandlerStaffDashboard     IHandlerStaffDashboard      // Dashboard e relatórios
+	HandlerStaffAvailability IHandlerStaffAvailability // Disponibilidade de equipe
+	HandlerStaffSchedule     IHandlerStaffSchedule     // Escalas de trabalho
+	HandlerStaffAttendance   IHandlerStaffAttendance   // Presença e consumo
+	HandlerStaffStock        IHandlerStaffStock        // Estoque operacional
+	HandlerStaffCommission   IHandlerStaffCommission   // Comissões
+	HandlerStaffDashboard    IHandlerStaffDashboard    // Dashboard e relatórios
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
@@ -123,6 +125,9 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerAdminUser = NewAdminUserHandler(repo)
 	h.HandlerClientUser = NewClientUserHandler(repo)
 	h.HandlerUserAccess = NewUserAccessHandler(repo)
+
+	// EventService para disparo de notificações
+	h.EventService = utils.NewEventService(repo.Notifications, repo.Projects, repo.Settings)
 
 	// Staff Management System
 	h.HandlerStaffAvailability = NewStaffAvailabilityHandler(repo)

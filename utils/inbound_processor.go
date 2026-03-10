@@ -256,15 +256,17 @@ func (s *InboundProcessorService) cancelReservation(reservation *models.Reservat
 		return err
 	}
 
-	// Libera a mesa
-	table, err := s.tableRepo.GetTableById(reservation.TableId)
-	if err != nil {
-		return err
+	// Libera a mesa (se houver)
+	if reservation.TableId != nil {
+		table, err := s.tableRepo.GetTableById(*reservation.TableId)
+		if err != nil {
+			return err
+		}
+		table.Status = "livre"
+		table.UpdatedAt = time.Now()
+		return s.tableRepo.UpdateTable(table)
 	}
-
-	table.Status = "livre"
-	table.UpdatedAt = time.Now()
-	return s.tableRepo.UpdateTable(table)
+	return nil
 }
 
 // ApproveReviewItem aprova item da fila e executa ação
