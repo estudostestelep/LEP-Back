@@ -79,6 +79,11 @@ func SendUnauthorizedError(c *gin.Context, message string) {
 	SendError(c, http.StatusUnauthorized, message, nil)
 }
 
+// SendConflictError envia erro 409 padronizado (para conflitos de recurso)
+func SendConflictError(c *gin.Context, message string, err error) {
+	SendError(c, http.StatusConflict, message, err)
+}
+
 // SendSuccess envia resposta de sucesso padronizada
 func SendSuccess(c *gin.Context, statusCode int, message string, data interface{}) {
 	response := SuccessResponse{

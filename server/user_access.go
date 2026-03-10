@@ -2,119 +2,89 @@ package server
 
 import (
 	"lep/handler"
+	"lep/resource/validation"
 	"lep/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
-type UserAccessServer struct {
-	Handler handler.UserAccessHandler
+type ResourceUserAccess struct {
+	handler handler.IHandlerUserAccess
 }
 
-func NewUserAccessServer(h handler.UserAccessHandler) *UserAccessServer {
-	return &UserAccessServer{Handler: h}
+type IServerUserAccess interface {
+	ServiceGetUserAccess(c *gin.Context)
+	ServiceUpdateUserAccess(c *gin.Context)
 }
 
-// isMasterAdmin verifica se um usuário tem permissão de Master Admin
-func isMasterAdmin(c *gin.Context) bool {
-	userPermissions, exists := c.Get("user_permissions")
-	if !exists {
-		return false
-	}
-
-	// ✅ CORREÇÃO: Aceitar tanto []string quanto pq.StringArray
-	var permissions []string
-	switch v := userPermissions.(type) {
-	case []string:
-		permissions = v
-	case pq.StringArray:
-		permissions = []string(v)
-	default:
-		return false
-	}
-
-	for _, p := range permissions {
-		if p == "master_admin" || p == "all" {
-			return true
-		}
-	}
-	return false
+// UpdateUserAccessRequest DTO para atualizar acesso do usuário
+type UpdateUserAccessRequest struct {
+	OrganizationIds []string `json:"organization_ids"`
+	ProjectIds      []string `json:"project_ids"`
 }
 
-// ServiceGetUserOrganizationsAndProjects retorna organizações e projetos de um usuário
-// GET /user/:id/organizations-projects
-func (s *UserAccessServer) ServiceGetUserOrganizationsAndProjects(c *gin.Context) {
-	// Verificar se é Master Admin
-	if !isMasterAdmin(c) {
-		utils.SendForbiddenError(c, "Acesso negado: apenas Master Admin pode visualizar acessos de usuários")
+func (r *ResourceUserAccess) ServiceGetUserAccess(c *gin.Context) {
+	userId, ok := validation.ParseAndValidateUUID(c, c.Param("userId"), "user")
+	if !ok {
 		return
 	}
 
-	// Obter ID do usuário da URL
-	userIdStr := c.Param("id")
-	userId, err := uuid.Parse(userIdStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "ID de usuário inválido", err)
-		return
-	}
-
-	// Buscar acessos do usuário
-	response, err := s.Handler.GetUserOrganizationsAndProjects(userId)
+	access, err := r.handler.GetUserAccess(userId.String())
 	if err != nil {
 		if err.Error() == "usuário não encontrado" {
-			utils.SendNotFoundError(c, "Usuário")
+			utils.SendNotFoundError(c, "User")
 			return
 		}
-		utils.SendInternalServerError(c, "Erro ao buscar acessos do usuário", err)
+		utils.SendInternalServerError(c, "Error getting user access", err)
 		return
 	}
 
-	utils.SendOKSuccess(c, "Acessos do usuário obtidos com sucesso", response)
+	c.JSON(http.StatusOK, gin.H{
+		"organizations": access.Organizations,
+		"projects":      access.Projects,
+	})
 }
 
-// ServiceUpdateUserOrganizationsAndProjects atualiza organizações e projetos de um usuário
-// POST /user/:id/organizations-projects
-func (s *UserAccessServer) ServiceUpdateUserOrganizationsAndProjects(c *gin.Context) {
-	// Verificar se é Master Admin
-	if !isMasterAdmin(c) {
-		utils.SendForbiddenError(c, "Acesso negado: apenas Master Admin pode gerenciar acessos de usuários")
+func (r *ResourceUserAccess) ServiceUpdateUserAccess(c *gin.Context) {
+	userId, ok := validation.ParseAndValidateUUID(c, c.Param("userId"), "user")
+	if !ok {
 		return
 	}
 
-	// Obter ID do usuário da URL
-	userIdStr := c.Param("id")
-	userId, err := uuid.Parse(userIdStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "ID de usuário inválido", err)
+	var request UpdateUserAccessRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
 
-	// Fazer bind do request body
-	var req handler.UpdateUserAccessRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.SendBadRequestError(c, "Request body inválido", err)
-		return
+	// Converter para o formato do handler
+	handlerRequest := &handler.UpdateUserAccessRequest{
+		OrganizationIds: request.OrganizationIds,
+		ProjectIds:      request.ProjectIds,
 	}
 
-	// Atualizar acessos
-	response, err := s.Handler.UpdateUserOrganizationsAndProjects(userId, &req)
+	result, err := r.handler.UpdateUserAccess(userId.String(), handlerRequest)
 	if err != nil {
 		if err.Error() == "usuário não encontrado" {
-			utils.SendNotFoundError(c, "Usuário")
+			utils.SendNotFoundError(c, "User")
 			return
 		}
-		if err.Error() == "uma ou mais organizações não existem" ||
-			err.Error() == "um ou mais projetos não existem" ||
-			err.Error() == "um ou mais projetos não pertencem às organizações selecionadas" {
-			utils.SendBadRequestError(c, err.Error(), err)
-			return
-		}
-		utils.SendInternalServerError(c, "Erro ao atualizar acessos do usuário", err)
+		utils.SendInternalServerError(c, "Error updating user access", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, gin.H{
+		"message":               result.Message,
+		"organizations_added":   result.OrganizationsAdded,
+		"organizations_removed": result.OrganizationsRemoved,
+		"projects_added":        result.ProjectsAdded,
+		"projects_removed":      result.ProjectsRemoved,
+	})
+}
+
+func NewSourceServerUserAccess(handler *handler.Handlers) IServerUserAccess {
+	return &ResourceUserAccess{
+		handler: handler.HandlerUserAccess,
+	}
 }

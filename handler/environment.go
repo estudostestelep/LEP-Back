@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"lep/repositories"
 	"lep/repositories/models"
 	"time"
@@ -51,6 +53,15 @@ func (h *EnvironmentHandler) GetEnvironmentsByProject(orgId, projectId string) (
 
 // CreateEnvironment cria novo ambiente
 func (h *EnvironmentHandler) CreateEnvironment(environment *models.Environment) error {
+	// Verificar se já existe ambiente com o mesmo nome no projeto
+	exists, err := h.environmentRepo.CheckEnvironmentNameExists(environment.OrganizationId, environment.ProjectId, environment.Name, nil)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
+	}
+	if exists {
+		return errors.New("already_exists: environment with this name already exists in this project")
+	}
+
 	environment.Id = uuid.New()
 	environment.CreatedAt = time.Now()
 	environment.UpdatedAt = time.Now()
@@ -59,6 +70,15 @@ func (h *EnvironmentHandler) CreateEnvironment(environment *models.Environment) 
 
 // UpdateEnvironment atualiza ambiente existente
 func (h *EnvironmentHandler) UpdateEnvironment(environment *models.Environment) error {
+	// Verificar se já existe outro ambiente com o mesmo nome no projeto
+	exists, err := h.environmentRepo.CheckEnvironmentNameExists(environment.OrganizationId, environment.ProjectId, environment.Name, &environment.Id)
+	if err != nil {
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
+	}
+	if exists {
+		return errors.New("already_exists: environment with this name already exists in this project")
+	}
+
 	environment.UpdatedAt = time.Now()
 	return h.environmentRepo.UpdateEnvironment(environment)
 }

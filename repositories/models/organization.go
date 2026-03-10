@@ -10,6 +10,7 @@ import (
 type Organization struct {
 	Id          uuid.UUID  `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name        string     `json:"name" gorm:"not null"`
+	Slug        string     `json:"slug" gorm:"unique;size:100"` // Identificador único para subdomínio
 	Email       string     `gorm:"unique" json:"email"`
 	Phone       string     `json:"phone,omitempty"`
 	Address     string     `json:"address,omitempty"`

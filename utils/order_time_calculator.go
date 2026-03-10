@@ -29,7 +29,12 @@ func CalculateOrderPrepTime(items []models.OrderItem, products []models.Product)
 		}
 
 		// Tempo do item = tempo_preparo * quantidade
-		itemTime := product.PrepTimeMinutes * item.Quantity
+		// Se PrepTimeMinutes for nil, usa 0
+		prepTime := 0
+		if product.PrepTimeMinutes != nil {
+			prepTime = *product.PrepTimeMinutes
+		}
+		itemTime := prepTime * item.Quantity
 
 		// Acumula tempo sequencial (se fosse um por vez)
 		totalSequentialTime += itemTime

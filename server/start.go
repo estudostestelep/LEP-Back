@@ -1,12 +1,8 @@
 package server
 
 import (
-	"fmt"
-	"log"
-	"lep/config"
 	"lep/repositories/migrate"
 	"lep/repositories/models"
-	"lep/utils"
 
 	"gorm.io/gorm"
 )
@@ -27,8 +23,6 @@ func Start(db *gorm.DB) {
 
 		// Core models
 		&models.User{},
-		&models.UserOrganization{}, // Relacionamento usuário-organização
-		&models.UserProject{},      // Relacionamento usuário-projeto
 		&models.Customer{},
 		&models.Table{},
 		&models.Product{},
@@ -36,10 +30,13 @@ func Start(db *gorm.DB) {
 		&models.Waitlist{},
 		&models.Order{},
 		&models.AuditLog{},
+		&models.AccessLog{}, // User access/login logs
 
 		// SPRINT 1 models
 		&models.Project{},
 		&models.Settings{},
+		&models.ProjectDisplaySettings{}, // Product display visibility settings
+		&models.ThemeCustomization{},     // Theme customization colors
 		&models.Environment{},
 
 		// SPRINT 2 models (Notification System)
@@ -48,6 +45,9 @@ func Start(db *gorm.DB) {
 		&models.NotificationLog{},
 		&models.NotificationEvent{},
 		&models.NotificationInbound{},
+		&models.NotificationSchedule{},
+		&models.ResponseReviewQueue{},
+		&models.NotificationReminder{},
 
 		// SPRINT 4 models (Advanced Validations)
 		&models.BlockedPeriod{},
@@ -63,130 +63,42 @@ func Start(db *gorm.DB) {
 		&models.Category{},
 		&models.Subcategory{},
 		&models.SubcategoryCategory{},
+
+		// Image Management models (Deduplication & References)
+		&models.FileReference{},
+		&models.EntityFileReference{},
+
+		// Admin & Client user models (must be before AdminRole/ClientRole due to FK relationships)
+		&models.Admin{},
+		&models.Client{},
+
+		// Role & Permission System models
+		&models.Module{},
+		&models.Permission{},
+		&models.Role{},
+		&models.RolePermission{},
+		&models.AdminRole{},  // depends on Admin, Role
+		&models.ClientRole{}, // depends on Client, Role, Organization
+		&models.Plan{},
+		&models.PlanModule{},
+		&models.PlanLimit{},
+		&models.OrganizationPlan{},
+
+		// Plan Change Request System
+		&models.PlanChangeRequest{},
+
+		// Sidebar Config System
+		&models.SidebarConfig{},
+
+		// Admin Audit Log System (read-only logs for administrative actions)
+		&models.AdminAuditLog{},
+
+		// Client Audit Log System (optional module for client-side logging)
+		&models.ClientAuditLog{},
+		&models.ClientAuditConfig{},
 	}
 
 	// Usar migrate customizado para lidar com alterações no Product
 	migrator := migrate.NewConnMigrate(db)
 	migrator.MigrateRun(modelsToMigrate...)
-
-	// Check if this is the first run and auto-seed if enabled
-	if config.IsAutoSeedEnabled() && isFirstRun(db) {
-		log.Println("🌱 First run detected - running auto seed...")
-		if err := runFirstTimeSeed(db); err != nil {
-			log.Printf("Warning: Auto-seed failed: %v", err)
-		} else {
-			log.Println("✅ Auto-seed completed successfully")
-		}
-	}
-}
-
-// isFirstRun checks if this is the first time the application is running
-// by checking if any users exist in the database
-func isFirstRun(db *gorm.DB) bool {
-	var count int64
-	err := db.Model(&models.User{}).Count(&count).Error
-	if err != nil {
-		log.Printf("Warning: Could not check if first run: %v", err)
-		return false
-	}
-	return count == 0
-}
-
-// runFirstTimeSeed runs the seeding process for first-time setup
-func runFirstTimeSeed(db *gorm.DB) error {
-	log.Println("  📊 Generating seed data...")
-	seedData := utils.GenerateCompleteData()
-
-	// Create organizations first
-	log.Println("  🏢 Creating organizations...")
-	for _, org := range seedData.Organizations {
-		if err := db.Create(&org).Error; err != nil {
-			return fmt.Errorf("failed to create organization: %w", err)
-		}
-	}
-
-	// Create projects
-	log.Println("  📁 Creating projects...")
-	for _, project := range seedData.Projects {
-		if err := db.Create(&project).Error; err != nil {
-			return fmt.Errorf("failed to create project: %w", err)
-		}
-	}
-
-	// Create users
-	log.Println("  👥 Creating users...")
-	for _, user := range seedData.Users {
-		if err := db.Create(&user).Error; err != nil {
-			return fmt.Errorf("failed to create user: %w", err)
-		}
-	}
-
-	// Create user-organization relationships
-	log.Println("  🔗 Creating user-organization relationships...")
-	for _, userOrg := range seedData.UserOrganizations {
-		if err := db.Create(&userOrg).Error; err != nil {
-			return fmt.Errorf("failed to create user-organization: %w", err)
-		}
-	}
-
-	// Create user-project relationships
-	log.Println("  🔗 Creating user-project relationships...")
-	for _, userProj := range seedData.UserProjects {
-		if err := db.Create(&userProj).Error; err != nil {
-			return fmt.Errorf("failed to create user-project: %w", err)
-		}
-	}
-
-	// Create environments
-	log.Println("  🏗️ Creating environments...")
-	for _, env := range seedData.Environments {
-		if err := db.Create(&env).Error; err != nil {
-			return fmt.Errorf("failed to create environment: %w", err)
-		}
-	}
-
-	// Create tables
-	log.Println("  🪑 Creating tables...")
-	for _, table := range seedData.Tables {
-		if err := db.Create(&table).Error; err != nil {
-			return fmt.Errorf("failed to create table: %w", err)
-		}
-	}
-
-	// Create products
-	log.Println("  🍽️ Creating products...")
-	for _, product := range seedData.Products {
-		if err := db.Create(&product).Error; err != nil {
-			return fmt.Errorf("failed to create product: %w", err)
-		}
-	}
-
-	// Create customers
-	log.Println("  👤 Creating customers...")
-	for _, customer := range seedData.Customers {
-		if err := db.Create(&customer).Error; err != nil {
-			return fmt.Errorf("failed to create customer: %w", err)
-		}
-	}
-
-	// Create settings
-	log.Println("  ⚙️ Creating settings...")
-	for _, settings := range seedData.Settings {
-		if err := db.Create(&settings).Error; err != nil {
-			return fmt.Errorf("failed to create settings: %w", err)
-		}
-	}
-
-	// Create notification templates
-	log.Println("  📧 Creating notification templates...")
-	for _, template := range seedData.Templates {
-		if err := db.Create(&template).Error; err != nil {
-			return fmt.Errorf("failed to create template: %w", err)
-		}
-	}
-
-	log.Printf("  ✅ Successfully created %d users, %d products, %d tables, and more...",
-		len(seedData.Users), len(seedData.Products), len(seedData.Tables))
-
-	return nil
 }

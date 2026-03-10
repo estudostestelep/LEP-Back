@@ -3,6 +3,7 @@ package repositories
 import (
 	"lep/repositories/models"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -41,6 +42,10 @@ func (r *resourceLoggedLists) GetLoggedAllList() (*[]models.LoggedLists, error) 
 }
 
 func (r *resourceLoggedLists) CreateLoggedList(loggedList *models.LoggedLists) error {
+	// Gerar ID se não fornecido
+	if loggedList.LoggedListId == uuid.Nil {
+		loggedList.LoggedListId = uuid.New()
+	}
 	result := r.db.Create(loggedList)
 	if result.Error != nil {
 		return result.Error

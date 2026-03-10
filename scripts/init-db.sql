@@ -1,31 +1,18 @@
--- LEP System - Local Development Database Initialization
--- This script sets up the initial database schema for local development
+-- LEP System Database Initialization Script
+-- This script runs automatically when the PostgreSQL container is first created
+
+-- Ensure the database uses UTF-8 encoding
+SET client_encoding = 'UTF8';
 
 -- Create extensions if needed
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- Create development user with appropriate permissions
--- (User is already created by POSTGRES_USER, this is just for reference)
-
--- Grant necessary permissions
+-- Grant privileges to the application user
 GRANT ALL PRIVILEGES ON DATABASE lep_database TO lep_user;
-GRANT ALL PRIVILEGES ON SCHEMA public TO lep_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO lep_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO lep_user;
 
--- Set default permissions for future objects
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO lep_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO lep_user;
-
--- Optional: Create some initial development data
--- (Your GORM will handle table creation, this is just for any manual setup needed)
-
--- Log the initialization
+-- Log initialization complete
 DO $$
 BEGIN
-    RAISE NOTICE 'LEP System local development database initialized successfully';
-    RAISE NOTICE 'Database: lep_database';
-    RAISE NOTICE 'User: lep_user';
-    RAISE NOTICE 'Extensions: uuid-ossp, pgcrypto';
+    RAISE NOTICE 'LEP Database initialization complete!';
 END $$;

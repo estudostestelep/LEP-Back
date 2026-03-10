@@ -12,7 +12,6 @@ import (
 	"lep/resource/validation"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type IOrderServer interface {
@@ -91,10 +90,8 @@ func (s *OrderServer) GetOrderById(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Id"})
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "order")
+	if !ok {
 		return
 	}
 	order, err := s.handler.GetOrderById(id.String())
@@ -147,10 +144,8 @@ func (s *OrderServer) UpdateOrder(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Id"})
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "order")
+	if !ok {
 		return
 	}
 	order, err := s.handler.GetOrderById(id.String())
@@ -187,10 +182,8 @@ func (s *OrderServer) SoftDeleteOrder(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Id"})
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "order")
+	if !ok {
 		return
 	}
 	if err := s.handler.SoftDeleteOrder(id.String()); err != nil {
@@ -218,10 +211,8 @@ func (s *OrderServer) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Id"})
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "order")
+	if !ok {
 		return
 	}
 
@@ -251,7 +242,7 @@ func (s *OrderServer) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	if err := s.handler.UpdateOrderStatus(idStr, statusUpdate.Status); err != nil {
+	if err := s.handler.UpdateOrderStatus(id.String(), statusUpdate.Status); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating order status"})
 		return
 	}
@@ -304,14 +295,12 @@ func (s *OrderServer) GetOrderProgress(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Id"})
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "order")
+	if !ok {
 		return
 	}
 
-	order, err := s.handler.GetOrderById(idStr)
+	order, err := s.handler.GetOrderById(id.String())
 	if err != nil || order == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return

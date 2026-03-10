@@ -167,8 +167,11 @@ func (w *WaitlistEnhancedHandler) NotifyNextInLine(orgId, projectId uuid.UUID) e
 			}
 
 			if wait.People <= table.Capacity {
-				// Buscar dados do cliente
-				customer, err := w.repo.Customers.GetCustomerById(wait.CustomerId)
+				// Buscar dados do cliente (CustomerId é opcional)
+				if wait.CustomerId == nil {
+					continue
+				}
+				customer, err := w.repo.Customers.GetCustomerById(*wait.CustomerId)
 				if err != nil {
 					continue
 				}
@@ -233,8 +236,11 @@ func (w *WaitlistEnhancedHandler) ConvertToLead(waitlistId uuid.UUID) error {
 		return err
 	}
 
-	// Buscar cliente
-	customer, err := w.repo.Customers.GetCustomerById(waitlistItem.CustomerId)
+	// Buscar cliente (CustomerId é opcional)
+	if waitlistItem.CustomerId == nil {
+		return fmt.Errorf("waitlist item has no associated customer")
+	}
+	customer, err := w.repo.Customers.GetCustomerById(*waitlistItem.CustomerId)
 	if err != nil {
 		return err
 	}

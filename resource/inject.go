@@ -3,9 +3,11 @@ package resource
 import (
 	"fmt"
 	"lep/handler"
+	"lep/repositories"
+	"lep/repositories/models"
 	"lep/server"
 
-	"lep/repositories"
+	"github.com/google/uuid"
 )
 
 var Repository repositories.DBconn
@@ -18,9 +20,98 @@ func Inject() {
 		panic(fmt.Sprintf("Conexão com banco falhou: %v", err))
 	}
 	server.Start(db)
-	Repository.InjectProstgres(db)
+	Repository.InjectPostgres(db)
 	Handlers.Inject(&Repository, db)
 	ServersControllers.Inject(&Handlers)
 	// Initialize AdminController with DB
 	ServersControllers.SourceAdmin = &server.AdminController{DB: db}
+	// Set repository for NotificationServer (needed for trigger-scheduled endpoint)
+	ServersControllers.SourceNotification.SetRepo(&Repository)
+
+	// Seed de roles e permissões
+	if err := handler.SeedRolesAndPermissions(db); err != nil {
+		fmt.Printf("⚠️ Erro no seed de roles: %v\n", err)
+	}
+
+	// Seed da organização demo (criada automaticamente se não existir)
+	if err := handler.SeedDemoOrganization(db); err != nil {
+		fmt.Printf("⚠️ Erro no seed demo: %v\n", err)
+	} else {
+		fmt.Printf("Executado seed demo: %v\n", err)
+	}
+
+	// Garantir que Default Organization tenha assinatura
+	ensureDefaultOrgHasSubscription()
+
+	// Atribuir role super_admin ao admin principal (pablo@lep.com)
+	assignSuperAdminRole(&Handlers)
+}
+
+// assignSuperAdminRole atribui o role super_admin ao admin principal
+func assignSuperAdminRole(handlers *handler.Handlers) {
+	// Buscar admin pelo email
+	admin, err := handlers.HandlerAdminUser.GetAdminByEmail("pablo@lep.com")
+	if err != nil || admin == nil {
+		fmt.Printf("⚠️ Admin pablo@lep.com não encontrado para atribuir role\n")
+		return
+	}
+
+	// Verificar se já tem roles atribuídos
+	existingRoles, _ := handlers.HandlerAdminUser.GetAdminRoles(admin.Id.String())
+	if len(existingRoles) > 0 {
+		fmt.Printf("✅ Admin pablo@lep.com já possui roles atribuídos\n")
+		return
+	}
+
+	// Buscar role super_admin
+	superAdminRole, err := handlers.HandlerRole.GetRoleByName("super_admin")
+	if err != nil || superAdminRole == nil {
+		fmt.Printf("⚠️ Role super_admin não encontrado\n")
+		return
+	}
+
+	// Criar associação admin-role
+	adminRole := &models.AdminRole{
+		Id:             uuid.New(),
+		AdminId:        admin.Id,
+		RoleId:         superAdminRole.Id,
+		OrganizationId: nil, // NULL = cargo admin global
+		Active:         true,
+	}
+
+	if err := handlers.HandlerAdminUser.AssignRoleToAdmin(adminRole); err != nil {
+		fmt.Printf("❌ Erro ao atribuir role super_admin: %v\n", err)
+	} else {
+		fmt.Printf("✅ Role super_admin atribuído ao admin Pablo (pablo@lep.com)\n")
+	}
+}
+
+// ensureDefaultOrgHasSubscription garante que a Default Organization tenha assinatura
+func ensureDefaultOrgHasSubscription() {
+	// Buscar Default Organization pelo slug
+	org, err := Handlers.HandlerOrganization.GetOrganizationBySlug("default-organization")
+	if err != nil || org == nil {
+		return // Organização não existe, nada a fazer
+	}
+
+	// Verificar se já tem assinatura
+	existingPlan, _ := Handlers.HandlerRole.GetOrganizationSubscription(org.Id.String())
+	if existingPlan != nil && existingPlan.Active {
+		fmt.Printf("✅ Default Organization já possui assinatura ativa\n")
+		return
+	}
+
+	// Buscar plano free pelo código
+	plan, err := Repository.Plans.GetByCode("free")
+	if err != nil || plan == nil {
+		fmt.Printf("⚠️ Plano free não encontrado\n")
+		return
+	}
+
+	// Atribuir plano
+	if err := Handlers.HandlerRole.SubscribeOrganization(org.Id.String(), plan.Id.String(), "monthly", nil); err != nil {
+		fmt.Printf("❌ Erro ao atribuir plano à Default Organization: %v\n", err)
+	} else {
+		fmt.Printf("✅ Plano free atribuído à Default Organization\n")
+	}
 }

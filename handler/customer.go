@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"lep/repositories"
 	"lep/repositories/models"
 	"time"
@@ -14,10 +16,15 @@ type resourceCustomer struct {
 
 type IHandlerCustomer interface {
 	GetCustomer(id string) (*models.Customer, error)
+	GetCustomerByEmail(orgId, projectId uuid.UUID, email string) (*models.Customer, error)
 	CreateCustomer(customer *models.Customer) error
 	UpdateCustomer(updatedCustomer *models.Customer) error
 	DeleteCustomer(id string) error
 	ListCustomers(orgId, projectId string) ([]models.Customer, error)
+}
+
+func (r *resourceCustomer) GetCustomerByEmail(orgId, projectId uuid.UUID, email string) (*models.Customer, error) {
+	return r.repo.Customers.GetCustomerByEmail(orgId, projectId, email)
 }
 
 func (r *resourceCustomer) GetCustomer(id string) (*models.Customer, error) {
@@ -33,6 +40,17 @@ func (r *resourceCustomer) GetCustomer(id string) (*models.Customer, error) {
 }
 
 func (r *resourceCustomer) CreateCustomer(customer *models.Customer) error {
+	// Verificar se já existe cliente com o mesmo email no projeto
+	if customer.Email != "" {
+		exists, err := r.repo.Customers.CheckCustomerEmailExists(customer.OrganizationId, customer.ProjectId, customer.Email, nil)
+		if err != nil {
+			return fmt.Errorf("erro ao verificar duplicata: %w", err)
+		}
+		if exists {
+			return errors.New("already_exists: customer with this email already exists in this project")
+		}
+	}
+
 	customer.Id = uuid.New()
 	customer.CreatedAt = time.Now()
 	customer.UpdatedAt = time.Now()
@@ -44,6 +62,17 @@ func (r *resourceCustomer) CreateCustomer(customer *models.Customer) error {
 }
 
 func (r *resourceCustomer) UpdateCustomer(updatedCustomer *models.Customer) error {
+	// Verificar se já existe outro cliente com o mesmo email no projeto
+	if updatedCustomer.Email != "" {
+		exists, err := r.repo.Customers.CheckCustomerEmailExists(updatedCustomer.OrganizationId, updatedCustomer.ProjectId, updatedCustomer.Email, &updatedCustomer.Id)
+		if err != nil {
+			return fmt.Errorf("erro ao verificar duplicata: %w", err)
+		}
+		if exists {
+			return errors.New("already_exists: customer with this email already exists in this project")
+		}
+	}
+
 	updatedCustomer.UpdatedAt = time.Now()
 	err := r.repo.Customers.UpdateCustomer(updatedCustomer)
 	if err != nil {

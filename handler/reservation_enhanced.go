@@ -11,8 +11,9 @@ import (
 )
 
 type ReservationEnhancedHandler struct {
-	repo         *repositories.DBconn
-	eventService *utils.EventService
+	repo            *repositories.DBconn
+	eventService    *utils.EventService
+	scheduleService *utils.NotificationScheduleService
 }
 
 type IReservationEnhancedHandler interface {
@@ -27,9 +28,18 @@ type IReservationEnhancedHandler interface {
 
 func NewReservationEnhancedHandler(repo *repositories.DBconn) IReservationEnhancedHandler {
 	eventService := utils.NewEventService(repo.Notifications, repo.Projects, repo.Settings)
+	scheduleService := utils.NewNotificationScheduleService(
+		repo.Notifications,
+		repo.Reservations,
+		repo.Customers,
+		repo.Tables,
+		repo.Settings,
+		repo.Projects,
+	)
 	return &ReservationEnhancedHandler{
-		repo:         repo,
-		eventService: eventService,
+		repo:            repo,
+		eventService:    eventService,
+		scheduleService: scheduleService,
 	}
 }
 
@@ -60,9 +70,10 @@ func (r *ReservationEnhancedHandler) CreateReservationWithTriggers(reservation *
 	}
 
 	// Atualizar status da mesa para "reservada"
-	if err := r.updateTableStatus(reservation.TableId, "reservada"); err != nil {
-		// Log do erro mas não interrompe o processo
-		fmt.Printf("Error updating table status: %v\n", err)
+	if reservation.TableId != nil {
+		if err := r.updateTableStatus(*reservation.TableId, "reservada"); err != nil {
+			fmt.Printf("Error updating table status: %v\n", err)
+		}
 	}
 
 	// Buscar dados adicionais para o trigger
@@ -71,15 +82,23 @@ func (r *ReservationEnhancedHandler) CreateReservationWithTriggers(reservation *
 		return fmt.Errorf("customer not found: %w", err)
 	}
 
-	table, err := r.repo.Tables.GetTableById(reservation.TableId)
-	if err != nil {
-		return fmt.Errorf("table not found: %w", err)
+	var table *models.Table
+	if reservation.TableId != nil {
+		t, err := r.repo.Tables.GetTableById(*reservation.TableId)
+		if err != nil {
+			return fmt.Errorf("table not found: %w", err)
+		}
+		table = t
 	}
 
-	// Trigger de notificação
+	// Trigger de notificação imediata (reserva criada)
 	if err := r.eventService.TriggerReservationCreated(reservation.OrganizationId, reservation.ProjectId, reservation, customer, table); err != nil {
-		// Log do erro mas não interrompe o processo
 		fmt.Printf("Error triggering reservation created event: %v\n", err)
+	}
+
+	// Agendar notificações futuras (confirmação X horas antes, lembrete, etc.)
+	if err := r.scheduleService.ScheduleReservationNotifications(reservation, customer, table); err != nil {
+		fmt.Printf("Error scheduling notification: %v\n", err)
 	}
 
 	return nil
@@ -99,14 +118,24 @@ func (r *ReservationEnhancedHandler) UpdateReservationWithTriggers(updatedReserv
 	}
 
 	// Se mudou a mesa, atualizar status das mesas
-	if currentReservation.TableId != updatedReservation.TableId {
-		// Liberar mesa anterior
-		if err := r.updateTableStatus(currentReservation.TableId, "livre"); err != nil {
-			fmt.Printf("Error freeing previous table: %v\n", err)
+	currentTableId := uuid.Nil
+	if currentReservation.TableId != nil {
+		currentTableId = *currentReservation.TableId
+	}
+	updatedTableId := uuid.Nil
+	if updatedReservation.TableId != nil {
+		updatedTableId = *updatedReservation.TableId
+	}
+	if currentTableId != updatedTableId {
+		if currentReservation.TableId != nil {
+			if err := r.updateTableStatus(*currentReservation.TableId, "livre"); err != nil {
+				fmt.Printf("Error freeing previous table: %v\n", err)
+			}
 		}
-		// Reservar nova mesa
-		if err := r.updateTableStatus(updatedReservation.TableId, "reservada"); err != nil {
-			fmt.Printf("Error reserving new table: %v\n", err)
+		if updatedReservation.TableId != nil {
+			if err := r.updateTableStatus(*updatedReservation.TableId, "reservada"); err != nil {
+				fmt.Printf("Error reserving new table: %v\n", err)
+			}
 		}
 	}
 
@@ -121,9 +150,13 @@ func (r *ReservationEnhancedHandler) UpdateReservationWithTriggers(updatedReserv
 		return fmt.Errorf("customer not found: %w", err)
 	}
 
-	table, err := r.repo.Tables.GetTableById(updatedReservation.TableId)
-	if err != nil {
-		return fmt.Errorf("table not found: %w", err)
+	var table *models.Table
+	if updatedReservation.TableId != nil {
+		t, err := r.repo.Tables.GetTableById(*updatedReservation.TableId)
+		if err != nil {
+			return fmt.Errorf("table not found: %w", err)
+		}
+		table = t
 	}
 
 	// Trigger de notificação
@@ -154,9 +187,16 @@ func (r *ReservationEnhancedHandler) CancelReservationWithTriggers(id, reason st
 		return err
 	}
 
-	// Liberar mesa
-	if err := r.updateTableStatus(reservation.TableId, "livre"); err != nil {
-		fmt.Printf("Error freeing table after cancellation: %v\n", err)
+	// Liberar mesa (se houver)
+	if reservation.TableId != nil {
+		if err := r.updateTableStatus(*reservation.TableId, "livre"); err != nil {
+			fmt.Printf("Error freeing table after cancellation: %v\n", err)
+		}
+	}
+
+	// Cancelar agendamentos pendentes para esta reserva
+	if err := r.scheduleService.CancelReservationSchedules(reservationId); err != nil {
+		fmt.Printf("Error cancelling scheduled notifications: %v\n", err)
 	}
 
 	// Buscar dados adicionais para o trigger
@@ -165,9 +205,13 @@ func (r *ReservationEnhancedHandler) CancelReservationWithTriggers(id, reason st
 		return fmt.Errorf("customer not found: %w", err)
 	}
 
-	table, err := r.repo.Tables.GetTableById(reservation.TableId)
-	if err != nil {
-		return fmt.Errorf("table not found: %w", err)
+	var table *models.Table
+	if reservation.TableId != nil {
+		t, err := r.repo.Tables.GetTableById(*reservation.TableId)
+		if err != nil {
+			return fmt.Errorf("table not found: %w", err)
+		}
+		table = t
 	}
 
 	// Trigger de notificação
@@ -176,7 +220,9 @@ func (r *ReservationEnhancedHandler) CancelReservationWithTriggers(id, reason st
 	}
 
 	// Verificar fila de espera para a mesa que foi liberada
-	r.checkWaitlistForTable(reservation.OrganizationId, reservation.ProjectId, reservation.TableId)
+	if reservation.TableId != nil {
+		r.checkWaitlistForTable(reservation.OrganizationId, reservation.ProjectId, *reservation.TableId)
+	}
 
 	return nil
 }
@@ -238,8 +284,11 @@ func (r *ReservationEnhancedHandler) ValidateReservation(reservation *models.Res
 		return err
 	}
 
-	// Validar se mesa existe e está disponível
-	table, err := r.repo.Tables.GetTableById(reservation.TableId)
+	// Validar mesa (obrigatória no fluxo interno)
+	if reservation.TableId == nil {
+		return fmt.Errorf("table_id is required")
+	}
+	table, err := r.repo.Tables.GetTableById(*reservation.TableId)
 	if err != nil {
 		return fmt.Errorf("table not found: %w", err)
 	}
@@ -251,7 +300,6 @@ func (r *ReservationEnhancedHandler) ValidateReservation(reservation *models.Res
 
 	// Validar conflitos de horário (só para mesa não "livre")
 	if table.Status != "livre" {
-		// Verificar se há conflito de horário
 		if err := r.checkTimeConflicts(reservation); err != nil {
 			return err
 		}
@@ -297,6 +345,9 @@ func (r *ReservationEnhancedHandler) updateTableStatus(tableId uuid.UUID, status
 
 // checkTimeConflicts - Verifica conflitos de horário para a mesa
 func (r *ReservationEnhancedHandler) checkTimeConflicts(reservation *models.Reservation) error {
+	if reservation.TableId == nil {
+		return nil
+	}
 	// Parse reservation.Datetime from string to time.Time
 	reservationTime, err := time.Parse(time.RFC3339, reservation.Datetime)
 	if err != nil {
@@ -307,7 +358,7 @@ func (r *ReservationEnhancedHandler) checkTimeConflicts(reservation *models.Rese
 	dayStart := time.Date(reservationTime.Year(), reservationTime.Month(), reservationTime.Day(), 0, 0, 0, 0, reservationTime.Location())
 	dayEnd := dayStart.Add(24 * time.Hour)
 
-	existingReservations, err := r.repo.Reservations.GetReservationsByTableAndDateRange(reservation.TableId, dayStart, dayEnd)
+	existingReservations, err := r.repo.Reservations.GetReservationsByTableAndDateRange(*reservation.TableId, dayStart, dayEnd)
 	if err != nil {
 		return err
 	}
@@ -363,8 +414,11 @@ func (r *ReservationEnhancedHandler) checkWaitlistForTable(orgId, projectId, tab
 		}
 
 		if wait.People <= table.Capacity {
-			// Buscar dados do cliente
-			customer, err := r.repo.Customers.GetCustomerById(wait.CustomerId)
+			// Buscar dados do cliente (CustomerId é opcional)
+			if wait.CustomerId == nil {
+				continue
+			}
+			customer, err := r.repo.Customers.GetCustomerById(*wait.CustomerId)
 			if err != nil {
 				continue
 			}

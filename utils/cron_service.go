@@ -10,15 +10,35 @@ import (
 )
 
 type CronService struct {
-	repo         *repositories.DBconn
-	eventService *EventService
+	repo             *repositories.DBconn
+	eventService     *EventService
+	scheduleService  *NotificationScheduleService
+	inboundProcessor *InboundProcessorService
 }
 
 func NewCronService(repo *repositories.DBconn) *CronService {
 	eventService := NewEventService(repo.Notifications, repo.Projects, repo.Settings)
+	scheduleService := NewNotificationScheduleService(
+		repo.Notifications,
+		repo.Reservations,
+		repo.Customers,
+		repo.Tables,
+		repo.Settings,
+		repo.Projects,
+	)
+	inboundProcessor := NewInboundProcessorService(
+		repo.Notifications,
+		repo.Reservations,
+		repo.Customers,
+		repo.Tables,
+		repo.Settings,
+	)
+
 	return &CronService{
-		repo:         repo,
-		eventService: eventService,
+		repo:             repo,
+		eventService:     eventService,
+		scheduleService:  scheduleService,
+		inboundProcessor: inboundProcessor,
 	}
 }
 
@@ -108,10 +128,14 @@ func (c *CronService) processProjectConfirmations(orgId, projectId uuid.UUID) er
 			continue
 		}
 
-		table, err := c.repo.Tables.GetTableById(reservation.TableId)
-		if err != nil {
-			log.Printf("Table not found for reservation %s: %v", reservation.Id, err)
-			continue
+		var table *models.Table
+		if reservation.TableId != nil {
+			t, err := c.repo.Tables.GetTableById(*reservation.TableId)
+			if err != nil {
+				log.Printf("Table not found for reservation %s: %v", reservation.Id, err)
+				continue
+			}
+			table = t
 		}
 
 		// Trigger de confirmação 24h
@@ -201,20 +225,80 @@ func (c *CronService) hasRecentConfirmationLog(orgId, projectId uuid.UUID, reser
 	return false, nil
 }
 
+// ProcessScheduledNotifications - Processa notificações agendadas
+func (c *CronService) ProcessScheduledNotifications() error {
+	log.Println("Starting scheduled notifications job...")
+
+	if err := c.scheduleService.ProcessDueSchedules(); err != nil {
+		log.Printf("Error processing scheduled notifications: %v", err)
+		return err
+	}
+
+	log.Println("Scheduled notifications job completed")
+	return nil
+}
+
+// ProcessUnprocessedInbound - Processa mensagens inbound não processadas
+func (c *CronService) ProcessUnprocessedInbound() error {
+	log.Println("Starting inbound processing job...")
+
+	projects, err := c.getAllActiveProjects()
+	if err != nil {
+		return err
+	}
+
+	for _, project := range projects {
+		inbounds, err := c.repo.Notifications.GetUnprocessedInbound(project.OrganizationId, project.Id)
+		if err != nil {
+			continue
+		}
+
+		for i := range inbounds {
+			inbound := &inbounds[i]
+			result := c.inboundProcessor.ProcessInboundMessage(inbound)
+			log.Printf("Inbound %s processado: %s", inbound.Id, result.Action)
+
+			// Marca como processado e salva
+			inbound.Processed = true
+			now := time.Now()
+			inbound.ProcessedAt = &now
+			c.repo.Notifications.UpdateNotificationInbound(inbound)
+		}
+	}
+
+	log.Println("Inbound processing job completed")
+	return nil
+}
+
 // StartCronJobs - Inicia jobs automáticos (seria chamado no main)
 func (c *CronService) StartCronJobs() {
 	log.Println("Starting cron jobs...")
 
-	// Job de confirmação 24h - executa a cada hora
+	// Job de agendamentos - executa a cada 5 minutos (substitui o 24h fixo)
 	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
+		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 
 		for {
 			select {
 			case <-ticker.C:
-				if err := c.ProcessConfirmation24h(); err != nil {
-					log.Printf("Error in 24h confirmation job: %v", err)
+				if err := c.ProcessScheduledNotifications(); err != nil {
+					log.Printf("Error in scheduled notifications job: %v", err)
+				}
+			}
+		}
+	}()
+
+	// Job de processamento de inbound - executa a cada 2 minutos
+	go func() {
+		ticker := time.NewTicker(2 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := c.ProcessUnprocessedInbound(); err != nil {
+					log.Printf("Error in inbound processing job: %v", err)
 				}
 			}
 		}

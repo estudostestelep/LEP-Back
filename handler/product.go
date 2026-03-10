@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"lep/repositories"
 	"lep/repositories/models"
 
@@ -23,6 +25,7 @@ type IHandlerProducts interface {
 	GetProduct(id string) (*models.Product, error)
 	GetProductByPurchase(id string) ([]models.Product, error)
 	ListProducts(orgId, projectId string) ([]models.Product, error)
+	ListProductsWithTags(orgId, projectId string) ([]models.Product, error)
 	ListProductsWithFilters(orgId, projectId string, filters ProductFilters) ([]models.Product, error)
 	CreateProduct(product *models.Product) error
 	UpdateProduct(updatedProduct *models.Product) error
@@ -56,20 +59,30 @@ func (r *resourceProducts) GetProduct(id string) (*models.Product, error) {
 }
 
 func (r *resourceProducts) CreateProduct(product *models.Product) error {
-	product.Id = uuid.New()
-	err := r.repo.Products.CreateProduct(product)
+	// Verificar se já existe produto com o mesmo nome no projeto
+	exists, err := r.repo.Products.CheckProductNameExists(product.OrganizationId, product.ProjectId, product.Name, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
 	}
-	return nil
+	if exists {
+		return errors.New("already_exists: product with this name already exists in this project")
+	}
+
+	product.Id = uuid.New()
+	return r.repo.Products.CreateProduct(product)
 }
 
 func (r *resourceProducts) UpdateProduct(updatedProduct *models.Product) error {
-	err := r.repo.Products.UpdateProduct(updatedProduct)
+	// Verificar se já existe outro produto com o mesmo nome no projeto
+	exists, err := r.repo.Products.CheckProductNameExists(updatedProduct.OrganizationId, updatedProduct.ProjectId, updatedProduct.Name, &updatedProduct.Id)
 	if err != nil {
-		return err
+		return fmt.Errorf("erro ao verificar duplicata: %w", err)
 	}
-	return nil
+	if exists {
+		return errors.New("already_exists: product with this name already exists in this project")
+	}
+
+	return r.repo.Products.UpdateProduct(updatedProduct)
 }
 
 func (r *resourceProducts) DeleteProduct(id string) error {
@@ -107,6 +120,25 @@ func (r *resourceProducts) ListProducts(orgId, projectId string) ([]models.Produ
 	}
 
 	resp, err := r.repo.Products.ListProducts(orgUUID, projectUUID)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (r *resourceProducts) ListProductsWithTags(orgId, projectId string) ([]models.Product, error) {
+	// Converter strings para UUID
+	orgUUID, err := uuid.Parse(orgId)
+	if err != nil {
+		return nil, err
+	}
+
+	projectUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := r.repo.Products.ListProductsWithTags(orgUUID, projectUUID)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type ResourceOrganization struct {
@@ -29,16 +28,12 @@ type IServerOrganization interface {
 }
 
 func (r *ResourceOrganization) GetOrganizationById(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid organization ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "organization")
+	if !ok {
 		return
 	}
 
-	organization, err := r.handler.HandlerOrganization.GetOrganizationById(idStr)
+	organization, err := r.handler.HandlerOrganization.GetOrganizationById(id.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting organization", err)
 		return
@@ -117,24 +112,19 @@ func (r *ResourceOrganization) CreateOrganization(c *gin.Context) {
 }
 
 func (r *ResourceOrganization) UpdateOrganization(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid organization ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "organization")
+	if !ok {
 		return
 	}
 
 	var updateData models.Organization
-	err = c.BindJSON(&updateData)
-	if err != nil {
+	if err := c.BindJSON(&updateData); err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
 
 	// Verificar se a organização existe
-	existingOrg, err := r.handler.HandlerOrganization.GetOrganizationById(idStr)
+	existingOrg, err := r.handler.HandlerOrganization.GetOrganizationById(id.String())
 	if err != nil {
 		utils.SendNotFoundError(c, "Organization")
 		return
@@ -159,17 +149,12 @@ func (r *ResourceOrganization) UpdateOrganization(c *gin.Context) {
 }
 
 func (r *ResourceOrganization) SoftDeleteOrganization(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid organization ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "organization")
+	if !ok {
 		return
 	}
 
-	err = r.handler.HandlerOrganization.SoftDeleteOrganization(idStr)
-	if err != nil {
+	if err := r.handler.HandlerOrganization.SoftDeleteOrganization(id.String()); err != nil {
 		utils.SendInternalServerError(c, "Error deleting organization", err)
 		return
 	}
@@ -178,17 +163,12 @@ func (r *ResourceOrganization) SoftDeleteOrganization(c *gin.Context) {
 }
 
 func (r *ResourceOrganization) HardDeleteOrganization(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid organization ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "organization")
+	if !ok {
 		return
 	}
 
-	err = r.handler.HandlerOrganization.HardDeleteOrganization(idStr)
-	if err != nil {
+	if err := r.handler.HandlerOrganization.HardDeleteOrganization(id.String()); err != nil {
 		utils.SendInternalServerError(c, "Error permanently deleting organization", err)
 		return
 	}

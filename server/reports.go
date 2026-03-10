@@ -52,7 +52,7 @@ func (r *ReportsServer) GetOccupancyReport(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, report)
+	c.JSON(http.StatusOK, gin.H{"data": report})
 }
 
 func (r *ReportsServer) GetReservationReport(c *gin.Context) {
@@ -82,7 +82,7 @@ func (r *ReportsServer) GetReservationReport(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, report)
+	c.JSON(http.StatusOK, gin.H{"data": report})
 }
 
 func (r *ReportsServer) GetWaitlistReport(c *gin.Context) {
@@ -112,7 +112,7 @@ func (r *ReportsServer) GetWaitlistReport(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, report)
+	c.JSON(http.StatusOK, gin.H{"data": report})
 }
 
 func (r *ReportsServer) GetLeadReport(c *gin.Context) {
@@ -142,7 +142,7 @@ func (r *ReportsServer) GetLeadReport(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, report)
+	c.JSON(http.StatusOK, gin.H{"data": report})
 }
 
 func (r *ReportsServer) ExportReportToCSV(c *gin.Context) {

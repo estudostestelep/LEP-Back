@@ -1,10 +1,13 @@
 package server
 
-// Importe a biblioteca jwt-go
+// DEPRECATED: Este arquivo usa autenticação legada. Use auth_admin.go e auth_client.go.
+// Mantido para compatibilidade com clientes existentes.
+
 import (
 	"fmt"
 	"lep/config"
 	"lep/handler"
+	"lep/repositories/models"
 	"strings"
 	"time"
 
@@ -24,6 +27,7 @@ type IServerAuth interface {
 	ServiceValidateTokenIn(c *gin.Context) bool
 }
 
+// ServiceLogin tenta autenticar primeiro como Client, depois como Admin
 func (r *ResourceAuth) ServiceLogin(c *gin.Context) {
 	var loginData struct {
 		Email    string `json:"email"`
@@ -35,21 +39,33 @@ func (r *ResourceAuth) ServiceLogin(c *gin.Context) {
 		return
 	}
 
-	user, err := r.handler.HandlerUser.GetUserByEmail(loginData.Email)
-	if err != nil || user == nil {
-		c.JSON(401, gin.H{"error": "Credenciais inválidas"})
-		return
+	// Tentar autenticar como Client primeiro
+	client, err := r.handler.HandlerClientUser.GetClientByEmail(loginData.Email)
+	if err == nil && client != nil {
+		if err := bcrypt.CompareHashAndPassword([]byte(client.Password), []byte(loginData.Password)); err == nil {
+			r.handleClientLogin(c, client)
+			return
+		}
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginData.Password)); err != nil {
-		c.JSON(401, gin.H{"error": "Credenciais inválidas"})
-		return
+	// Se não for Client, tentar como Admin
+	admin, err := r.handler.HandlerAdminUser.GetAdminByEmail(loginData.Email)
+	if err == nil && admin != nil {
+		if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(loginData.Password)); err == nil {
+			r.handleAdminLogin(c, admin)
+			return
+		}
 	}
 
+	c.JSON(401, gin.H{"error": "Credenciais inválidas"})
+}
+
+func (r *ResourceAuth) handleClientLogin(c *gin.Context, client *models.Client) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email":   user.Email,
-		"user_id": user.Id.String(),
-		"exp":     time.Now().Add(time.Hour * 24).Unix(), // Expira em 24 horas
+		"email":     client.Email,
+		"user_id":   client.Id.String(),
+		"user_type": "client",
+		"exp":       time.Now().Add(time.Hour * 24).Unix(),
 	})
 
 	tokenString, err := token.SignedString([]byte(config.JWT_SECRET_PRIVATE_KEY))
@@ -58,31 +74,103 @@ func (r *ResourceAuth) ServiceLogin(c *gin.Context) {
 		return
 	}
 
-	err = r.handler.HandlerAuth.PostToken(user, tokenString)
+	err = r.handler.HandlerAuth.PostTokenForUser(client.Id, client.Email, tokenString)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err})
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Buscar organizações do usuário COM NOMES
-	userOrganizations, err := r.handler.HandlerAuth.GetUserOrganizationsWithNames(user.Id.String())
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Erro ao buscar organizações do usuário"})
-		return
+	// Registrar log de acesso
+	clientIP := c.ClientIP()
+	userAgent := c.Request.UserAgent()
+	if forwardedFor := c.GetHeader("X-Forwarded-For"); forwardedFor != "" {
+		ips := strings.Split(forwardedFor, ",")
+		if len(ips) > 0 {
+			clientIP = strings.TrimSpace(ips[0])
+		}
 	}
+	_ = r.handler.HandlerAuth.RecordAccessLog(client.Id.String(), clientIP, userAgent)
 
-	// Buscar projetos do usuário COM NOMES
-	userProjects, err := r.handler.HandlerAuth.GetUserProjectsWithNames(user.Id.String())
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Erro ao buscar projetos do usuário"})
-		return
-	}
+	// Buscar organizações e projetos do client
+	userOrganizations, _ := r.handler.HandlerAuth.GetClientOrganizationsWithNames(client.Id.String())
+	userProjects, _ := r.handler.HandlerAuth.GetClientProjectsWithNames(client.Id.String())
 
 	c.JSON(200, gin.H{
-		"user":          user,
+		"user": map[string]interface{}{
+			"id":        client.Id,
+			"name":      client.Name,
+			"email":     client.Email,
+			"user_type": "client",
+		},
 		"token":         tokenString,
 		"organizations": userOrganizations,
 		"projects":      userProjects,
+		"admin_roles":   []handler.UserAdminRoleInfo{},
+	})
+}
+
+func (r *ResourceAuth) handleAdminLogin(c *gin.Context, admin *models.Admin) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email":     admin.Email,
+		"user_id":   admin.Id.String(),
+		"user_type": "admin",
+		"exp":       time.Now().Add(time.Hour * 24).Unix(),
+	})
+
+	tokenString, err := token.SignedString([]byte(config.JWT_SECRET_PRIVATE_KEY))
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Erro ao criar token JWT"})
+		return
+	}
+
+	err = r.handler.HandlerAuth.PostTokenForUser(admin.Id, admin.Email, tokenString)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Atualizar último acesso
+	_ = r.handler.HandlerAdminUser.UpdateLastAccess(admin.Id.String())
+
+	// Registrar log de acesso
+	clientIP := c.ClientIP()
+	userAgent := c.Request.UserAgent()
+	if forwardedFor := c.GetHeader("X-Forwarded-For"); forwardedFor != "" {
+		ips := strings.Split(forwardedFor, ",")
+		if len(ips) > 0 {
+			clientIP = strings.TrimSpace(ips[0])
+		}
+	}
+	_ = r.handler.HandlerAuth.RecordAccessLog(admin.Id.String(), clientIP, userAgent)
+
+	// Buscar roles do admin
+	adminRoles, _ := r.handler.HandlerAuth.GetAdminRolesInfo(admin.Id.String())
+
+	// Buscar permissões do admin via roles
+	var permissions []string
+	adminRolesList, _ := r.handler.HandlerAdminUser.GetAdminRoles(admin.Id.String())
+	if len(adminRolesList) > 0 {
+		for _, ar := range adminRolesList {
+			if ar.Active {
+				perms, _ := r.handler.HandlerAdminUser.GetPermissionsFromRole(ar.RoleId.String())
+				permissions = append(permissions, perms...)
+				break // Usar o primeiro role ativo
+			}
+		}
+	}
+
+	c.JSON(200, gin.H{
+		"user": map[string]interface{}{
+			"id":          admin.Id,
+			"name":        admin.Name,
+			"email":       admin.Email,
+			"user_type":   "admin",
+			"permissions": permissions,
+		},
+		"token":         tokenString,
+		"organizations": []interface{}{}, // Admins têm acesso global
+		"projects":      []interface{}{}, // Admins têm acesso global
+		"admin_roles":   adminRoles,
 	})
 }
 

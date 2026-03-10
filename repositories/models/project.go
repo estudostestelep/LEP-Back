@@ -12,6 +12,8 @@ type Project struct {
 	OrganizationId uuid.UUID `json:"organization_id"`
 	Name           string    `json:"name"`
 	Description    string    `json:"description,omitempty"`
+	Slug           string    `json:"slug" gorm:"size:100;index"`
+	IsDefault      bool      `json:"is_default" gorm:"default:false"`
 
 	// Configurações Twilio (SMS + WhatsApp)
 	TwilioAccountSid       *string `json:"twilio_account_sid,omitempty"`
@@ -25,6 +27,9 @@ type Project struct {
 	SmtpUsername *string `json:"smtp_username,omitempty"`
 	SmtpPassword *string `json:"smtp_password,omitempty"`
 	SmtpFrom     *string `json:"smtp_from,omitempty"`
+
+	// Configurações de Notificação
+	NotificationResponsiblePhone *string `json:"notification_responsible_phone,omitempty"` // Número que recebe cópia das notificações de reserva
 
 	// Configurações gerais
 	TimeZone  string     `json:"timezone" gorm:"default:'America/Sao_Paulo'"`

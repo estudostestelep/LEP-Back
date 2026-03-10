@@ -18,7 +18,9 @@ type IProductRepository interface {
 	GetProductsByIds(ids []uuid.UUID) ([]models.Product, error)
 	GetProductByPurchase(id string) ([]models.Product, error)
 	ListProducts(OrganizationId, projectId uuid.UUID) ([]models.Product, error)
+	ListProductsWithTags(organizationId, projectId uuid.UUID) ([]models.Product, error)
 	ListProductsWithFilters(organizationId, projectId uuid.UUID, filters interface{}) ([]models.Product, error)
+	CheckProductNameExists(orgId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error)
 	CreateProduct(product *models.Product) error
 	UpdateProduct(product *models.Product) error
 	UpdateProductOrder(id uuid.UUID, order int) error
@@ -54,6 +56,35 @@ func (r *resourceProduct) ListProducts(OrganizationId, projectId uuid.UUID) ([]m
 	var products []models.Product
 	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&products).Error
 	return products, err
+}
+
+// ListProductsWithTags retorna produtos com tags eager-loaded
+func (r *resourceProduct) ListProductsWithTags(organizationId, projectId uuid.UUID) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.
+		Preload("Tags", func(db *gorm.DB) *gorm.DB {
+			return db.Where("active = ?", true).Where("entity_type = ?", "product")
+		}).
+		Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", organizationId, projectId).
+		Find(&products).Error
+	return products, err
+}
+
+// CheckProductNameExists verifica se já existe produto com o mesmo nome no projeto
+func (r *resourceProduct) CheckProductNameExists(orgId, projectId uuid.UUID, name string, excludeId *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&models.Product{}).
+		Where("organization_id = ? AND project_id = ? AND LOWER(name) = LOWER(?) AND deleted_at IS NULL", orgId, projectId, name)
+
+	if excludeId != nil {
+		query = query.Where("id != ?", *excludeId)
+	}
+
+	err := query.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *resourceProduct) ListProductsWithFilters(organizationId, projectId uuid.UUID, filters interface{}) ([]models.Product, error) {

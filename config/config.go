@@ -33,7 +33,6 @@ var (
 	ENABLE_CRON_JOBS = getEnableCronJobs()
 	GIN_MODE         = getGinMode()
 	LOG_LEVEL        = getLogLevel()
-	DISABLE_AUTO_SEED = getDisableAutoSeed()
 
 	// Storage configuration
 	STORAGE_TYPE        = getStorageType()
@@ -170,7 +169,8 @@ func getBaseURL() string {
 		storageType := os.Getenv("STORAGE_TYPE")
 		bucketName := os.Getenv("STORAGE_BUCKET_NAME")
 
-		if (storageType == "gcs" || (storageType == "" && !IsDev())) && bucketName != "" {
+		// Stage/prod ambientes usam GCS por padrão
+		if (storageType == "gcs" || storageType == "stage" || storageType == "prod" || (storageType == "" && !IsDev())) && bucketName != "" {
 			return "https://storage.googleapis.com/" + bucketName
 		}
 		// Default for local development
@@ -186,26 +186,6 @@ func IsLocalStorage() bool {
 
 // IsGCSStorage returns true if using Google Cloud Storage
 func IsGCSStorage() bool {
-	return STORAGE_TYPE == "gcs"
+	return STORAGE_TYPE == "gcs" || STORAGE_TYPE == "stage" || STORAGE_TYPE == "prod"
 }
 
-// getDisableAutoSeed returns whether auto-seeding should be disabled
-func getDisableAutoSeed() bool {
-	autoSeed := os.Getenv("DISABLE_AUTO_SEED")
-	if autoSeed == "" {
-		// Default: allow auto-seed in all environments
-		return false
-	}
-
-	disabled, err := strconv.ParseBool(autoSeed)
-	if err != nil {
-		log.Printf("Warning: Invalid DISABLE_AUTO_SEED value '%s', defaulting to false", autoSeed)
-		return false
-	}
-	return disabled
-}
-
-// IsAutoSeedEnabled returns true if auto-seeding is enabled
-func IsAutoSeedEnabled() bool {
-	return !DISABLE_AUTO_SEED
-}

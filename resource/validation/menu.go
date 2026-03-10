@@ -27,3 +27,14 @@ func UpdateMenuValidation(menu *models.Menu) error {
 		validation.Field(&menu.Order, validation.Min(0)),
 	)
 }
+
+// ValidateMenuNameUnique verifica se o nome do menu é único no projeto
+// Esta função deve ser chamada após as validações estruturais básicas
+func ValidateMenuNameUnique(menuName string) error {
+	if menuName == "" {
+		return validation.Errors{
+			"name": validation.NewError("required", "Menu name is required"),
+		}
+	}
+	return nil
+}

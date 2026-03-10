@@ -14,6 +14,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
+	"google.golang.org/api/option"
 )
 
 type StorageService interface {
@@ -52,15 +53,23 @@ func NewStorageService() StorageService {
 
 		if bucketName == "" {
 			// Fallback para storage local se bucket não estiver configurado
+			fmt.Printf("⚠️  BUCKET_NAME não configurado, usando storage local\n")
 			return NewLocalStorageService()
 		}
 
-		client, err := storage.NewClient(context.Background())
+		fmt.Printf("📦 Tentando conectar ao GCS bucket: %s\n", bucketName)
+
+		// Tentar conectar com diferentes métodos de autenticação
+		client, err := createGCSClient()
 		if err != nil {
 			// Fallback para storage local se não conseguir conectar ao GCS
+			fmt.Printf("❌ Erro ao conectar ao GCS: %v\n", err)
+			fmt.Printf("⚠️  Usando storage local como fallback\n")
+			fmt.Printf("💡 Dica: Configure GOOGLE_APPLICATION_CREDENTIALS ou use 'gcloud auth application-default login'\n")
 			return NewLocalStorageService()
 		}
 
+		fmt.Printf("✅ Conectado ao GCS bucket: %s\n", bucketName)
 		return &GCSStorageService{
 			client:     client,
 			bucketName: bucketName,
@@ -69,7 +78,32 @@ func NewStorageService() StorageService {
 	}
 
 	// Ambiente dev - usar storage local
+	fmt.Printf("📁 Usando storage local (STORAGE_TYPE=%s)\n", config.STORAGE_TYPE)
 	return NewLocalStorageService()
+}
+
+// createGCSClient tenta criar um cliente GCS com múltiplos métodos de autenticação
+func createGCSClient() (*storage.Client, error) {
+	ctx := context.Background()
+
+	// Primeiro, tentar com credenciais explícitas se configuradas
+	credFile := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	if credFile != "" {
+		fmt.Printf("🔑 Usando credenciais do arquivo: %s\n", credFile)
+		return storage.NewClient(ctx, option.WithCredentialsFile(credFile))
+	}
+
+	// Tentar com ADC (Application Default Credentials)
+	// Se o usuário fez 'gcloud auth application-default login', as credenciais estarão aqui
+	fmt.Printf("🔑 Tentando usar Application Default Credentials (ADC)\n")
+	client, err := storage.NewClient(ctx)
+	if err == nil {
+		return client, nil
+	}
+
+	// Se ambas falharem, retornar o erro da ADC
+	fmt.Printf("⚠️  ADC falhou: %v\n", err)
+	return nil, err
 }
 
 // NewLocalStorageService cria uma instância do serviço de storage local

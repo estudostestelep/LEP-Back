@@ -13,9 +13,10 @@ type ITableRepository interface {
 	CreateTable(table *models.Table) error
 	GetById(id uuid.UUID) (*models.Table, error)
 	GetTableById(id uuid.UUID) (*models.Table, error)
-	ListTables(OrganizationId, projectId uuid.UUID) ([]models.Table, error)
+	ListTables(OrganizationId, projectId uuid.UUID, environmentId *uuid.UUID) ([]models.Table, error)
 	ListTablesByProject(OrganizationId, projectId uuid.UUID) ([]models.Table, error)
 	GetTablesByProject(orgId, projectId uuid.UUID) ([]models.Table, error)
+	CheckTableNumberExists(orgId, projectId uuid.UUID, number int, excludeId *uuid.UUID) (bool, error)
 	UpdateTable(table *models.Table) error
 	SoftDeleteTable(id uuid.UUID) error
 }
@@ -45,14 +46,35 @@ func (r *TableRepository) GetTableById(id uuid.UUID) (*models.Table, error) {
 	return r.GetById(id)
 }
 
-func (r *TableRepository) ListTables(OrganizationId, projectId uuid.UUID) ([]models.Table, error) {
+func (r *TableRepository) ListTables(OrganizationId, projectId uuid.UUID, environmentId *uuid.UUID) ([]models.Table, error) {
 	var tables []models.Table
-	err := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId).Find(&tables).Error
+	query := r.db.Where("organization_id = ? AND project_id = ? AND deleted_at IS NULL", OrganizationId, projectId)
+	if environmentId != nil {
+		query = query.Where("environment_id = ?", *environmentId)
+	}
+	err := query.Find(&tables).Error
 	return tables, err
 }
 
 func (r *TableRepository) ListTablesByProject(OrganizationId, projectId uuid.UUID) ([]models.Table, error) {
-	return r.ListTables(OrganizationId, projectId)
+	return r.ListTables(OrganizationId, projectId, nil)
+}
+
+// CheckTableNumberExists verifica se já existe mesa com o mesmo número no projeto
+func (r *TableRepository) CheckTableNumberExists(orgId, projectId uuid.UUID, number int, excludeId *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&models.Table{}).
+		Where("organization_id = ? AND project_id = ? AND number = ? AND deleted_at IS NULL", orgId, projectId, number)
+
+	if excludeId != nil {
+		query = query.Where("id != ?", *excludeId)
+	}
+
+	err := query.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *TableRepository) UpdateTable(table *models.Table) error {

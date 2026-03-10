@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ResourceReservation struct {
@@ -77,6 +78,23 @@ func (r *ResourceReservation) ServiceCreateReservation(c *gin.Context) {
 		return
 	}
 
+	// Setar IDs da organização e projeto a partir dos headers
+	newReservation.OrganizationId, err = uuid.Parse(organizationId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error parsing organization ID"})
+		return
+	}
+	newReservation.ProjectId, err = uuid.Parse(projectId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error parsing project ID"})
+		return
+	}
+
+	// Gerar ID se não fornecido
+	if newReservation.Id == uuid.Nil {
+		newReservation.Id = uuid.New()
+	}
+
 	err = r.handler.HandlerReservation.CreateReservation(&newReservation)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -103,17 +121,55 @@ func (r *ResourceReservation) ServiceUpdateReservation(c *gin.Context) {
 		return
 	}
 
+	// Obter ID da URL
+	id := c.Param("id")
+	reservationId, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid reservation ID"})
+		return
+	}
+
+	// Buscar reserva atual para comparar status
+	currentReservation, _ := r.handler.HandlerReservation.GetReservation(id)
+
 	var updatedReservation models.Reservation
-	err := c.BindJSON(&updatedReservation)
+	err = c.BindJSON(&updatedReservation)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
+	// Setar IDs obrigatórios
+	updatedReservation.Id = reservationId
+	updatedReservation.OrganizationId, _ = uuid.Parse(organizationId)
+	updatedReservation.ProjectId, _ = uuid.Parse(projectId)
+
 	err = r.handler.HandlerReservation.UpdateReservation(&updatedReservation)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Disparar notificação se status mudou para confirmed, not_approved ou pending
+	if currentReservation != nil && currentReservation.Status != updatedReservation.Status && r.handler.EventService != nil {
+		newStatus := updatedReservation.Status
+		if newStatus == "confirmed" || newStatus == "not_approved" || newStatus == "pending" {
+			orgUUID, _ := uuid.Parse(organizationId)
+			projUUID, _ := uuid.Parse(projectId)
+
+			customer, customerErr := r.handler.HandlerCustomer.GetCustomer(updatedReservation.CustomerId.String())
+			var table *models.Table
+			if updatedReservation.TableId != nil {
+				t, tableErr := r.handler.HandlerTables.GetTable(updatedReservation.TableId.String())
+				if tableErr == nil {
+					table = t
+				}
+			}
+
+			if customerErr == nil && customer != nil {
+				r.handler.EventService.TriggerReservationStatusChanged(orgUUID, projUUID, &updatedReservation, customer, table)
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, updatedReservation)

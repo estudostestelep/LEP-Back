@@ -24,16 +24,12 @@ type IServerTables interface {
 }
 
 func (r *ResourceTables) ServiceGetTable(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid table ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "table")
+	if !ok {
 		return
 	}
 
-	resp, err := r.handler.HandlerTables.GetTable(idStr)
+	resp, err := r.handler.HandlerTables.GetTable(id.String())
 	if err != nil {
 		utils.SendInternalServerError(c, "Error getting table", err)
 		return
@@ -91,18 +87,13 @@ func (r *ResourceTables) ServiceCreateTable(c *gin.Context) {
 }
 
 func (r *ResourceTables) ServiceUpdateTable(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid table ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "table")
+	if !ok {
 		return
 	}
 
 	var updatedTable models.Table
-	err = c.BindJSON(&updatedTable)
-	if err != nil {
+	if err := c.BindJSON(&updatedTable); err != nil {
 		utils.SendBadRequestError(c, "Invalid request body", err)
 		return
 	}
@@ -111,6 +102,7 @@ func (r *ResourceTables) ServiceUpdateTable(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
+	var err error
 	updatedTable.OrganizationId, err = uuid.Parse(organizationId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error parsing organization ID", err)
@@ -121,11 +113,7 @@ func (r *ResourceTables) ServiceUpdateTable(c *gin.Context) {
 		utils.SendInternalServerError(c, "Error parsing project ID", err)
 		return
 	}
-	updatedTable.Id, err = uuid.Parse(idStr)
-	if err != nil {
-		utils.SendInternalServerError(c, "Error parsing table ID", err)
-		return
-	}
+	updatedTable.Id = id
 
 	// Validações estruturadas
 	if err := validation.UpdateTableValidation(&updatedTable); err != nil {
@@ -143,17 +131,12 @@ func (r *ResourceTables) ServiceUpdateTable(c *gin.Context) {
 }
 
 func (r *ResourceTables) ServiceDeleteTable(c *gin.Context) {
-	idStr := c.Param("id")
-
-	// Validar formato UUID
-	_, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.SendBadRequestError(c, "Invalid table ID format", err)
+	id, ok := validation.ParseAndValidateUUID(c, c.Param("id"), "table")
+	if !ok {
 		return
 	}
 
-	err = r.handler.HandlerTables.DeleteTable(idStr)
-	if err != nil {
+	if err := r.handler.HandlerTables.DeleteTable(id.String()); err != nil {
 		utils.SendInternalServerError(c, "Error deleting table", err)
 		return
 	}
@@ -166,7 +149,12 @@ func (r *ResourceTables) ServiceListTables(c *gin.Context) {
 	organizationId := c.GetString("organization_id")
 	projectId := c.GetString("project_id")
 
-	resp, err := r.handler.HandlerTables.ListTables(organizationId, projectId)
+	var environmentId *string
+	if envId := c.Query("environment_id"); envId != "" {
+		environmentId = &envId
+	}
+
+	resp, err := r.handler.HandlerTables.ListTables(organizationId, projectId, environmentId)
 	if err != nil {
 		utils.SendInternalServerError(c, "Error listing tables", err)
 		return

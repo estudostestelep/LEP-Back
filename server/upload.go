@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"lep/config"
 	"lep/constants"
+	"lep/service"
 	"lep/utils"
 	"mime/multipart"
 	"net/http"
@@ -13,11 +15,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ResourceUpload struct {
-	storageService  utils.StorageService
-	fallbackStorage utils.StorageService
+	storageService     utils.StorageService
+	fallbackStorage    utils.StorageService
+	imageManagementSvc service.IImageManagementService
 }
 
 type IServerUpload interface {
@@ -26,7 +30,7 @@ type IServerUpload interface {
 	ServiceGetUploadedFile(c *gin.Context)
 }
 
-// ServiceUploadImage faz upload de imagem genérico para qualquer categoria
+// ServiceUploadImage faz upload de imagem genérico para qualquer categoria com deduplicação
 func (r *ResourceUpload) ServiceUploadImage(c *gin.Context) {
 	// Headers validados pelo middleware - acessar via context
 	organizationId := c.GetString("organization_id")
@@ -71,18 +75,49 @@ func (r *ResourceUpload) ServiceUploadImage(c *gin.Context) {
 		return
 	}
 
-	// Upload usando serviço híbrido (local ou GCS) com organização por tenant
+	// 1. Calcular hash do arquivo para deduplicação
+	fileHash, err := r.imageManagementSvc.CalculateFileHash(file)
+	if err != nil {
+		utils.SendInternalServerError(c, "Error calculating file hash", err)
+		return
+	}
+
+	// 2. Upload usando serviço híbrido (local ou GCS) com organização por tenant
 	result, err := r.uploadWithFallback(file, handler, organizationId, projectId, category)
 	if err != nil {
 		utils.SendInternalServerError(c, constants.ErrorUploadingFile, err)
 		return
 	}
 
-	// Retornar resposta de sucesso
+	// 3. Registrar imagem com deduplicação
+	orgId, _ := uuid.Parse(organizationId)
+	projId, _ := uuid.Parse(projectId)
+
+	registerReq := service.RegisterImageRequest{
+		EntityType:  "upload",   // Tipo genérico para uploads puros
+		EntityId:    uuid.New(), // Será usado apenas o hash, não a entidade
+		EntityField: "original_upload",
+		FileHash:    fileHash,
+		FilePath:    result.PublicURL,
+		FileSize:    handler.Size,
+		Category:    category,
+		MimeType:    contentType,
+		OrgId:       orgId,
+		ProjId:      projId,
+	}
+
+	_, err = r.imageManagementSvc.RegisterOrUpdateImage(context.Background(), registerReq)
+	if err != nil {
+		// Log erro mas não falha o upload (fallback)
+		fmt.Printf("⚠️  Warning ao registrar imagem: %v\n", err)
+	}
+
+	// Retornar resposta de sucesso (enriquecida com info de deduplicação)
 	response := gin.H{
 		"success":         true,
 		"image_url":       result.PublicURL,
 		"filename":        result.Filename,
+		"file_hash":       fileHash, // ← Novo campo
 		"size":            result.Size,
 		"category":        category,
 		"organization_id": organizationId,
@@ -243,7 +278,8 @@ func getBaseURL(c *gin.Context) string {
 }
 
 // NewSourceServerUpload cria nova instância do controller de upload
-func NewSourceServerUpload() IServerUpload {
+// Nota: O ImageManagementService será injetado via SetImageManagementService()
+func NewSourceServerUpload() *ResourceUpload {
 	primaryStorage := utils.NewStorageService()
 	var fallbackStorage utils.StorageService
 
@@ -253,7 +289,13 @@ func NewSourceServerUpload() IServerUpload {
 	}
 
 	return &ResourceUpload{
-		storageService:  primaryStorage,
-		fallbackStorage: fallbackStorage,
+		storageService:     primaryStorage,
+		fallbackStorage:    fallbackStorage,
+		imageManagementSvc: nil, // Será injetado depois
 	}
+}
+
+// SetImageManagementService injeta o serviço de gerenciamento de imagens
+func (r *ResourceUpload) SetImageManagementService(svc service.IImageManagementService) {
+	r.imageManagementSvc = svc
 }

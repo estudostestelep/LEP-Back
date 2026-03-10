@@ -9,6 +9,7 @@ import (
 	"lep/utils"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -75,18 +76,31 @@ func setupCORS(r *gin.Engine) {
 		log.Println("CORS: Allowing all origins (development mode)")
 	} else {
 		// Restrictive CORS for production
+		allowedOrigins := map[string]bool{
+			"http://localhost:5173":                                          true,
+			"http://localhost:5174":                                          true,
+			"https://lep-front.vercel.app":                                   true,
+			"https://lep-front-git-main-leps-projects-a55eafc4.vercel.app":   true,
+			"https://lep-front-nw6k.vercel.app":                              true,
+			"https://lep-front-stage.vercel.app":                             true,
+		}
+
 		r.Use(cors.New(cors.Config{
-			AllowOrigins: []string{
-				"http://localhost:5173",
-				"http://localhost:5174",
-				"http://localhost:5173/",
-				"http://localhost:5174/",
-				"https://lep-front.vercel.app",
-				"https://lep-front.vercel.app/",
-				"https://lep-front-git-main-leps-projects-a55eafc4.vercel.app",
-				"https://lep-front-git-main-leps-projects-a55eafc4.vercel.app/",
-				"https://lep-front-nw6k.vercel.app",
-				"https://lep-front-nw6k.vercel.app/",
+			AllowOriginFunc: func(origin string) bool {
+				// Remove trailing slash for comparison
+				origin = strings.TrimSuffix(origin, "/")
+
+				// Check fixed origins
+				if allowedOrigins[origin] {
+					return true
+				}
+
+				// Allow any subdomain of lepgo.com.br (e.g., admin.lepgo.com.br, www.lepgo.com.br)
+				if origin == "https://lepgo.com.br" || strings.HasSuffix(origin, ".lepgo.com.br") {
+					return strings.HasPrefix(origin, "https://")
+				}
+
+				return false
 			},
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Lpe-Organization-Id", "X-Lpe-Project-Id"},

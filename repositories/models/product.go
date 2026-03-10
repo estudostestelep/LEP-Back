@@ -30,6 +30,7 @@ type Product struct {
 	// Campos de preço (refatorados)
 	PriceNormal     float64    `json:"price_normal" gorm:"not null"`
 	PricePromo      *float64   `json:"price_promo,omitempty"`
+	UsePromo        bool       `json:"use_promo" gorm:"default:false"`
 
 	// NOVOS - Campos para Bebida/Vinho
 	Volume          *int       `json:"volume,omitempty"`           // ml
@@ -48,10 +49,13 @@ type Product struct {
 
 	// Campos existentes
 	Stock           *int      `json:"stock,omitempty"`
-	PrepTimeMinutes int       `json:"prep_time_minutes,omitempty"`
+	PrepTimeMinutes *int      `json:"prep_time_minutes,omitempty"`
 
 	// Timestamps
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+
+	// Relacionamento muitos-para-muitos com Tags (para eager loading)
+	Tags []Tag `gorm:"many2many:product_tags;" json:"tags,omitempty"`
 }
