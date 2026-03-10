@@ -60,14 +60,26 @@ func (r *ReservationRepository) SoftDeleteReservation(id uuid.UUID) error {
 	return r.db.Model(&models.Reservation{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
 }
 
-// Verifica disponibilidade de mesa no intervalo (+/- 1h)
-func (r *ReservationRepository) IsReservationTableAvailable(tableId uuid.UUID, dt time.Time, durationMinutes int) (bool, error) {
-	start := dt.Add(-time.Duration(durationMinutes) * time.Minute)
-	end := dt.Add(time.Duration(durationMinutes) * time.Minute)
+// IsReservationTableAvailable verifica se uma mesa está disponível para uma nova reserva em dt.
+// Considera dois cenários de bloqueio:
+// 1. Reservas futuras: existe reserva no intervalo [dt, dt+diningDurationMinutes] → outra pessoa chega logo depois
+// 2. Reservas em andamento: existe reserva ativa iniciada hoje antes de dt → grupo ainda pode estar na mesa
+func (r *ReservationRepository) IsReservationTableAvailable(tableId uuid.UUID, dt time.Time, diningDurationMinutes int) (bool, error) {
+	dtStr := dt.Format(time.RFC3339)
+	futureEnd := dt.Add(time.Duration(diningDurationMinutes) * time.Minute).Format(time.RFC3339)
+	// Início do dia de dt para verificar reservas em andamento do mesmo dia
+	dayStart := time.Date(dt.Year(), dt.Month(), dt.Day(), 0, 0, 0, 0, dt.Location()).Format(time.RFC3339)
+
 	var count int64
 	err := r.db.Model(&models.Reservation{}).
-		Where("table_id = ? AND status = ? AND datetime BETWEEN ? AND ? AND deleted_at IS NULL", tableId, "confirmed", start, end).
-		Count(&count).Error
+		Where(`table_id = ? AND deleted_at IS NULL AND status IN ? AND (
+			(datetime >= ? AND datetime <= ?) OR
+			(datetime >= ? AND datetime < ?)
+		)`,
+			tableId, []string{"confirmed", "pending"},
+			dtStr, futureEnd,
+			dayStart, dtStr,
+		).Count(&count).Error
 	return count == 0, err
 }
 

@@ -16,10 +16,15 @@ type resourceCustomer struct {
 
 type IHandlerCustomer interface {
 	GetCustomer(id string) (*models.Customer, error)
+	GetCustomerByEmail(orgId, projectId uuid.UUID, email string) (*models.Customer, error)
 	CreateCustomer(customer *models.Customer) error
 	UpdateCustomer(updatedCustomer *models.Customer) error
 	DeleteCustomer(id string) error
 	ListCustomers(orgId, projectId string) ([]models.Customer, error)
+}
+
+func (r *resourceCustomer) GetCustomerByEmail(orgId, projectId uuid.UUID, email string) (*models.Customer, error) {
+	return r.repo.Customers.GetCustomerByEmail(orgId, projectId, email)
 }
 
 func (r *resourceCustomer) GetCustomer(id string) (*models.Customer, error) {

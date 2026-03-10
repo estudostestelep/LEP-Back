@@ -3,6 +3,7 @@ package handler
 import (
 	"lep/repositories"
 	"lep/service"
+	"lep/utils"
 
 	"gorm.io/gorm"
 )
@@ -40,6 +41,7 @@ type Handlers struct {
 	HandlerAdminUser          IHandlerAdminUser           // Gestão de usuários admin
 	HandlerClientUser         IHandlerClientUser          // Gestão de usuários cliente
 	HandlerUserAccess         IHandlerUserAccess          // Gestão de acesso a organizações/projetos
+	EventService              *utils.EventService
 }
 
 func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
@@ -116,4 +118,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerAdminUser = NewAdminUserHandler(repo)
 	h.HandlerClientUser = NewClientUserHandler(repo)
 	h.HandlerUserAccess = NewUserAccessHandler(repo)
+
+	// EventService para disparo de notificações
+	h.EventService = utils.NewEventService(repo.Notifications, repo.Projects, repo.Settings)
 }

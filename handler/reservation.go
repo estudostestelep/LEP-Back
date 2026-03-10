@@ -18,6 +18,7 @@ type IHandlerReservation interface {
 	UpdateReservation(updatedReservation *models.Reservation) error
 	DeleteReservation(id string) error
 	ListReservations(orgId, projectId string) ([]models.Reservation, error)
+	IsTableAvailable(tableId uuid.UUID, datetime time.Time, durationMinutes int) (bool, error)
 }
 
 func (r *resourceReservation) GetReservation(id string) (*models.Reservation, error) {
@@ -34,7 +35,9 @@ func (r *resourceReservation) GetReservation(id string) (*models.Reservation, er
 
 func (r *resourceReservation) CreateReservation(reservation *models.Reservation) error {
 	reservation.Id = uuid.New()
-	reservation.Status = "confirmed"
+	if reservation.Status == "" {
+		reservation.Status = "confirmed"
+	}
 	reservation.CreatedAt = time.Now()
 	reservation.UpdatedAt = time.Now()
 	err := r.repo.Reservations.CreateReservation(reservation)
@@ -79,6 +82,10 @@ func (r *resourceReservation) ListReservations(orgId, projectId string) ([]model
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (r *resourceReservation) IsTableAvailable(tableId uuid.UUID, datetime time.Time, durationMinutes int) (bool, error) {
+	return r.repo.Reservations.IsReservationTableAvailable(tableId, datetime, durationMinutes)
 }
 
 func NewSourceHandlerReservation(repo *repositories.DBconn) IHandlerReservation {

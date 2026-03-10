@@ -128,10 +128,14 @@ func (c *CronService) processProjectConfirmations(orgId, projectId uuid.UUID) er
 			continue
 		}
 
-		table, err := c.repo.Tables.GetTableById(reservation.TableId)
-		if err != nil {
-			log.Printf("Table not found for reservation %s: %v", reservation.Id, err)
-			continue
+		var table *models.Table
+		if reservation.TableId != nil {
+			t, err := c.repo.Tables.GetTableById(*reservation.TableId)
+			if err != nil {
+				log.Printf("Table not found for reservation %s: %v", reservation.Id, err)
+				continue
+			}
+			table = t
 		}
 
 		// Trigger de confirmação 24h
