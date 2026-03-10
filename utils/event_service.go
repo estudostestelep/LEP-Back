@@ -47,14 +47,18 @@ func (e *EventService) TriggerReservationCreated(orgId, projectId uuid.UUID, res
 		return nil // Notificação desabilitada
 	}
 
+	tableNumber := 0
+	if table != nil {
+		tableNumber = table.Number
+	}
 	eventData := EventData{
 		ReservationId: &reservation.Id,
 		CustomerId:    &reservation.CustomerId,
-		TableId:       &reservation.TableId,
+		TableId:       reservation.TableId,
 		CustomerName:  customer.Name,
 		CustomerPhone: customer.Phone,
 		CustomerEmail: customer.Email,
-		TableNumber:   table.Number,
+		TableNumber:   tableNumber,
 		DateTime:      parseTime(reservation.Datetime),
 		PartySize:     reservation.PartySize,
 		Status:        reservation.Status,
@@ -70,14 +74,18 @@ func (e *EventService) TriggerReservationUpdated(orgId, projectId uuid.UUID, res
 		return nil
 	}
 
+	tableNumberUpd := 0
+	if table != nil {
+		tableNumberUpd = table.Number
+	}
 	eventData := EventData{
 		ReservationId: &reservation.Id,
 		CustomerId:    &reservation.CustomerId,
-		TableId:       &reservation.TableId,
+		TableId:       reservation.TableId,
 		CustomerName:  customer.Name,
 		CustomerPhone: customer.Phone,
 		CustomerEmail: customer.Email,
-		TableNumber:   table.Number,
+		TableNumber:   tableNumberUpd,
 		DateTime:      parseTime(reservation.Datetime),
 		PartySize:     reservation.PartySize,
 		Status:        reservation.Status,
@@ -93,14 +101,18 @@ func (e *EventService) TriggerReservationCancelled(orgId, projectId uuid.UUID, r
 		return nil
 	}
 
+	tableNumberCanc := 0
+	if table != nil {
+		tableNumberCanc = table.Number
+	}
 	eventData := EventData{
 		ReservationId: &reservation.Id,
 		CustomerId:    &reservation.CustomerId,
-		TableId:       &reservation.TableId,
+		TableId:       reservation.TableId,
 		CustomerName:  customer.Name,
 		CustomerPhone: customer.Phone,
 		CustomerEmail: customer.Email,
-		TableNumber:   table.Number,
+		TableNumber:   tableNumberCanc,
 		DateTime:      parseTime(reservation.Datetime),
 		PartySize:     reservation.PartySize,
 		Status:        reservation.Status,
@@ -129,6 +141,33 @@ func (e *EventService) TriggerTableAvailable(orgId, projectId uuid.UUID, table *
 	return e.createAndProcessEvent(orgId, projectId, "table_available", "table", table.Id, eventData)
 }
 
+// TriggerReservationStatusChanged - Evento quando status da reserva é alterado (pending, confirmed, not_approved)
+func (e *EventService) TriggerReservationStatusChanged(orgId, projectId uuid.UUID, reservation *models.Reservation, customer *models.Customer, table *models.Table) error {
+	settings, err := e.settingsRepo.GetSettingsByProject(orgId, projectId)
+	if err != nil || !settings.NotifyReservationUpdate {
+		return nil
+	}
+
+	tableNumberStatus := 0
+	if table != nil {
+		tableNumberStatus = table.Number
+	}
+	eventData := EventData{
+		ReservationId: &reservation.Id,
+		CustomerId:    &reservation.CustomerId,
+		TableId:       reservation.TableId,
+		CustomerName:  customer.Name,
+		CustomerPhone: customer.Phone,
+		CustomerEmail: customer.Email,
+		TableNumber:   tableNumberStatus,
+		DateTime:      parseTime(reservation.Datetime),
+		PartySize:     reservation.PartySize,
+		Status:        reservation.Status,
+	}
+
+	return e.createAndProcessEvent(orgId, projectId, "reservation_status_change", "reservation", reservation.Id, eventData)
+}
+
 // TriggerConfirmation24h - Evento de confirmação 24h antes
 func (e *EventService) TriggerConfirmation24h(orgId, projectId uuid.UUID, reservation *models.Reservation, customer *models.Customer, table *models.Table) error {
 	settings, err := e.settingsRepo.GetSettingsByProject(orgId, projectId)
@@ -136,14 +175,18 @@ func (e *EventService) TriggerConfirmation24h(orgId, projectId uuid.UUID, reserv
 		return nil
 	}
 
+	tableNumber24h := 0
+	if table != nil {
+		tableNumber24h = table.Number
+	}
 	eventData := EventData{
 		ReservationId: &reservation.Id,
 		CustomerId:    &reservation.CustomerId,
-		TableId:       &reservation.TableId,
+		TableId:       reservation.TableId,
 		CustomerName:  customer.Name,
 		CustomerPhone: customer.Phone,
 		CustomerEmail: customer.Email,
-		TableNumber:   table.Number,
+		TableNumber:   tableNumber24h,
 		DateTime:      parseTime(reservation.Datetime),
 		PartySize:     reservation.PartySize,
 		Status:        reservation.Status,

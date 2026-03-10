@@ -19,7 +19,7 @@ type IHandlerTables interface {
 	CreateTable(table *models.Table) error
 	UpdateTable(updatedTable *models.Table) error
 	DeleteTable(id string) error
-	ListTables(orgId, projectId string) ([]models.Table, error)
+	ListTables(orgId, projectId string, environmentId *string) ([]models.Table, error)
 }
 
 func (r *resourceTables) GetTable(id string) (*models.Table, error) {
@@ -84,7 +84,7 @@ func (r *resourceTables) DeleteTable(id string) error {
 	return nil
 }
 
-func (r *resourceTables) ListTables(orgId, projectId string) ([]models.Table, error) {
+func (r *resourceTables) ListTables(orgId, projectId string, environmentId *string) ([]models.Table, error) {
 	orgUuid, err := uuid.Parse(orgId)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,15 @@ func (r *resourceTables) ListTables(orgId, projectId string) ([]models.Table, er
 	if err != nil {
 		return nil, err
 	}
-	resp, err := r.repo.Tables.ListTables(orgUuid, projectUuid)
+	var envUuid *uuid.UUID
+	if environmentId != nil && *environmentId != "" {
+		parsed, parseErr := uuid.Parse(*environmentId)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		envUuid = &parsed
+	}
+	resp, err := r.repo.Tables.ListTables(orgUuid, projectUuid, envUuid)
 	if err != nil {
 		return nil, err
 	}

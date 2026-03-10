@@ -143,7 +143,7 @@ func (h *LimitHandler) countResource(orgId, projectId string, limitType LimitTyp
 
 	switch limitType {
 	case LimitTables:
-		tables, err := h.tableRepo.ListTables(orgUUID, projUUID)
+		tables, err := h.tableRepo.ListTables(orgUUID, projUUID, nil)
 		if err != nil {
 			return 0, err
 		}
@@ -258,7 +258,7 @@ func (h *LimitHandler) GetUsageAndLimits(orgId, projectId string) (*UsageLimitsR
 	projUUID, _ := uuid.Parse(projectId)
 
 	// Contar mesas
-	if tables, err := h.tableRepo.ListTables(orgUUID, projUUID); err == nil {
+	if tables, err := h.tableRepo.ListTables(orgUUID, projUUID, nil); err == nil {
 		response.Usage.TablesCount = len(tables)
 	}
 

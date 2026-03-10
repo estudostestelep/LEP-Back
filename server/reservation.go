@@ -129,6 +129,9 @@ func (r *ResourceReservation) ServiceUpdateReservation(c *gin.Context) {
 		return
 	}
 
+	// Buscar reserva atual para comparar status
+	currentReservation, _ := r.handler.HandlerReservation.GetReservation(id)
+
 	var updatedReservation models.Reservation
 	err = c.BindJSON(&updatedReservation)
 	if err != nil {
@@ -145,6 +148,28 @@ func (r *ResourceReservation) ServiceUpdateReservation(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Disparar notificação se status mudou para confirmed, not_approved ou pending
+	if currentReservation != nil && currentReservation.Status != updatedReservation.Status && r.handler.EventService != nil {
+		newStatus := updatedReservation.Status
+		if newStatus == "confirmed" || newStatus == "not_approved" || newStatus == "pending" {
+			orgUUID, _ := uuid.Parse(organizationId)
+			projUUID, _ := uuid.Parse(projectId)
+
+			customer, customerErr := r.handler.HandlerCustomer.GetCustomer(updatedReservation.CustomerId.String())
+			var table *models.Table
+			if updatedReservation.TableId != nil {
+				t, tableErr := r.handler.HandlerTables.GetTable(updatedReservation.TableId.String())
+				if tableErr == nil {
+					table = t
+				}
+			}
+
+			if customerErr == nil && customer != nil {
+				r.handler.EventService.TriggerReservationStatusChanged(orgUUID, projUUID, &updatedReservation, customer, table)
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, updatedReservation)
