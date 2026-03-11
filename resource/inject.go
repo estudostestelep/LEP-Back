@@ -21,7 +21,7 @@ func Inject() {
 	}
 	server.Start(db)
 	Repository.InjectPostgres(db)
-	Handlers.Inject(&Repository, db)
+	Handlers.Inject(&Repository)
 	ServersControllers.Inject(&Handlers)
 	// Initialize AdminController with DB
 	ServersControllers.SourceAdmin = &server.AdminController{DB: db}
@@ -41,8 +41,6 @@ func Inject() {
 	// Seed da organização demo (criada automaticamente se não existir)
 	if err := handler.SeedDemoOrganization(db); err != nil {
 		fmt.Printf("⚠️ Erro no seed demo: %v\n", err)
-	} else {
-		fmt.Printf("Executado seed demo: %v\n", err)
 	}
 
 	// Garantir que Default Organization tenha assinatura
@@ -62,7 +60,11 @@ func assignSuperAdminRole(handlers *handler.Handlers) {
 	}
 
 	// Verificar se já tem roles atribuídos
-	existingRoles, _ := handlers.HandlerAdminUser.GetAdminRoles(admin.Id.String())
+	existingRoles, err := handlers.HandlerAdminUser.GetAdminRoles(admin.Id.String())
+	if err != nil {
+		fmt.Printf("⚠️ Erro ao buscar roles do admin: %v\n", err)
+		return
+	}
 	if len(existingRoles) > 0 {
 		fmt.Printf("✅ Admin pablo@lep.com já possui roles atribuídos\n")
 		return
@@ -100,7 +102,11 @@ func ensureDefaultOrgHasSubscription() {
 	}
 
 	// Verificar se já tem assinatura
-	existingPlan, _ := Handlers.HandlerRole.GetOrganizationSubscription(org.Id.String())
+	existingPlan, err := Handlers.HandlerRole.GetOrganizationSubscription(org.Id.String())
+	if err != nil {
+		fmt.Printf("⚠️ Erro ao buscar assinatura da organização: %v\n", err)
+		return
+	}
 	if existingPlan != nil && existingPlan.Active {
 		fmt.Printf("✅ Default Organization já possui assinatura ativa\n")
 		return

@@ -4,8 +4,6 @@ import (
 	"lep/repositories"
 	"lep/service"
 	"lep/utils"
-
-	"gorm.io/gorm"
 )
 
 type Handlers struct {
@@ -51,7 +49,7 @@ type Handlers struct {
 	HandlerStaffDashboard    IHandlerStaffDashboard    // Dashboard e relatórios
 }
 
-func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
+func (h *Handlers) Inject(repo *repositories.DBconn) {
 	// Role Handler precisa ser criado primeiro para ser usado pelo UserHandler
 	h.HandlerRole = NewRoleHandler(repo.Roles, repo.Permissions, repo.Modules, repo.Plans, repo.Admins, repo.Clients)
 
@@ -94,11 +92,7 @@ func (h *Handlers) Inject(repo *repositories.DBconn, db interface{}) {
 	h.HandlerOnboarding = NewOnboardingHandler(repo)
 
 	// Image Management Service e Handler
-	// Nota: db é *gorm.DB, necessário para os novos repositories
-	gormDB := db.(*gorm.DB)
-	fileRefRepo := repositories.NewFileReferenceRepository(gormDB)
-	entityFileRefRepo := repositories.NewEntityFileReferenceRepository(gormDB)
-	imageManagementSvc := service.NewImageManagementService(fileRefRepo, entityFileRefRepo, "./uploads")
+	imageManagementSvc := service.NewImageManagementService(repo.FileReference, repo.EntityFileReference, "./uploads")
 	h.HandlerImageManagement = NewHandlerImageManagement(imageManagementSvc)
 	h.ImageManagementService = imageManagementSvc // Armazenar o service direto para o Upload server
 
